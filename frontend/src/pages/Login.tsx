@@ -24,7 +24,9 @@ export default function Login() {
       formData.append('username', email); // OAuth2 expects 'username' field
       formData.append('password', password);
       
-      const response = await axios.post('http://localhost:50005/api/v1/auth/token', formData);
+      // Gunakan IP yang sama dengan browser (agar tidak nyasar ke localhost laptop)
+      const baseUrl = `http://${window.location.hostname}:50005/api/v1`;
+      const response = await axios.post(`${baseUrl}/auth/token`, formData);
       
       const { access_token } = response.data;
       
