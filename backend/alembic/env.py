@@ -71,12 +71,8 @@ def run_migrations_online() -> None:
     )
 
     def include_object(object, name, type_, reflected, compare_to):
-        if type_ == "table" and (name.startswith("idx_") or name in [
-            "spatial_ref_sys", "topology", "layer", "edges", "tabblock", "tabblock20", 
-            "place_lookup", "tract", "secondary_unit_lookup", "featnames", "county_lookup", 
-            "state_lookup", "zip_lookup", "zip_lookup_base", "zip_lookup_all", "zip_state",
-            "zip_state_loc", "loader_platform", "loader_variables", "loader_lookuptables"
-        ]):
+        # Jika tabel itu ada di database tapi tidak ada di kode Python kita, JANGAN DIHAPUS!
+        if type_ == "table" and reflected and name not in target_metadata.tables:
             return False
         return True
 
