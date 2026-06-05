@@ -70,9 +70,21 @@ def run_migrations_online() -> None:
         poolclass=pool.NullPool,
     )
 
+    def include_object(object, name, type_, reflected, compare_to):
+        if type_ == "table" and (name.startswith("idx_") or name in [
+            "spatial_ref_sys", "topology", "layer", "edges", "tabblock", "tabblock20", 
+            "place_lookup", "tract", "secondary_unit_lookup", "featnames", "county_lookup", 
+            "state_lookup", "zip_lookup", "zip_lookup_base", "zip_lookup_all", "zip_state",
+            "zip_state_loc", "loader_platform", "loader_variables", "loader_lookuptables"
+        ]):
+            return False
+        return True
+
     with connectable.connect() as connection:
         context.configure(
-            connection=connection, target_metadata=target_metadata
+            connection=connection, 
+            target_metadata=target_metadata,
+            include_object=include_object
         )
 
         with context.begin_transaction():
