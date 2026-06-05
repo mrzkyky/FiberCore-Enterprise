@@ -29,7 +29,7 @@ class POP(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String, nullable=False)
     org_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"))
-    location = Column(Geometry('POINT'))
+    location = Column(Geometry('POINT', spatial_index=False))
     
     organization = relationship("Organization", back_populates="pops")
     devices = relationship("Device", back_populates="pop")
@@ -40,7 +40,7 @@ class Cable(Base):
     name = Column(String, nullable=False)
     capacity = Column(Integer, nullable=False)
     type = Column(String, nullable=False)
-    route = Column(Geometry('LINESTRING'))
+    route = Column(Geometry('LINESTRING', spatial_index=False))
     
     cores = relationship("Core", back_populates="cable")
 
@@ -74,7 +74,7 @@ class Device(Base):
     name = Column(String, index=True)
     device_type = Column(String) # OLT, OTB, ODP, Closure
     pop_id = Column(UUID(as_uuid=True), ForeignKey("pops.id"), nullable=True)
-    location = Column(Geometry('POINT'), nullable=True)
+    location = Column(Geometry('POINT', spatial_index=False), nullable=True)
     capacity = Column(Integer, nullable=True) # Ports for ODP/OLT, Trays for Closure
     brand = Column(String, nullable=True)
     created_at = Column(DateTime, default=func.now())
