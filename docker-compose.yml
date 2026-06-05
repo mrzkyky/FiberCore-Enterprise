@@ -1,4 +1,19 @@
 services:
+  backend:
+    build:
+      context: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      - POSTGRES_SERVER=postgres
+      - POSTGRES_USER=${POSTGRES_USER:-fibercore}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-fibercore_password}
+      - POSTGRES_DB=${POSTGRES_DB:-fibercore_db}
+    depends_on:
+      - postgres
+      - redis
+    restart: unless-stopped
+
   postgres:
     image: postgis/postgis:15-3.3-alpine
     environment:
