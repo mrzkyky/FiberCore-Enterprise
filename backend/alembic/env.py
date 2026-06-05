@@ -71,9 +71,22 @@ def run_migrations_online() -> None:
     )
 
     def include_object(object, name, type_, reflected, compare_to):
-        # Jika tabel itu ada di database tapi tidak ada di kode Python kita, JANGAN DIHAPUS!
-        if type_ == "table" and reflected and name not in target_metadata.tables:
+        # Daftar tabel dari ekstensi PostGIS / Tiger Geocoder yang harus diabaikan
+        ignore_tables = {
+            'spatial_ref_sys', 'topology', 'layer', 'zcta5', 'addr', 'faces',
+            'place', 'featnames', 'edges', 'pagc_lex', 'direction_lookup',
+            'tract', 'tabblock', 'countysub_lookup', 'county', 'cousub',
+            'pagc_gaz', 'state', 'addrfeat', 'street_type_lookup', 'bg',
+            'geocode_settings', 'geocode_settings_default', 'pagc_rules'
+        }
+        
+        if type_ == "table" and name in ignore_tables:
             return False
+            
+        # Jika tabel itu ada di database tapi tidak ada di kode Python kita, JANGAN DIHAPUS!
+        if type_ == "table" and reflected and compare_to is None:
+            return False
+            
         return True
 
     with connectable.connect() as connection:
