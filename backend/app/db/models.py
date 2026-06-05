@@ -73,6 +73,11 @@ class Splice(Base):
     core_b_id = Column(UUID(as_uuid=True), ForeignKey("cores.id"))
     attenuation = Column(Integer) # dB loss
     created_at = Column(DateTime, default=func.now())
+    closure_id = Column(UUID(as_uuid=True), ForeignKey("devices.id"), nullable=True)
+    
+    closure = relationship("Device")
+    core_a = relationship("Core", foreign_keys=[core_a_id])
+    core_b = relationship("Core", foreign_keys=[core_b_id])
 
 class Device(Base):
     __tablename__ = "devices"
@@ -84,8 +89,3 @@ class Device(Base):
     capacity = Column(Integer, nullable=True) # Ports for ODP/OLT, Trays for Closure
     brand = Column(String, nullable=True)
     created_at = Column(DateTime, default=func.now())
-    executed_at = Column(DateTime(timezone=True), server_default=func.now())
-    
-    closure = relationship("Asset", back_populates="splices")
-    in_core = relationship("Core", foreign_keys=[in_core_id])
-    out_core = relationship("Core", foreign_keys=[out_core_id])
