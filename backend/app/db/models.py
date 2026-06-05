@@ -32,18 +32,7 @@ class POP(Base):
     location = Column(Geometry('POINT'))
     
     organization = relationship("Organization", back_populates="pops")
-    assets = relationship("Asset", back_populates="pop")
-
-class Asset(Base):
-    __tablename__ = "assets"
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    type = Column(String, nullable=False) # OTB, ODP, Closure, OLT
-    status = Column(String, nullable=False)
-    location = Column(Geometry('POINT'))
-    pop_id = Column(UUID(as_uuid=True), ForeignKey("pops.id"), nullable=True)
-    
-    pop = relationship("POP", back_populates="assets")
-    splices = relationship("Splice", back_populates="closure")
+    devices = relationship("Device", back_populates="pop")
 
 class Cable(Base):
     __tablename__ = "cables"
@@ -75,7 +64,7 @@ class Splice(Base):
     created_at = Column(DateTime, default=func.now())
     closure_id = Column(UUID(as_uuid=True), ForeignKey("devices.id"), nullable=True)
     
-    closure = relationship("Device")
+    closure = relationship("Device", back_populates="splices")
     core_a = relationship("Core", foreign_keys=[core_a_id])
     core_b = relationship("Core", foreign_keys=[core_b_id])
 
@@ -89,3 +78,6 @@ class Device(Base):
     capacity = Column(Integer, nullable=True) # Ports for ODP/OLT, Trays for Closure
     brand = Column(String, nullable=True)
     created_at = Column(DateTime, default=func.now())
+    
+    pop = relationship("POP", back_populates="devices")
+    splices = relationship("Splice", back_populates="closure")
