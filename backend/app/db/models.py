@@ -69,9 +69,21 @@ class Core(Base):
 class Splice(Base):
     __tablename__ = "splices"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    in_core_id = Column(UUID(as_uuid=True), ForeignKey("cores.id"))
-    out_core_id = Column(UUID(as_uuid=True), ForeignKey("cores.id"))
-    closure_id = Column(UUID(as_uuid=True), ForeignKey("assets.id"))
+    core_a_id = Column(UUID(as_uuid=True), ForeignKey("cores.id"))
+    core_b_id = Column(UUID(as_uuid=True), ForeignKey("cores.id"))
+    attenuation = Column(Integer) # dB loss
+    created_at = Column(DateTime, default=func.now())
+
+class Device(Base):
+    __tablename__ = "devices"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name = Column(String, index=True)
+    device_type = Column(String) # OLT, OTB, ODP, Closure
+    pop_id = Column(UUID(as_uuid=True), ForeignKey("pops.id"), nullable=True)
+    location = Column(Geometry('POINT'), nullable=True)
+    capacity = Column(Integer, nullable=True) # Ports for ODP/OLT, Trays for Closure
+    brand = Column(String, nullable=True)
+    created_at = Column(DateTime, default=func.now())
     executed_at = Column(DateTime(timezone=True), server_default=func.now())
     
     closure = relationship("Asset", back_populates="splices")
