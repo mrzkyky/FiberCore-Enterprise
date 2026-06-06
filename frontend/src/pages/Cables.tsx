@@ -40,6 +40,7 @@ export default function Cables() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [selectedCable, setSelectedCable] = useState<Cable | null>(null);
+  const [regionFilter, setRegionFilter] = useState<string>('All');
 
   const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<CableFormData>({
     // @ts-expect-error Zod resolver type mismatch with react-hook-form
@@ -188,6 +189,9 @@ export default function Cables() {
     return map[color] || 'bg-gray-500';
   };
 
+  const uniqueRegions = Array.from(new Set(cables?.map(c => c.region).filter(Boolean) as string[]));
+  const filteredCables = cables?.filter(c => regionFilter === 'All' || c.region === regionFilter);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -215,7 +219,19 @@ export default function Cables() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 glass-panel p-6">
-          <h3 className="text-lg font-semibold text-white mb-4">Cable Inventory</h3>
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold text-white">Cable Inventory</h3>
+            {uniqueRegions.length > 0 && (
+              <select 
+                value={regionFilter}
+                onChange={(e) => setRegionFilter(e.target.value)}
+                className="bg-dark-bg border border-dark-border rounded px-3 py-1 text-sm text-white focus:outline-none focus:border-primary"
+              >
+                <option value="All">All Regions</option>
+                {uniqueRegions.map(r => <option key={r} value={r}>{r}</option>)}
+              </select>
+            )}
+          </div>
           {isLoading ? (
             <div className="flex justify-center p-8 text-primary">
               <Loader2 className="animate-spin" size={32} />
@@ -235,7 +251,7 @@ export default function Cables() {
                   </tr>
                 </thead>
                 <tbody className="text-white text-sm">
-                  {cables?.map((cable) => (
+                  {filteredCables?.map((cable) => (
                     <tr 
                       key={cable.id} 
                       className={`border-b border-dark-border/50 hover:bg-white/5 transition-colors cursor-pointer ${selectedCable?.id === cable.id ? 'bg-primary/10' : ''}`}
@@ -258,10 +274,10 @@ export default function Cables() {
                       </td>
                     </tr>
                   ))}
-                  {cables?.length === 0 && (
+                  {filteredCables?.length === 0 && (
                     <tr>
                       <td colSpan={5} className="py-8 text-center text-dark-muted">
-                        No cables found.
+                        No cables found matching your filter.
                       </td>
                     </tr>
                   )}

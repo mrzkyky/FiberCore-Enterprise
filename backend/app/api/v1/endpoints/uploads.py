@@ -58,7 +58,17 @@ def parse_kml_coordinates(kml_content: bytes):
                         if match:
                             capacity = int(match.group(1))
                             
-                        routes.append({"name": name, "wkt": wkt, "capacity": capacity})
+                        # Try to detect cable type
+                        ctype = "Distribution"
+                        name_lower = name.lower()
+                        if "feeder" in name_lower:
+                            ctype = "Feeder"
+                        elif "backbone" in name_lower:
+                            ctype = "Backbone"
+                        elif "drop" in name_lower:
+                            ctype = "Drop"
+                            
+                        routes.append({"name": name, "wkt": wkt, "capacity": capacity, "type": ctype})
     except Exception as e:
         print(f"Error parsing KML: {e}")
         
@@ -105,7 +115,7 @@ async def upload_kml(
         new_cable = Cable(
             name=route['name'],
             capacity=route['capacity'],
-            type="Distribution", # Default type
+            type=route['type'],
             route=func.ST_GeomFromText(route['wkt'], 4326),
             region=region,
             import_batch=batch_id
