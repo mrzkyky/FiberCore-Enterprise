@@ -1,8 +1,15 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1.router import api_router
+from app.db.session import engine
+from app.db.models import Base
 
 app = FastAPI(title="FiberCore Enterprise API")
+
+@app.on_event("startup")
+def on_startup():
+    # Auto-create tables if they don't exist
+    Base.metadata.create_all(bind=engine)
 
 # Configure CORS
 app.add_middleware(
