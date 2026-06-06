@@ -1,6 +1,6 @@
 import React from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
-import { Activity, Map as MapIcon, Box, Server, LogOut, Search, Building2, MapPin } from 'lucide-react';
+import { Activity, Map as MapIcon, Box, Server, LogOut, Search, Building2, MapPin, Network } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 
 export default function DashboardLayout() {
@@ -42,6 +42,9 @@ export default function DashboardLayout() {
           </NavLink>
           <NavLink to="/cables" className={({isActive}) => `sidebar-item ${isActive ? 'active' : ''}`}>
             <Box size={18} /> <span>Cables & Cores</span>
+          </NavLink>
+          <NavLink to="/splicing" className={({isActive}) => `sidebar-item ${isActive ? 'active' : ''}`}>
+            <Network size={18} /> <span>Splicing & Patching</span>
           </NavLink>
         </nav>
 

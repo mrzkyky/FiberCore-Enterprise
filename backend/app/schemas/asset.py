@@ -53,3 +53,18 @@ class CoreResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+class SpliceBase(BaseModel):
+    core_a_id: uuid.UUID
+    core_b_id: uuid.UUID
+    closure_id: Optional[uuid.UUID] = None
+    attenuation: Optional[int] = 0
+
+class SpliceCreate(SpliceBase):
+    pass
+
+class SpliceResponse(SpliceBase):
+    id: uuid.UUID
+
+    class Config:
+        from_attributes = True

@@ -6,6 +6,7 @@ import Organizations from './pages/Organizations';
 import PoPs from './pages/PoPs';
 import Devices from './pages/Devices';
 import Cables from './pages/Cables';
+import Splicing from './pages/Splicing';
 import { useAuthStore } from './store/useAuthStore';
 
 // Protected Route Wrapper
@@ -31,6 +32,7 @@ function App() {
           <Route path="pops" element={<PoPs />} />
           <Route path="devices" element={<Devices />} />
           <Route path="cables" element={<Cables />} />
+          <Route path="splicing" element={<Splicing />} />
         </Route>
       </Routes>
     </Router>
