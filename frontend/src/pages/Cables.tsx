@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
-import { Box, Plus, Loader2, Layers } from 'lucide-react';
+import { Cable as CableIcon, Plus, Loader2, UploadCloud, Layers, Box } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -36,6 +36,7 @@ export default function Cables() {
   const queryClient = useQueryClient();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   const [selectedCable, setSelectedCable] = useState<Cable | null>(null);
 
   const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<CableFormData>({
@@ -118,6 +119,32 @@ export default function Cables() {
     reset();
   };
 
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    
+    setIsUploading(true);
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    try {
+      await axios.post('/api/v1/uploads/kml', formData, {
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+      queryClient.invalidateQueries({ queryKey: ['cables'] });
+      alert("KMZ/KML Routes imported successfully!");
+    } catch (err: any) {
+      alert("Failed to upload KMZ/KML: " + (err.response?.data?.detail || err.message));
+    } finally {
+      setIsUploading(false);
+      // Reset input
+      event.target.value = '';
+    }
+  };
+
   const onSubmit = (data: CableFormData) => {
     mutation.mutate(data);
   };
@@ -143,12 +170,19 @@ export default function Cables() {
           </h2>
           <p className="text-dark-muted text-sm mt-1">Manage physical fiber cables and internal cores</p>
         </div>
-        <button 
-          onClick={() => openModal()}
-          className="btn-primary flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-dark-bg font-semibold hover:bg-primary/90 transition-colors"
-        >
-          <Plus size={18} /> Add Cable
-        </button>
+        <div className="flex gap-3">
+          <label className="btn-secondary flex items-center gap-2 px-4 py-2 rounded-lg border border-dark-border bg-dark-bg text-dark-muted hover:text-white cursor-pointer transition-colors">
+            {isUploading ? <Loader2 size={18} className="animate-spin" /> : <UploadCloud size={18} />}
+            Import KMZ
+            <input type="file" accept=".kml,.kmz" className="hidden" onChange={handleFileUpload} disabled={isUploading} />
+          </label>
+          <button 
+            onClick={() => openModal()}
+            className="btn-primary flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-dark-bg font-semibold hover:bg-primary/90 transition-colors"
+          >
+            <Plus size={18} /> Add Cable
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
