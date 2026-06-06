@@ -47,7 +47,7 @@ export default function Cables() {
     queryKey: ['cables'],
     queryFn: async () => {
       const response = await axios.get<Cable[]>('/api/v1/cables/', {
-        baseURL: import.meta.env.VITE_API_URL,
+        
         headers: { Authorization: `Bearer ${token}` }
       });
       return response.data;
@@ -59,7 +59,7 @@ export default function Cables() {
     queryFn: async () => {
       if (!selectedCable) return [];
       const response = await axios.get<Core[]>(`/api/v1/cables/${selectedCable.id}/cores`, {
-        baseURL: import.meta.env.VITE_API_URL,
+        
         headers: { Authorization: `Bearer ${token}` }
       });
       return response.data;
@@ -71,12 +71,12 @@ export default function Cables() {
     mutationFn: async (data: CableFormData) => {
       if (editingId) {
         return axios.put(`/api/v1/cables/${editingId}`, data, {
-          baseURL: import.meta.env.VITE_API_URL,
+          
           headers: { Authorization: `Bearer ${token}` }
         });
       }
       return axios.post('/api/v1/cables/', data, {
-        baseURL: import.meta.env.VITE_API_URL,
+        
         headers: { Authorization: `Bearer ${token}` }
       });
     },
@@ -89,7 +89,7 @@ export default function Cables() {
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       return axios.delete(`/api/v1/cables/${id}`, {
-        baseURL: import.meta.env.VITE_API_URL,
+        
         headers: { Authorization: `Bearer ${token}` }
       });
     },

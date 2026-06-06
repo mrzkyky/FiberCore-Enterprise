@@ -42,7 +42,7 @@ export default function Devices() {
     queryKey: ['devices'],
     queryFn: async () => {
       const response = await axios.get<Device[]>('/api/v1/devices/', {
-        baseURL: import.meta.env.VITE_API_URL,
+        
         headers: { Authorization: `Bearer ${token}` }
       });
       return response.data;
@@ -53,7 +53,7 @@ export default function Devices() {
     queryKey: ['pops'],
     queryFn: async () => {
       const response = await axios.get<any[]>('/api/v1/pops/', {
-        baseURL: import.meta.env.VITE_API_URL,
+        
         headers: { Authorization: `Bearer ${token}` }
       });
       return response.data;
@@ -65,12 +65,12 @@ export default function Devices() {
       const payload = { ...data, pop_id: data.pop_id || null };
       if (editingId) {
         return axios.put(`/api/v1/devices/${editingId}`, payload, {
-          baseURL: import.meta.env.VITE_API_URL,
+          
           headers: { Authorization: `Bearer ${token}` }
         });
       }
       return axios.post('/api/v1/devices/', payload, {
-        baseURL: import.meta.env.VITE_API_URL,
+        
         headers: { Authorization: `Bearer ${token}` }
       });
     },
@@ -83,7 +83,7 @@ export default function Devices() {
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       return axios.delete(`/api/v1/devices/${id}`, {
-        baseURL: import.meta.env.VITE_API_URL,
+        
         headers: { Authorization: `Bearer ${token}` }
       });
     },

@@ -51,7 +51,7 @@ export default function Splicing() {
     queryKey: ['devices'],
     queryFn: async () => {
       const response = await axios.get<Device[]>('/api/v1/devices/', {
-        baseURL: import.meta.env.VITE_API_URL,
+        
         headers: { Authorization: `Bearer ${token}` }
       });
       return response.data.filter(d => ['Closure', 'ODP', 'OTB'].includes(d.device_type));
@@ -62,7 +62,7 @@ export default function Splicing() {
     queryKey: ['cables'],
     queryFn: async () => {
       const response = await axios.get<CableType[]>('/api/v1/cables/', {
-        baseURL: import.meta.env.VITE_API_URL,
+        
         headers: { Authorization: `Bearer ${token}` }
       });
       return response.data;
@@ -74,7 +74,7 @@ export default function Splicing() {
     queryFn: async () => {
       if (!cableInId) return [];
       const response = await axios.get<CoreType[]>(`/api/v1/cables/${cableInId}/cores`, {
-        baseURL: import.meta.env.VITE_API_URL,
+        
         headers: { Authorization: `Bearer ${token}` }
       });
       return response.data;
@@ -87,7 +87,7 @@ export default function Splicing() {
     queryFn: async () => {
       if (!cableOutId) return [];
       const response = await axios.get<CoreType[]>(`/api/v1/cables/${cableOutId}/cores`, {
-        baseURL: import.meta.env.VITE_API_URL,
+        
         headers: { Authorization: `Bearer ${token}` }
       });
       return response.data;
@@ -100,7 +100,7 @@ export default function Splicing() {
     queryFn: async () => {
       if (!selectedClosureId) return [];
       const response = await axios.get<SpliceRecord[]>(`/api/v1/splices/?closure_id=${selectedClosureId}`, {
-        baseURL: import.meta.env.VITE_API_URL,
+        
         headers: { Authorization: `Bearer ${token}` }
       });
       return response.data;
@@ -117,7 +117,7 @@ export default function Splicing() {
         closure_id: selectedClosureId,
         attenuation: attenuation
       }, {
-        baseURL: import.meta.env.VITE_API_URL,
+        
         headers: { Authorization: `Bearer ${token}` }
       });
     },
@@ -132,7 +132,7 @@ export default function Splicing() {
   const deleteSpliceMutation = useMutation({
     mutationFn: async (id: string) => {
       return axios.delete(`/api/v1/splices/${id}`, {
-        baseURL: import.meta.env.VITE_API_URL,
+        
         headers: { Authorization: `Bearer ${token}` }
       });
     },

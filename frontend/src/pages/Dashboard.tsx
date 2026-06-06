@@ -34,7 +34,7 @@ export default function Dashboard() {
     queryKey: ['dashboard-stats'],
     queryFn: async () => {
       const response = await axios.get<DashboardStats>('/api/v1/analytics/dashboard-stats', {
-        baseURL: import.meta.env.VITE_API_URL,
+        
         headers: { Authorization: `Bearer ${token}` }
       });
       return response.data;

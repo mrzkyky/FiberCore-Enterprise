@@ -37,7 +37,7 @@ export default function PoPs() {
     queryKey: ['pops'],
     queryFn: async () => {
       const response = await axios.get<PoP[]>('/api/v1/pops/', {
-        baseURL: import.meta.env.VITE_API_URL,
+        
         headers: { Authorization: `Bearer ${token}` }
       });
       return response.data;
@@ -48,7 +48,7 @@ export default function PoPs() {
     queryKey: ['organizations'],
     queryFn: async () => {
       const response = await axios.get<any[]>('/api/v1/organizations/', {
-        baseURL: import.meta.env.VITE_API_URL,
+        
         headers: { Authorization: `Bearer ${token}` }
       });
       return response.data;
@@ -59,12 +59,12 @@ export default function PoPs() {
     mutationFn: async (data: PopFormData) => {
       if (editingId) {
         return axios.put(`/api/v1/pops/${editingId}`, data, {
-          baseURL: import.meta.env.VITE_API_URL,
+          
           headers: { Authorization: `Bearer ${token}` }
         });
       }
       return axios.post('/api/v1/pops/', data, {
-        baseURL: import.meta.env.VITE_API_URL,
+        
         headers: { Authorization: `Bearer ${token}` }
       });
     },
@@ -77,7 +77,7 @@ export default function PoPs() {
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       return axios.delete(`/api/v1/pops/${id}`, {
-        baseURL: import.meta.env.VITE_API_URL,
+        
         headers: { Authorization: `Bearer ${token}` }
       });
     },

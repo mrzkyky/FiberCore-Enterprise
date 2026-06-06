@@ -18,14 +18,25 @@ def get_db():
 
 @router.post("/", response_model=POPResponse)
 def create_pop(pop_in: POPCreate, db: Session = Depends(get_db)):
-    db_pop = POP(**pop_in.model_dump())
+    if pop_in.location:
+        db_pop = POP(
+            name=pop_in.name,
+            org_id=pop_in.org_id,
+            location=func.ST_GeomFromText(pop_in.location, 4326)
+        )
+    else:
+        db_pop = POP(name=pop_in.name, org_id=pop_in.org_id)
+        
     db.add(db_pop)
     db.commit()
     db.refresh(db_pop)
     
-    # Convert location to string safely
-    loc_str = db.scalar(func.ST_AsText(db_pop.location)) if db_pop.location else None
-    
+    # Re-query to get location as text
+    if db_pop.location:
+        loc_str = db.query(func.ST_AsText(POP.location)).filter(POP.id == db_pop.id).scalar()
+    else:
+        loc_str = None
+        
     return {
         "id": db_pop.id,
         "name": db_pop.name,
@@ -52,14 +63,20 @@ def update_pop(pop_id: uuid.UUID, pop_in: POPCreate, db: Session = Depends(get_d
     if not db_pop:
         raise HTTPException(status_code=404, detail="PoP not found")
     
-    for key, value in pop_in.model_dump().items():
-        setattr(db_pop, key, value)
+    db_pop.name = pop_in.name
+    db_pop.org_id = pop_in.org_id
+    if pop_in.location:
+        db_pop.location = func.ST_GeomFromText(pop_in.location, 4326)
         
     db.commit()
     db.refresh(db_pop)
     
-    loc_str = db.scalar(func.ST_AsText(db_pop.location)) if db_pop.location else None
-    
+    # Re-query to get location as text
+    if db_pop.location:
+        loc_str = db.query(func.ST_AsText(POP.location)).filter(POP.id == db_pop.id).scalar()
+    else:
+        loc_str = None
+        
     return {
         "id": db_pop.id,
         "name": db_pop.name,

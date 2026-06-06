@@ -37,7 +37,7 @@ export default function Organizations() {
     queryKey: ['organizations'],
     queryFn: async () => {
       const response = await axios.get<Organization[]>('/api/v1/organizations/', {
-        baseURL: import.meta.env.VITE_API_URL,
+        
         headers: { Authorization: `Bearer ${token}` }
       });
       return response.data;
@@ -49,12 +49,12 @@ export default function Organizations() {
       const payload = { ...data, parent_id: data.parent_id || null };
       if (editingId) {
         return axios.put(`/api/v1/organizations/${editingId}`, payload, {
-          baseURL: import.meta.env.VITE_API_URL,
+          
           headers: { Authorization: `Bearer ${token}` }
         });
       }
       return axios.post('/api/v1/organizations/', payload, {
-        baseURL: import.meta.env.VITE_API_URL,
+        
         headers: { Authorization: `Bearer ${token}` }
       });
     },
@@ -67,7 +67,7 @@ export default function Organizations() {
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       return axios.delete(`/api/v1/organizations/${id}`, {
-        baseURL: import.meta.env.VITE_API_URL,
+        
         headers: { Authorization: `Bearer ${token}` }
       });
     },

@@ -29,7 +29,7 @@ export default function GisTopology() {
     queryKey: ['map-topology'],
     queryFn: async () => {
       const response = await axios.get('/api/v1/map/topology', {
-        baseURL: import.meta.env.VITE_API_URL,
+        
         headers: { Authorization: `Bearer ${token}` }
       });
       return response.data; // GeoJSON FeatureCollection
