@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1.router import api_router
 from app.db.session import engine
 from app.db.models import Base
+from sqlalchemy import text
 
 app = FastAPI(title="FiberCore Enterprise API")
 
@@ -10,6 +11,14 @@ app = FastAPI(title="FiberCore Enterprise API")
 def on_startup():
     # Auto-create tables if they don't exist
     Base.metadata.create_all(bind=engine)
+    
+    # Auto-migrate new columns
+    with engine.begin() as conn:
+        try:
+            conn.execute(text("ALTER TABLE cables ADD COLUMN IF NOT EXISTS region VARCHAR;"))
+            conn.execute(text("ALTER TABLE cables ADD COLUMN IF NOT EXISTS import_batch VARCHAR;"))
+        except Exception as e:
+            print(f"Migration error: {e}")
 
 # Configure CORS
 app.add_middleware(
