@@ -6,7 +6,8 @@ import zipfile
 import io
 import xml.etree.ElementTree as ET
 from app.db.session import SessionLocal
-from app.db.models import Cable
+from app.db.models import Cable, Core
+import re
 
 router = APIRouter()
 
@@ -50,14 +51,27 @@ def parse_kml_coordinates(kml_content: bytes):
                             
                     if len(points) >= 2:
                         wkt = f"LINESTRING({', '.join(points)})"
-                        routes.append({"name": name, "wkt": wkt})
+                        
+                        # Try to detect capacity from name (e.g., 144C, 48c, 96 C)
+                        capacity = 24 # default
+                        match = re.search(r'(\d+)\s*[cC]', name)
+                        if match:
+                            capacity = int(match.group(1))
+                            
+                        routes.append({"name": name, "wkt": wkt, "capacity": capacity})
     except Exception as e:
         print(f"Error parsing KML: {e}")
         
     return routes
 
+TIA_COLORS = ["Blue", "Orange", "Green", "Brown", "Slate", "White", "Red", "Black", "Yellow", "Violet", "Rose", "Aqua"]
+
 @router.post("/kml")
-async def upload_kml(file: UploadFile = File(...), db: Session = Depends(get_db)):
+async def upload_kml(
+    region: str = "Unknown", 
+    file: UploadFile = File(...), 
+    db: Session = Depends(get_db)
+):
     if not file.filename.endswith(('.kml', '.kmz')):
         raise HTTPException(status_code=400, detail="Only .kml and .kmz files are supported")
         
@@ -84,20 +98,44 @@ async def upload_kml(file: UploadFile = File(...), db: Session = Depends(get_db)
         raise HTTPException(status_code=400, detail="No valid LineString routes found in the file")
         
     imported_cables = []
+    batch_id = str(uuid.uuid4())
+    
     # Save routes to database
     for route in routes:
         new_cable = Cable(
             name=route['name'],
-            capacity=24, # Default capacity
+            capacity=route['capacity'],
             type="Distribution", # Default type
-            route=func.ST_GeomFromText(route['wkt'], 4326)
+            route=func.ST_GeomFromText(route['wkt'], 4326),
+            region=region,
+            import_batch=batch_id
         )
         db.add(new_cable)
+        db.flush() # Flush to get new_cable.id
+        
+        # Auto-generate Cores
+        num_cores = route['capacity']
+        cores_to_add = []
+        for i in range(num_cores):
+            core_num = (i % 12) + 1
+            tube_num = (i // 12) + 1
+            color = TIA_COLORS[i % 12]
+            
+            cores_to_add.append(Core(
+                cable_id=new_cable.id,
+                core_number=core_num,
+                tube_number=tube_num,
+                color=color,
+                status="Free"
+            ))
+        
+        db.bulk_save_objects(cores_to_add)
         db.commit()
         db.refresh(new_cable)
         imported_cables.append({"id": new_cable.id, "name": new_cable.name})
         
     return {
-        "message": f"Successfully imported {len(imported_cables)} routes",
-        "cables": imported_cables
+        "message": f"Successfully imported {len(imported_cables)} routes into region {region}",
+        "cables": imported_cables,
+        "batch_id": batch_id
     }

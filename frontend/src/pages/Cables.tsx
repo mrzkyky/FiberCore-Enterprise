@@ -21,6 +21,8 @@ interface Cable {
   name: string;
   type: string;
   capacity: number;
+  region?: string;
+  import_batch?: string;
 }
 
 interface Core {
@@ -123,25 +125,51 @@ export default function Cables() {
     const file = event.target.files?.[0];
     if (!file) return;
     
+    const region = window.prompt("Enter Region Name for these routes (e.g., Brebes, Tegal):", "Unknown");
+    if (region === null) {
+      event.target.value = '';
+      return; // Cancelled
+    }
+    
     setIsUploading(true);
     const formData = new FormData();
     formData.append('file', file);
     
     try {
-      await axios.post('/api/v1/uploads/kml', formData, {
+      await axios.post(`/api/v1/uploads/kml?region=${encodeURIComponent(region)}`, formData, {
         headers: { 
           Authorization: `Bearer ${token}`,
           'Content-Type': 'multipart/form-data'
         }
       });
       queryClient.invalidateQueries({ queryKey: ['cables'] });
-      alert("KMZ/KML Routes imported successfully!");
+      alert(`KMZ/KML Routes imported successfully into Region: ${region}!`);
     } catch (err: any) {
       alert("Failed to upload KMZ/KML: " + (err.response?.data?.detail || err.message));
     } finally {
       setIsUploading(false);
       // Reset input
       event.target.value = '';
+    }
+  };
+
+  const deleteRegionMutation = useMutation({
+    mutationFn: async (regionName: string) => {
+      return axios.delete(`/api/v1/cables/region/${encodeURIComponent(regionName)}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cables'] });
+      setSelectedCable(null);
+      alert("Region routes deleted successfully!");
+    }
+  });
+
+  const handleDeleteRegion = (region: string | undefined) => {
+    if (!region) return;
+    if (window.confirm(`Are you sure you want to delete ALL cables in region '${region}'? This cannot be undone!`)) {
+      deleteRegionMutation.mutate(region);
     }
   };
 
@@ -200,6 +228,7 @@ export default function Cables() {
                 <thead>
                   <tr className="border-b border-dark-border text-dark-muted text-sm">
                     <th className="pb-3 px-4 font-medium">Cable Name</th>
+                    <th className="pb-3 px-4 font-medium">Region</th>
                     <th className="pb-3 px-4 font-medium">Type</th>
                     <th className="pb-3 px-4 font-medium">Capacity</th>
                     <th className="pb-3 px-4 font-medium text-right">Actions</th>
@@ -212,10 +241,18 @@ export default function Cables() {
                       className={`border-b border-dark-border/50 hover:bg-white/5 transition-colors cursor-pointer ${selectedCable?.id === cable.id ? 'bg-primary/10' : ''}`}
                       onClick={() => setSelectedCable(cable)}
                     >
-                      <td className="py-4 px-4 font-medium text-primary">{cable.name}</td>
+                      <td className="py-4 px-4 font-medium text-primary max-w-[200px] truncate" title={cable.name}>{cable.name}</td>
+                      <td className="py-4 px-4">
+                        {cable.region ? (
+                           <span className="bg-dark-bg px-2 py-1 rounded text-xs border border-dark-border">{cable.region}</span>
+                        ) : '-'}
+                      </td>
                       <td className="py-4 px-4">{cable.type}</td>
-                      <td className="py-4 px-4 font-mono">{cable.capacity} Cores</td>
-                      <td className="py-4 px-4 text-right">
+                      <td className="py-4 px-4 font-mono">{cable.capacity}C</td>
+                      <td className="py-4 px-4 text-right whitespace-nowrap">
+                        {cable.region && (
+                           <button onClick={(e) => { e.stopPropagation(); handleDeleteRegion(cable.region); }} className="text-orange-400 hover:underline text-xs mr-3" title="Delete ALL cables in this region">Del Region</button>
+                        )}
                         <button onClick={(e) => { e.stopPropagation(); openModal(cable); }} className="text-primary hover:underline text-xs mr-3">Edit</button>
                         <button onClick={(e) => { e.stopPropagation(); deleteMutation.mutate(cable.id); }} className="text-danger hover:underline text-xs">Delete</button>
                       </td>
@@ -223,7 +260,7 @@ export default function Cables() {
                   ))}
                   {cables?.length === 0 && (
                     <tr>
-                      <td colSpan={4} className="py-8 text-center text-dark-muted">
+                      <td colSpan={5} className="py-8 text-center text-dark-muted">
                         No cables found.
                       </td>
                     </tr>

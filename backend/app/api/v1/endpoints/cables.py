@@ -64,6 +64,21 @@ def update_cable(cable_id: uuid.UUID, cable_in: CableCreate, db: Session = Depen
     db.refresh(db_cable)
     return db_cable
 
+@router.delete("/region/{region_name}")
+def delete_cables_by_region(region_name: str, db: Session = Depends(get_db)):
+    cables = db.query(Cable).filter(Cable.region == region_name).all()
+    if not cables:
+        raise HTTPException(status_code=404, detail="No cables found for this region")
+    
+    deleted_count = 0
+    for c in cables:
+        # DB relationship cascade delete-orphan will handle cores
+        db.delete(c)
+        deleted_count += 1
+        
+    db.commit()
+    return {"message": f"Successfully deleted {deleted_count} cables in region '{region_name}'"}
+
 @router.delete("/{cable_id}")
 def delete_cable(cable_id: uuid.UUID, db: Session = Depends(get_db)):
     db_cable = db.query(Cable).filter(Cable.id == cable_id).first()

@@ -41,8 +41,10 @@ class Cable(Base):
     capacity = Column(Integer, nullable=False)
     type = Column(String, nullable=False)
     route = Column(Geometry('LINESTRING', spatial_index=False))
+    region = Column(String, nullable=True) # E.g., Brebes, Tegal
+    import_batch = Column(String, nullable=True) # Identifies which KMZ import this cable came from
     
-    cores = relationship("Core", back_populates="cable")
+    cores = relationship("Core", back_populates="cable", cascade="all, delete-orphan")
 
 class Core(Base):
     __tablename__ = "cores"
