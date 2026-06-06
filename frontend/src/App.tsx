@@ -7,6 +7,7 @@ import PoPs from './pages/PoPs';
 import Devices from './pages/Devices';
 import Cables from './pages/Cables';
 import Splicing from './pages/Splicing';
+import GisTopology from './pages/GisTopology';
 import { useAuthStore } from './store/useAuthStore';
 
 // Protected Route Wrapper
@@ -27,7 +28,7 @@ function App() {
         {/* Protected Routes inside Layout */}
         <Route path="/" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
           <Route index element={<Dashboard />} />
-          <Route path="map" element={<div className="text-white p-4">GIS Map Engine Module...</div>} />
+          <Route path="/map" element={<GisTopology />} />
           <Route path="organizations" element={<Organizations />} />
           <Route path="pops" element={<PoPs />} />
           <Route path="devices" element={<Devices />} />
