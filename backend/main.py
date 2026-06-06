@@ -8,7 +8,7 @@ app = FastAPI(title="FiberCore Enterprise API")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # Allows all origins for local dev
-    allow_credentials=True,
+    allow_credentials=False, # Must be False if allow_origins is ["*"]
     allow_methods=["*"],
     allow_headers=["*"],
 )
