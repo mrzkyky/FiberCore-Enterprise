@@ -5,6 +5,7 @@ from typing import List
 from app.db.session import SessionLocal
 from app.db.models import POP
 from app.schemas.asset import POPCreate, POPResponse
+from sqlalchemy import func
 
 router = APIRouter()
 
@@ -21,11 +22,29 @@ def create_pop(pop_in: POPCreate, db: Session = Depends(get_db)):
     db.add(db_pop)
     db.commit()
     db.refresh(db_pop)
-    return db_pop
+    
+    # Convert location to string safely
+    loc_str = db.scalar(func.ST_AsText(db_pop.location)) if db_pop.location else None
+    
+    return {
+        "id": db_pop.id,
+        "name": db_pop.name,
+        "org_id": db_pop.org_id,
+        "location": loc_str
+    }
 
 @router.get("/", response_model=List[POPResponse])
 def get_pops(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    return db.query(POP).offset(skip).limit(limit).all()
+    pops = db.query(POP, func.ST_AsText(POP.location).label("loc_str")).offset(skip).limit(limit).all()
+    result = []
+    for pop, loc_str in pops:
+        result.append({
+            "id": pop.id,
+            "name": pop.name,
+            "org_id": pop.org_id,
+            "location": loc_str
+        })
+    return result
 
 @router.put("/{pop_id}", response_model=POPResponse)
 def update_pop(pop_id: uuid.UUID, pop_in: POPCreate, db: Session = Depends(get_db)):
@@ -38,7 +57,15 @@ def update_pop(pop_id: uuid.UUID, pop_in: POPCreate, db: Session = Depends(get_d
         
     db.commit()
     db.refresh(db_pop)
-    return db_pop
+    
+    loc_str = db.scalar(func.ST_AsText(db_pop.location)) if db_pop.location else None
+    
+    return {
+        "id": db_pop.id,
+        "name": db_pop.name,
+        "org_id": db_pop.org_id,
+        "location": loc_str
+    }
 
 @router.delete("/{pop_id}")
 def delete_pop(pop_id: uuid.UUID, db: Session = Depends(get_db)):

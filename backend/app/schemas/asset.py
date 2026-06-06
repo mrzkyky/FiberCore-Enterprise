@@ -21,10 +21,11 @@ class POPBase(BaseModel):
     org_id: uuid.UUID
 
 class POPCreate(POPBase):
-    pass
+    location: Optional[str] = None
 
 class POPResponse(POPBase):
     id: uuid.UUID
+    location: Optional[str] = None
 
     class Config:
         from_attributes = True
