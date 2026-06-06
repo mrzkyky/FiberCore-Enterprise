@@ -106,7 +106,20 @@ export default function PoPs() {
   };
 
   const onSubmit = (data: PopFormData) => {
-    mutation.mutate(data);
+    // Convert generic Lat,Lng to PostGIS POINT(lon lat)
+    let finalLocation = data.location;
+    if (finalLocation && !finalLocation.startsWith('POINT')) {
+      const parts = finalLocation.replace(/[^\d.-,]/g, '').split(',');
+      if (parts.length === 2) {
+        const lat = parseFloat(parts[0]);
+        const lng = parseFloat(parts[1]);
+        if (!isNaN(lat) && !isNaN(lng)) {
+          finalLocation = `POINT(${lng} ${lat})`;
+        }
+      }
+    }
+    
+    mutation.mutate({ ...data, location: finalLocation });
   };
 
   return (
@@ -202,7 +215,7 @@ export default function PoPs() {
             <input 
               {...register('location')} 
               className="w-full bg-dark-bg border border-dark-border rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary"
-              placeholder="e.g. -6.200000, 106.816666"
+              placeholder="e.g. -6.882452, 109.054952 (Decimal Degrees)"
             />
             {errors.location && <p className="text-danger text-xs mt-1">{errors.location.message}</p>}
           </div>
