@@ -12,7 +12,7 @@ const deviceSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
   device_type: z.string().min(1, "Device Type is required"),
   pop_id: z.string().uuid("Invalid PoP ID").optional().or(z.literal('')),
-  capacity: z.coerce.number().min(0, "Capacity must be positive").optional(),
+  capacity: z.preprocess((val) => val === '' ? undefined : Number(val), z.number().min(0, "Capacity must be positive").optional()),
   brand: z.string().optional()
 });
 
@@ -34,6 +34,7 @@ export default function Devices() {
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<DeviceFormData>({
+    // @ts-expect-error Zod resolver type mismatch with react-hook-form
     resolver: zodResolver(deviceSchema)
   });
 
@@ -182,7 +183,7 @@ export default function Devices() {
       </div>
 
       <Modal isOpen={isModalOpen} onClose={closeModal} title={editingId ? "Edit Device" : "Add Device"}>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <form onSubmit={handleSubmit(onSubmit as any)} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-dark-muted mb-1">Device Name</label>
             <input 

@@ -108,8 +108,8 @@ export default function PoPs() {
   const onSubmit = (data: PopFormData) => {
     // Convert generic Lat,Lng to PostGIS POINT(lon lat)
     let finalLocation = data.location;
-    if (finalLocation && !finalLocation.startsWith('POINT')) {
-      const parts = finalLocation.replace(/[^\d.-,]/g, '').split(',');
+    if (finalLocation && typeof finalLocation === 'string' && !finalLocation.startsWith('POINT')) {
+      const parts = finalLocation.replace(/[^\d.,-]/g, '').split(',');
       if (parts.length === 2) {
         const lat = parseFloat(parts[0]);
         const lng = parseFloat(parts[1]);

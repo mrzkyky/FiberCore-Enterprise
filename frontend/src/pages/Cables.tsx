@@ -11,7 +11,7 @@ import Modal from '../components/Modal';
 const cableSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
   type: z.string().min(1, "Type is required"),
-  capacity: z.coerce.number().min(1, "Capacity must be at least 1"),
+  capacity: z.preprocess((val) => Number(val), z.number().min(1, "Capacity must be at least 1 core")),
 });
 
 type CableFormData = z.infer<typeof cableSchema>;
@@ -39,6 +39,7 @@ export default function Cables() {
   const [selectedCable, setSelectedCable] = useState<Cable | null>(null);
 
   const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<CableFormData>({
+    // @ts-expect-error Zod resolver type mismatch with react-hook-form
     resolver: zodResolver(cableSchema)
   });
 
@@ -237,7 +238,7 @@ export default function Cables() {
       </div>
 
       <Modal isOpen={isModalOpen} onClose={closeModal} title={editingId ? "Edit Cable" : "Add Cable"}>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <form onSubmit={handleSubmit(onSubmit as any)} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-dark-muted mb-1">Cable Name</label>
             <input 
