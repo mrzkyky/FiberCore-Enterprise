@@ -1,6 +1,6 @@
 import React from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
-import { Activity, Map as MapIcon, Box, Server, LogOut, Search } from 'lucide-react';
+import { Activity, Map as MapIcon, Box, Server, LogOut, Search, Building2, MapPin } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 
 export default function DashboardLayout() {
@@ -31,8 +31,14 @@ export default function DashboardLayout() {
           <NavLink to="/map" className={({isActive}) => `sidebar-item ${isActive ? 'active' : ''}`}>
             <MapIcon size={18} /> <span>GIS Topology</span>
           </NavLink>
-          <NavLink to="/assets" className={({isActive}) => `sidebar-item ${isActive ? 'active' : ''}`}>
-            <Server size={18} /> <span>Network Assets</span>
+          <NavLink to="/organizations" className={({isActive}) => `sidebar-item ${isActive ? 'active' : ''}`}>
+            <Building2 size={18} /> <span>Organizations</span>
+          </NavLink>
+          <NavLink to="/pops" className={({isActive}) => `sidebar-item ${isActive ? 'active' : ''}`}>
+            <MapPin size={18} /> <span>Point of Presence</span>
+          </NavLink>
+          <NavLink to="/devices" className={({isActive}) => `sidebar-item ${isActive ? 'active' : ''}`}>
+            <Server size={18} /> <span>Devices & Assets</span>
           </NavLink>
           <NavLink to="/cables" className={({isActive}) => `sidebar-item ${isActive ? 'active' : ''}`}>
             <Box size={18} /> <span>Cables & Cores</span>
