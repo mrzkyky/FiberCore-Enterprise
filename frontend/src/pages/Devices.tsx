@@ -1,19 +1,41 @@
-import React from 'react';
-import { useQuery } from '@tanstack/react-query';
+import React, { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import { Server, Plus, Loader2 } from 'lucide-react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
 import { useAuthStore } from '../store/useAuthStore';
+import Modal from '../components/Modal';
+
+const deviceSchema = z.object({
+  name: z.string().min(2, "Name must be at least 2 characters"),
+  device_type: z.string().min(1, "Device Type is required"),
+  pop_id: z.string().uuid("Invalid PoP ID").optional().or(z.literal('')),
+  capacity: z.coerce.number().min(0, "Capacity must be positive").optional(),
+  brand: z.string().optional()
+});
+
+type DeviceFormData = z.infer<typeof deviceSchema>;
 
 interface Device {
   id: string;
   name: string;
-  type: string;
-  status: string;
+  device_type: string;
   pop_id?: string;
+  capacity?: number;
+  brand?: string;
 }
 
 export default function Devices() {
   const token = useAuthStore(state => state.token);
+  const queryClient = useQueryClient();
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<DeviceFormData>({
+    resolver: zodResolver(deviceSchema)
+  });
 
   const { data: devices, isLoading, error } = useQuery({
     queryKey: ['devices'],
@@ -26,14 +48,72 @@ export default function Devices() {
     }
   });
 
-  const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'active': return 'bg-accent/20 text-accent border border-accent/50';
-      case 'inactive': return 'bg-dark-muted/20 text-dark-muted border border-dark-muted/50';
-      case 'maintenance': return 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/50';
-      case 'error': return 'bg-danger/20 text-danger border border-danger/50';
-      default: return 'bg-dark-border text-white';
+  const { data: pops } = useQuery({
+    queryKey: ['pops'],
+    queryFn: async () => {
+      const response = await axios.get<any[]>('/api/v1/pops/', {
+        baseURL: import.meta.env.VITE_API_URL,
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      return response.data;
     }
+  });
+
+  const mutation = useMutation({
+    mutationFn: async (data: DeviceFormData) => {
+      const payload = { ...data, pop_id: data.pop_id || null };
+      if (editingId) {
+        return axios.put(`/api/v1/devices/${editingId}`, payload, {
+          baseURL: import.meta.env.VITE_API_URL,
+          headers: { Authorization: `Bearer ${token}` }
+        });
+      }
+      return axios.post('/api/v1/devices/', payload, {
+        baseURL: import.meta.env.VITE_API_URL,
+        headers: { Authorization: `Bearer ${token}` }
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['devices'] });
+      closeModal();
+    }
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return axios.delete(`/api/v1/devices/${id}`, {
+        baseURL: import.meta.env.VITE_API_URL,
+        headers: { Authorization: `Bearer ${token}` }
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['devices'] });
+    }
+  });
+
+  const openModal = (device?: Device) => {
+    if (device) {
+      setEditingId(device.id);
+      setValue('name', device.name);
+      setValue('device_type', device.device_type);
+      setValue('pop_id', device.pop_id || '');
+      setValue('capacity', device.capacity || 0);
+      setValue('brand', device.brand || '');
+    } else {
+      setEditingId(null);
+      reset();
+    }
+    setIsModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setEditingId(null);
+    reset();
+  };
+
+  const onSubmit = (data: DeviceFormData) => {
+    mutation.mutate(data);
   };
 
   return (
@@ -46,7 +126,10 @@ export default function Devices() {
           </h2>
           <p className="text-dark-muted text-sm mt-1">Manage OLT, OTB, ODP, and Closures</p>
         </div>
-        <button className="btn-primary flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-dark-bg font-semibold hover:bg-primary/90 transition-colors">
+        <button 
+          onClick={() => openModal()}
+          className="btn-primary flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-dark-bg font-semibold hover:bg-primary/90 transition-colors"
+        >
           <Plus size={18} /> Add Device
         </button>
       </div>
@@ -65,7 +148,8 @@ export default function Devices() {
                 <tr className="border-b border-dark-border text-dark-muted text-sm">
                   <th className="pb-3 px-4 font-medium">Name</th>
                   <th className="pb-3 px-4 font-medium">Type</th>
-                  <th className="pb-3 px-4 font-medium">Status</th>
+                  <th className="pb-3 px-4 font-medium">Brand</th>
+                  <th className="pb-3 px-4 font-medium">Capacity</th>
                   <th className="pb-3 px-4 font-medium">PoP ID</th>
                   <th className="pb-3 px-4 font-medium text-right">Actions</th>
                 </tr>
@@ -74,16 +158,13 @@ export default function Devices() {
                 {devices?.map((dev) => (
                   <tr key={dev.id} className="border-b border-dark-border/50 hover:bg-white/5 transition-colors">
                     <td className="py-4 px-4 font-medium">{dev.name}</td>
-                    <td className="py-4 px-4 text-primary font-mono text-xs">{dev.type}</td>
-                    <td className="py-4 px-4">
-                      <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(dev.status)}`}>
-                        {dev.status}
-                      </span>
-                    </td>
+                    <td className="py-4 px-4 text-primary font-mono text-xs">{dev.device_type}</td>
+                    <td className="py-4 px-4">{dev.brand || '-'}</td>
+                    <td className="py-4 px-4">{dev.capacity ? `${dev.capacity} ports` : '-'}</td>
                     <td className="py-4 px-4 font-mono text-xs text-dark-muted">{dev.pop_id || '-'}</td>
                     <td className="py-4 px-4 text-right">
-                      <button className="text-primary hover:underline text-xs mr-3">Edit</button>
-                      <button className="text-danger hover:underline text-xs">Delete</button>
+                      <button onClick={() => openModal(dev)} className="text-primary hover:underline text-xs mr-3">Edit</button>
+                      <button onClick={() => deleteMutation.mutate(dev.id)} className="text-danger hover:underline text-xs">Delete</button>
                     </td>
                   </tr>
                 ))}
@@ -99,6 +180,82 @@ export default function Devices() {
           </div>
         )}
       </div>
+
+      <Modal isOpen={isModalOpen} onClose={closeModal} title={editingId ? "Edit Device" : "Add Device"}>
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-dark-muted mb-1">Device Name</label>
+            <input 
+              {...register('name')} 
+              className="w-full bg-dark-bg border border-dark-border rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary"
+              placeholder="e.g. OLT ZTE C320"
+            />
+            {errors.name && <p className="text-danger text-xs mt-1">{errors.name.message}</p>}
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-dark-muted mb-1">Device Type</label>
+              <select 
+                {...register('device_type')} 
+                className="w-full bg-dark-bg border border-dark-border rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary"
+              >
+                <option value="">Select Type</option>
+                <option value="OLT">OLT</option>
+                <option value="OTB">OTB</option>
+                <option value="ODP">ODP</option>
+                <option value="Closure">Closure</option>
+              </select>
+              {errors.device_type && <p className="text-danger text-xs mt-1">{errors.device_type.message}</p>}
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-dark-muted mb-1">Brand</label>
+              <input 
+                {...register('brand')} 
+                className="w-full bg-dark-bg border border-dark-border rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary"
+                placeholder="e.g. ZTE, Huawei"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-dark-muted mb-1">PoP Location</label>
+              <select 
+                {...register('pop_id')} 
+                className="w-full bg-dark-bg border border-dark-border rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary"
+              >
+                <option value="">None / Field Area</option>
+                {pops?.map(pop => (
+                  <option key={pop.id} value={pop.id}>{pop.name}</option>
+                ))}
+              </select>
+              {errors.pop_id && <p className="text-danger text-xs mt-1">{errors.pop_id.message}</p>}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-dark-muted mb-1">Capacity (Ports/Trays)</label>
+              <input 
+                type="number"
+                {...register('capacity')} 
+                className="w-full bg-dark-bg border border-dark-border rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary"
+                placeholder="e.g. 16"
+              />
+              {errors.capacity && <p className="text-danger text-xs mt-1">{errors.capacity.message}</p>}
+            </div>
+          </div>
+
+          <div className="pt-4 flex justify-end gap-3">
+            <button type="button" onClick={closeModal} className="px-4 py-2 rounded-lg text-dark-muted hover:text-white transition-colors">
+              Cancel
+            </button>
+            <button type="submit" disabled={mutation.isPending} className="px-4 py-2 rounded-lg bg-primary text-dark-bg font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50">
+              {mutation.isPending ? 'Saving...' : 'Save'}
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }

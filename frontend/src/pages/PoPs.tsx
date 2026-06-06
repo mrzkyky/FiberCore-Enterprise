@@ -1,8 +1,20 @@
-import React from 'react';
-import { useQuery } from '@tanstack/react-query';
+import React, { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import { MapPin, Plus, Loader2 } from 'lucide-react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
 import { useAuthStore } from '../store/useAuthStore';
+import Modal from '../components/Modal';
+
+const popSchema = z.object({
+  name: z.string().min(2, "Name must be at least 2 characters"),
+  org_id: z.string().uuid("Invalid Organization ID"),
+  location: z.string().optional(),
+});
+
+type PopFormData = z.infer<typeof popSchema>;
 
 interface PoP {
   id: string;
@@ -13,6 +25,13 @@ interface PoP {
 
 export default function PoPs() {
   const token = useAuthStore(state => state.token);
+  const queryClient = useQueryClient();
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<PopFormData>({
+    resolver: zodResolver(popSchema)
+  });
 
   const { data: pops, isLoading, error } = useQuery({
     queryKey: ['pops'],
@@ -25,6 +44,71 @@ export default function PoPs() {
     }
   });
 
+  const { data: organizations } = useQuery({
+    queryKey: ['organizations'],
+    queryFn: async () => {
+      const response = await axios.get<any[]>('/api/v1/organizations/', {
+        baseURL: import.meta.env.VITE_API_URL,
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      return response.data;
+    }
+  });
+
+  const mutation = useMutation({
+    mutationFn: async (data: PopFormData) => {
+      if (editingId) {
+        return axios.put(`/api/v1/pops/${editingId}`, data, {
+          baseURL: import.meta.env.VITE_API_URL,
+          headers: { Authorization: `Bearer ${token}` }
+        });
+      }
+      return axios.post('/api/v1/pops/', data, {
+        baseURL: import.meta.env.VITE_API_URL,
+        headers: { Authorization: `Bearer ${token}` }
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pops'] });
+      closeModal();
+    }
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return axios.delete(`/api/v1/pops/${id}`, {
+        baseURL: import.meta.env.VITE_API_URL,
+        headers: { Authorization: `Bearer ${token}` }
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pops'] });
+    }
+  });
+
+  const openModal = (pop?: PoP) => {
+    if (pop) {
+      setEditingId(pop.id);
+      setValue('name', pop.name);
+      setValue('org_id', pop.org_id);
+      setValue('location', pop.location || '');
+    } else {
+      setEditingId(null);
+      reset();
+    }
+    setIsModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setEditingId(null);
+    reset();
+  };
+
+  const onSubmit = (data: PopFormData) => {
+    mutation.mutate(data);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -35,7 +119,10 @@ export default function PoPs() {
           </h2>
           <p className="text-dark-muted text-sm mt-1">Manage network sites and data centers</p>
         </div>
-        <button className="btn-primary flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-dark-bg font-semibold hover:bg-primary/90 transition-colors">
+        <button 
+          onClick={() => openModal()}
+          className="btn-primary flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-dark-bg font-semibold hover:bg-primary/90 transition-colors"
+        >
           <Plus size={18} /> Add PoP
         </button>
       </div>
@@ -66,8 +153,8 @@ export default function PoPs() {
                     </td>
                     <td className="py-4 px-4 font-mono text-xs text-dark-muted">{pop.org_id}</td>
                     <td className="py-4 px-4 text-right">
-                      <button className="text-primary hover:underline text-xs mr-3">Edit</button>
-                      <button className="text-danger hover:underline text-xs">Delete</button>
+                      <button onClick={() => openModal(pop)} className="text-primary hover:underline text-xs mr-3">Edit</button>
+                      <button onClick={() => deleteMutation.mutate(pop.id)} className="text-danger hover:underline text-xs">Delete</button>
                     </td>
                   </tr>
                 ))}
@@ -83,6 +170,53 @@ export default function PoPs() {
           </div>
         )}
       </div>
+
+      <Modal isOpen={isModalOpen} onClose={closeModal} title={editingId ? "Edit PoP" : "Add PoP"}>
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-dark-muted mb-1">PoP Name</label>
+            <input 
+              {...register('name')} 
+              className="w-full bg-dark-bg border border-dark-border rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary"
+              placeholder="e.g. PoP Sudirman"
+            />
+            {errors.name && <p className="text-danger text-xs mt-1">{errors.name.message}</p>}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-dark-muted mb-1">Organization</label>
+            <select 
+              {...register('org_id')} 
+              className="w-full bg-dark-bg border border-dark-border rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary"
+            >
+              <option value="">Select Organization</option>
+              {organizations?.map(org => (
+                <option key={org.id} value={org.id}>{org.name} ({org.level})</option>
+              ))}
+            </select>
+            {errors.org_id && <p className="text-danger text-xs mt-1">{errors.org_id.message}</p>}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-dark-muted mb-1">Location / Coordinates</label>
+            <input 
+              {...register('location')} 
+              className="w-full bg-dark-bg border border-dark-border rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary"
+              placeholder="e.g. -6.200000, 106.816666"
+            />
+            {errors.location && <p className="text-danger text-xs mt-1">{errors.location.message}</p>}
+          </div>
+
+          <div className="pt-4 flex justify-end gap-3">
+            <button type="button" onClick={closeModal} className="px-4 py-2 rounded-lg text-dark-muted hover:text-white transition-colors">
+              Cancel
+            </button>
+            <button type="submit" disabled={mutation.isPending} className="px-4 py-2 rounded-lg bg-primary text-dark-bg font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50">
+              {mutation.isPending ? 'Saving...' : 'Save'}
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }
