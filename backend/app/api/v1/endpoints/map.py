@@ -80,7 +80,8 @@ def get_map_topology(db: Session = Depends(get_db)):
                 "name": cable.name,
                 "type": "cable",
                 "cable_type": cable.type,
-                "capacity": cable.capacity
+                "capacity": cable.capacity,
+                "region": cable.region
             }
         })
     

@@ -25,6 +25,7 @@ L.Marker.prototype.options.icon = DefaultIcon;
 export default function GisTopology() {
   const token = useAuthStore(state => state.token);
   const [selectedClosure, setSelectedClosure] = useState<string | null>(null);
+  const [mapRegionFilter, setMapRegionFilter] = useState<string>('All');
   
   const { data: geoData, isLoading } = useQuery({
     queryKey: ['map-topology'],
@@ -49,6 +50,14 @@ export default function GisTopology() {
     enabled: !!selectedClosure
   });
 
+
+
+  const uniqueRegions = Array.from(new Set(
+    geoData?.features
+      ?.map((f: any) => f.properties.region)
+      .filter(Boolean)
+  )) as string[];
+
   const center: [number, number] = [-6.200000, 106.816666]; // Default to Jakarta if no PoPs
 
   return (
@@ -61,6 +70,16 @@ export default function GisTopology() {
           </h2>
           <p className="text-dark-muted text-sm mt-1">Live Map of PoPs and Fiber Routes</p>
         </div>
+        {uniqueRegions.length > 0 && (
+          <select 
+            value={mapRegionFilter}
+            onChange={(e) => setMapRegionFilter(e.target.value)}
+            className="bg-dark-bg border border-dark-border rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-primary"
+          >
+            <option value="All">All Regions</option>
+            {uniqueRegions.map(r => <option key={r} value={r}>{r}</option>)}
+          </select>
+        )}
       </div>
 
       <div className="flex-1 glass-panel overflow-hidden relative rounded-xl border border-dark-border">
@@ -112,6 +131,11 @@ export default function GisTopology() {
               const coords: [number, number][] = feature.geometry.coordinates.map(
                 (coord: [number, number]) => [coord[1], coord[0]] // Swap to [lat, lon]
               );
+              
+              if (mapRegionFilter !== 'All' && feature.properties.region !== mapRegionFilter) {
+                return null;
+              }
+
               const color = feature.properties.cable_type === 'Backbone' ? '#ef4444' : '#60a5fa'; // Red or Blue
               const weight = feature.properties.cable_type === 'Backbone' ? 4 : 3;
               
@@ -126,6 +150,7 @@ export default function GisTopology() {
                       <h3 className="font-bold text-lg border-b pb-2 mb-2">{feature.properties.name}</h3>
                       <div className="space-y-1 text-sm text-gray-700">
                         <p><strong>Type:</strong> {feature.properties.cable_type}</p>
+                        <p><strong>Region:</strong> {feature.properties.region || '-'}</p>
                         <p><strong>Capacity:</strong> {feature.properties.capacity} Core</p>
                       </div>
                       <button 
