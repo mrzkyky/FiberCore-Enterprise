@@ -115,3 +115,121 @@ def delete_splice(splice_id: uuid.UUID, db: Session = Depends(get_db)):
     db.delete(db_splice)
     db.commit()
     return {"message": "Splice deleted and cores freed"}
+
+@router.get("/trace/{core_id}")
+def trace_core(core_id: uuid.UUID, db: Session = Depends(get_db)):
+    """
+    Traces a core end-to-end to find all connected cores and splices.
+    Returns an ordered linear path from one end to the other.
+    """
+    # 1. Find all reachable cores and splices
+    visited_cores = set()
+    visited_splices = set()
+    
+    # Build graph in memory
+    # Because a path might be long, doing DB queries in a loop is okay for small scale.
+    # For large scale, we'd use recursive CTE, but let's keep it simple first.
+    
+    def get_neighbors(c_id):
+        # Fetch splices connected to this core
+        splices = db.query(Splice).filter(
+            (Splice.core_a_id == c_id) | (Splice.core_b_id == c_id)
+        ).all()
+        neighbors = []
+        for s in splices:
+            other_id = s.core_b_id if s.core_a_id == c_id else s.core_a_id
+            neighbors.append((other_id, s))
+        return neighbors
+
+    # BFS to find all connected nodes
+    queue = [core_id]
+    all_cores = set()
+    
+    while queue:
+        current = queue.pop(0)
+        if current in visited_cores:
+            continue
+        visited_cores.add(current)
+        all_cores.add(current)
+        
+        for neighbor_id, splice in get_neighbors(current):
+            visited_splices.add(splice)
+            if neighbor_id not in visited_cores:
+                queue.append(neighbor_id)
+                
+    # If it's just one core (not spliced), return it
+    if len(all_cores) == 1:
+        core = db.query(Core).filter(Core.id == core_id).first()
+        if not core:
+            raise HTTPException(status_code=404, detail="Core not found")
+        cable = core.cable
+        return {
+            "path": [{
+                "core_id": str(core.id),
+                "cable_name": cable.name,
+                "color": core.color,
+                "tube": core.tube_number,
+                "status": core.status
+            }],
+            "total_attenuation": 0
+        }
+        
+    # Find an endpoint (a core with exactly 1 splice in the component)
+    # Count degree of each core
+    degree = {c: 0 for c in all_cores}
+    for s in visited_splices:
+        if s.core_a_id in degree: degree[s.core_a_id] += 1
+        if s.core_b_id in degree: degree[s.core_b_id] += 1
+        
+    endpoints = [c for c, deg in degree.items() if deg == 1]
+    
+    # If it's a ring, endpoints is empty. Just pick the original core.
+    start_node = endpoints[0] if endpoints else core_id
+    
+    # Traverse from start_node to build ordered path
+    ordered_path = []
+    current_node = start_node
+    visited_path_cores = set([current_node])
+    
+    total_attenuation = 0
+    
+    while True:
+        # Fetch current node details
+        core = db.query(Core).filter(Core.id == current_node).first()
+        cable = core.cable
+        
+        ordered_path.append({
+            "type": "core",
+            "core_id": str(core.id),
+            "cable_name": cable.name,
+            "color": core.color,
+            "tube": core.tube_number,
+            "status": core.status
+        })
+        
+        # Find next splice
+        neighbors = get_neighbors(current_node)
+        unvisited_neighbors = [(n, s) for n, s in neighbors if n not in visited_path_cores]
+        
+        if not unvisited_neighbors:
+            break # Reached the other end
+            
+        next_node, next_splice = unvisited_neighbors[0] # Pick the first unvisited
+        
+        closure = next_splice.closure
+        ordered_path.append({
+            "type": "splice",
+            "splice_id": str(next_splice.id),
+            "closure_name": closure.name if closure else "Unknown",
+            "attenuation": next_splice.attenuation
+        })
+        
+        total_attenuation += (next_splice.attenuation or 0)
+        
+        current_node = next_node
+        visited_path_cores.add(current_node)
+
+    return {
+        "path": ordered_path,
+        "total_attenuation": total_attenuation
+    }

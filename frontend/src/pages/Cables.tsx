@@ -41,6 +41,7 @@ export default function Cables() {
   const [isUploading, setIsUploading] = useState(false);
   const [selectedCable, setSelectedCable] = useState<Cable | null>(null);
   const [regionFilter, setRegionFilter] = useState<string>('All');
+  const [tracingCoreId, setTracingCoreId] = useState<string | null>(null);
 
   const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<CableFormData>({
     // @ts-expect-error Zod resolver type mismatch with react-hook-form
@@ -69,6 +70,18 @@ export default function Cables() {
       return response.data;
     },
     enabled: !!selectedCable
+  });
+
+  const { data: traceData, isLoading: isLoadingTrace } = useQuery({
+    queryKey: ['trace', tracingCoreId],
+    queryFn: async () => {
+      if (!tracingCoreId) return null;
+      const response = await axios.get(`/api/v1/splices/trace/${tracingCoreId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      return response.data;
+    },
+    enabled: !!tracingCoreId
   });
 
   const mutation = useMutation({
@@ -311,14 +324,15 @@ export default function Cables() {
                 {cores?.map(core => (
                   <div 
                     key={core.id} 
-                    className={`h-8 w-full rounded shadow-sm flex items-center justify-center text-xs font-bold ${getTailwindColor(core.color)}`}
-                    title={`Tube ${core.tube_number} | Core ${core.core_number} | ${core.color} | ${core.status}`}
+                    onClick={() => setTracingCoreId(core.id)}
+                    className={`h-8 w-full rounded shadow-sm flex items-center justify-center text-xs font-bold cursor-pointer hover:opacity-80 transition-opacity ${getTailwindColor(core.color)}`}
+                    title={`Tube ${core.tube_number} | Core ${core.core_number} | ${core.color} | ${core.status}. Click to trace route.`}
                   >
                     {core.core_number}
                   </div>
                 ))}
               </div>
-              <p className="text-xs text-dark-muted text-center pt-2">Hover over a core to see details.</p>
+              <p className="text-xs text-dark-muted text-center pt-2">Click a core to trace its end-to-end route.</p>
             </div>
           )}
         </div>
@@ -382,6 +396,43 @@ export default function Cables() {
             </button>
           </div>
         </form>
+      </Modal>
+
+      {/* Trace Route Modal */}
+      <Modal isOpen={!!tracingCoreId} onClose={() => setTracingCoreId(null)} title="End-to-End Core Tracing">
+        <div className="p-4 space-y-4 max-h-[60vh] overflow-y-auto">
+          {isLoadingTrace ? (
+            <div className="flex justify-center p-8 text-primary">
+              <Loader2 className="animate-spin" size={32} />
+            </div>
+          ) : traceData ? (
+            <div>
+              <p className="text-sm text-dark-muted mb-4">
+                Found a continuous physical connection spanning <strong>{traceData.path.length}</strong> nodes.
+              </p>
+              <div className="relative border-l-2 border-primary/30 ml-4 space-y-6">
+                {traceData.path.map((node: any, idx: number) => (
+                  <div key={idx} className="relative pl-6">
+                    <div className="absolute -left-[9px] top-1 h-4 w-4 rounded-full bg-dark-bg border-2 border-primary"></div>
+                    {node.type === 'core' ? (
+                      <div>
+                        <p className="text-white font-medium text-sm">Cable: {node.cable_name}</p>
+                        <p className="text-xs text-dark-muted">Core {node.tube} / {node.color} - Status: {node.status}</p>
+                      </div>
+                    ) : (
+                      <div>
+                        <p className="text-accent font-medium text-sm">Splice at {node.closure_name}</p>
+                        {node.attenuation > 0 && <p className="text-xs text-danger">Loss: {node.attenuation} dB</p>}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+             <p className="text-danger text-sm">Failed to trace route.</p>
+          )}
+        </div>
       </Modal>
     </div>
   );
