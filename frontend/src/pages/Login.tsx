@@ -24,9 +24,13 @@ export default function Login() {
       formData.append('username', email); // OAuth2 expects 'username' field
       formData.append('password', password);
       
-      // Gunakan IP yang sama dengan browser (agar tidak nyasar ke localhost laptop)
-      const baseUrl = `http://${window.location.hostname}:50005/api/v1`;
-      const response = await axios.post(`${baseUrl}/auth/token`, formData);
+      // Ambil URL dari env (yang diset di docker-compose), lalu ganti 'localhost' dengan IP asli 
+      // agar backend tetap bisa diakses dari HP/device lain di jaringan yang sama.
+      let baseUrl = import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000/api/v1`;
+      baseUrl = baseUrl.replace('localhost', window.location.hostname);
+      
+      // Backend menggunakan endpoint /auth/login
+      const response = await axios.post(`${baseUrl}/auth/login`, formData);
       
       const { access_token } = response.data;
       
