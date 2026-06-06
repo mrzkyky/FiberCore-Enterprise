@@ -5,7 +5,7 @@ import { MapContainer, TileLayer, Marker, Popup, Polyline, useMapEvents } from '
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useAuthStore } from '../store/useAuthStore';
-import { Loader2, Layers, MapPin } from 'lucide-react';
+import { Loader2, Layers, MapPin, Server, Activity, X } from 'lucide-react';
 
 // Fix for Leaflet default icon issues in React
 import icon from 'leaflet/dist/images/marker-icon.png';
@@ -24,6 +24,7 @@ L.Marker.prototype.options.icon = DefaultIcon;
 
 export default function GisTopology() {
   const token = useAuthStore(state => state.token);
+  const [selectedClosure, setSelectedClosure] = useState<string | null>(null);
   
   const { data: geoData, isLoading } = useQuery({
     queryKey: ['map-topology'],
@@ -34,6 +35,18 @@ export default function GisTopology() {
       });
       return response.data; // GeoJSON FeatureCollection
     }
+  });
+
+  const { data: matrixData, isLoading: matrixLoading } = useQuery({
+    queryKey: ['splice-matrix', selectedClosure],
+    queryFn: async () => {
+      if (!selectedClosure) return null;
+      const response = await axios.get(`/api/v1/splices/matrix/${selectedClosure}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      return response.data;
+    },
+    enabled: !!selectedClosure
   });
 
   const center: [number, number] = [-6.200000, 106.816666]; // Default to Jakarta if no PoPs
@@ -71,18 +84,59 @@ export default function GisTopology() {
 
           {geoData?.features?.map((feature: any, index: number) => {
             if (feature.geometry.type === "Point") {
+              const isDevice = feature.properties.type === "device";
               const coords: [number, number] = [feature.geometry.coordinates[1], feature.geometry.coordinates[0]];
               return (
                 <Marker key={index} position={coords}>
                   <Popup className="custom-popup">
-                    <div className="p-1">
+                    <div className="p-1 min-w-[200px]">
                       <h3 className="font-bold text-lg border-b pb-2 mb-2">{feature.properties.name}</h3>
-                      <p className="text-sm text-gray-600 flex items-center gap-1">
-                        <MapPin size={14} /> PoP Site
+                      <p className="text-sm text-gray-600 flex items-center gap-1 mb-2">
+                        {isDevice ? <Server size={14} /> : <MapPin size={14} />} 
+                        {isDevice ? feature.properties.device_type : 'PoP Site'}
                       </p>
+                      {isDevice && (feature.properties.device_type === 'Closure' || feature.properties.device_type === 'ODP') && (
+                        <button 
+                          onClick={() => setSelectedClosure(feature.properties.id)}
+                          className="mt-2 w-full btn-primary py-1.5 px-2 rounded-lg bg-primary text-dark-bg font-semibold text-sm hover:bg-primary/90 transition-colors flex items-center justify-center gap-1"
+                        >
+                          <Activity size={16} /> View Splice Matrix
+                        </button>
+                      )}
                     </div>
                   </Popup>
                 </Marker>
+              );
+            }
+            if (feature.geometry.type === "LineString") {
+              const coords: [number, number][] = feature.geometry.coordinates.map(
+                (coord: [number, number]) => [coord[1], coord[0]] // Swap to [lat, lon]
+              );
+              const color = feature.properties.cable_type === 'Backbone' ? '#ef4444' : '#60a5fa'; // Red or Blue
+              const weight = feature.properties.cable_type === 'Backbone' ? 4 : 3;
+              
+              return (
+                <Polyline 
+                  key={index} 
+                  positions={coords} 
+                  pathOptions={{ color, weight, opacity: 0.8 }}
+                >
+                  <Popup className="custom-popup">
+                    <div className="p-1 min-w-[200px]">
+                      <h3 className="font-bold text-lg border-b pb-2 mb-2">{feature.properties.name}</h3>
+                      <div className="space-y-1 text-sm text-gray-700">
+                        <p><strong>Type:</strong> {feature.properties.cable_type}</p>
+                        <p><strong>Capacity:</strong> {feature.properties.capacity} Core</p>
+                      </div>
+                      <button 
+                        onClick={() => alert("Kabel ini memiliki " + feature.properties.capacity + " core. Fitur view detail kabel akan datang di update selanjutnya!")}
+                        className="mt-3 w-full btn-primary py-1 px-2 rounded bg-primary text-dark-bg font-semibold text-sm hover:bg-primary/90"
+                      >
+                        View Cable Details
+                      </button>
+                    </div>
+                  </Popup>
+                </Polyline>
               );
             }
             return null;
@@ -94,7 +148,7 @@ export default function GisTopology() {
           <div className="space-y-2 text-sm text-dark-muted">
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]"></div>
-              <span>Point of Presence (PoP)</span>
+              <span>Node (PoP / Device)</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-4 h-1 bg-red-500 rounded"></div>
@@ -107,6 +161,86 @@ export default function GisTopology() {
           </div>
         </div>
       </div>
+
+      {/* Splice Matrix Modal */}
+      {selectedClosure && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[1000] p-4">
+          <div className="bg-dark-card border border-dark-border w-full max-w-4xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="flex items-center justify-between p-6 border-b border-dark-border bg-dark-bg/50">
+              <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                <Activity className="text-primary" />
+                Splicing Matrix
+              </h3>
+              <button onClick={() => setSelectedClosure(null)} className="text-dark-muted hover:text-white transition-colors">
+                <X size={24} />
+              </button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto">
+              {matrixLoading ? (
+                <div className="flex justify-center py-12"><Loader2 className="animate-spin text-primary" size={32} /></div>
+              ) : matrixData && matrixData.splices.length > 0 ? (
+                <div className="space-y-6">
+                  {/* Cables Summary */}
+                  <div className="grid grid-cols-2 gap-4 mb-6">
+                    {matrixData.cables.map((c: any) => (
+                      <div key={c.id} className="bg-dark-bg p-4 rounded-lg border border-dark-border">
+                        <h4 className="font-semibold text-white">{c.name}</h4>
+                        <p className="text-sm text-dark-muted">{c.type} • {c.capacity} Cores</p>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {/* Matrix Table */}
+                  <div className="bg-dark-bg rounded-lg border border-dark-border overflow-x-auto">
+                    <table className="w-full text-left text-sm">
+                      <thead className="bg-dark-card text-dark-muted">
+                        <tr>
+                          <th className="px-4 py-3 font-medium">Cable A</th>
+                          <th className="px-4 py-3 font-medium">Core A</th>
+                          <th className="px-4 py-3 font-medium text-center">Connection</th>
+                          <th className="px-4 py-3 font-medium">Core B</th>
+                          <th className="px-4 py-3 font-medium">Cable B</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-dark-border text-gray-300">
+                        {matrixData.splices.map((splice: any) => {
+                          const cableA = matrixData.cables.find((c: any) => c.id === splice.core_a.cable_id);
+                          const cableB = matrixData.cables.find((c: any) => c.id === splice.core_b.cable_id);
+                          return (
+                            <tr key={splice.splice_id} className="hover:bg-dark-card/50">
+                              <td className="px-4 py-3">{cableA?.name}</td>
+                              <td className="px-4 py-3">
+                                <span className="flex items-center gap-2">
+                                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: splice.core_a.color.toLowerCase() }}></div>
+                                  T{splice.core_a.tube_number}-C{splice.core_a.core_number}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 text-center text-primary">↔</td>
+                              <td className="px-4 py-3">
+                                <span className="flex items-center gap-2">
+                                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: splice.core_b.color.toLowerCase() }}></div>
+                                  T{splice.core_b.tube_number}-C{splice.core_b.core_number}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3">{cableB?.name}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-12 text-dark-muted">
+                  <Activity size={48} className="mx-auto mb-4 opacity-20" />
+                  <p>No active splices found in this Closure.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

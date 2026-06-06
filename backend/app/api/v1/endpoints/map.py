@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from app.db.session import SessionLocal
-from app.db.models import POP, Cable
+from app.db.models import POP, Cable, Device
 
 router = APIRouter()
 
@@ -40,9 +40,49 @@ def get_map_topology(db: Session = Depends(get_db)):
             }
         })
         
-    # 2. Fetch Cables as LineString Features
-    # Nanti kita akan tambahkan kolom 'route' di tabel Cable
-    # Untuk sementara, kita return features yang ada
+    # 2. Fetch Devices as Point Features
+    devices = db.query(Device, func.ST_AsGeoJSON(Device.location).label("geojson")).filter(Device.location.is_not(None)).all()
+    for device, geojson_str in devices:
+        if not geojson_str:
+            continue
+            
+        import json
+        geometry = json.loads(geojson_str)
+        
+        features.append({
+            "type": "Feature",
+            "geometry": geometry,
+            "properties": {
+                "id": str(device.id),
+                "name": device.name,
+                "type": "device",
+                "device_type": device.device_type,
+                "pop_id": str(device.pop_id) if device.pop_id else None
+            }
+        })
+
+    # 3. Fetch Cables as LineString Features
+    cables = db.query(Cable, func.ST_AsGeoJSON(Cable.route).label("geojson")).all()
+    for cable, geojson_str in cables:
+        if not geojson_str:
+            continue
+            
+        import json
+        geometry = json.loads(geojson_str)
+        
+        # Calculate basic core stats
+        # This can be expanded later, but for now we send basic capacity
+        features.append({
+            "type": "Feature",
+            "geometry": geometry,
+            "properties": {
+                "id": str(cable.id),
+                "name": cable.name,
+                "type": "cable",
+                "cable_type": cable.type,
+                "capacity": cable.capacity
+            }
+        })
     
     return {
         "type": "FeatureCollection",

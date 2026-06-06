@@ -46,6 +46,59 @@ def get_splices(closure_id: uuid.UUID = None, skip: int = 0, limit: int = 100, d
         query = query.filter(Splice.closure_id == closure_id)
     return query.offset(skip).limit(limit).all()
 
+@router.get("/matrix/{device_id}")
+def get_splice_matrix(device_id: uuid.UUID, db: Session = Depends(get_db)):
+    """
+    Returns a detailed splicing matrix for a given Closure/Device.
+    Includes involved cables, their capacity, and the exact core-to-core mapping.
+    """
+    splices = db.query(Splice).filter(Splice.closure_id == device_id).all()
+    
+    matrix = []
+    cables_info = {}
+    
+    for splice in splices:
+        core_a = splice.core_a
+        core_b = splice.core_b
+        
+        # Track cables
+        for c in [core_a, core_b]:
+            if c and c.cable_id not in cables_info:
+                cable = c.cable
+                # Count used cores for this cable inside this closure?
+                # Or total used in cable? Let's give cable stats
+                cables_info[c.cable_id] = {
+                    "id": str(cable.id),
+                    "name": cable.name,
+                    "capacity": cable.capacity,
+                    "type": cable.type
+                }
+                
+        matrix.append({
+            "splice_id": str(splice.id),
+            "attenuation": splice.attenuation,
+            "core_a": {
+                "id": str(core_a.id) if core_a else None,
+                "cable_id": str(core_a.cable_id) if core_a else None,
+                "core_number": core_a.core_number if core_a else None,
+                "tube_number": core_a.tube_number if core_a else None,
+                "color": core_a.color if core_a else None,
+            },
+            "core_b": {
+                "id": str(core_b.id) if core_b else None,
+                "cable_id": str(core_b.cable_id) if core_b else None,
+                "core_number": core_b.core_number if core_b else None,
+                "tube_number": core_b.tube_number if core_b else None,
+                "color": core_b.color if core_b else None,
+            }
+        })
+        
+    return {
+        "device_id": str(device_id),
+        "cables": list(cables_info.values()),
+        "splices": matrix
+    }
+
 @router.delete("/{splice_id}")
 def delete_splice(splice_id: uuid.UUID, db: Session = Depends(get_db)):
     db_splice = db.query(Splice).filter(Splice.id == splice_id).first()
