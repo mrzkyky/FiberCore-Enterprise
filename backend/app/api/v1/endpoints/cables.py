@@ -3,7 +3,8 @@ from sqlalchemy.orm import Session
 from typing import List
 from app.db.session import SessionLocal
 from app.db.models import Cable, Core
-from app.schemas.asset import CableCreate, CableResponse
+from app.schemas.asset import CableCreate, CableResponse, CoreResponse
+import uuid
 
 router = APIRouter()
 
@@ -49,3 +50,36 @@ def create_cable(cable_in: CableCreate, db: Session = Depends(get_db)):
 @router.get("/", response_model=List[CableResponse])
 def get_cables(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     return db.query(Cable).offset(skip).limit(limit).all()
+
+@router.put("/{cable_id}", response_model=CableResponse)
+def update_cable(cable_id: uuid.UUID, cable_in: CableCreate, db: Session = Depends(get_db)):
+    db_cable = db.query(Cable).filter(Cable.id == cable_id).first()
+    if not db_cable:
+        raise HTTPException(status_code=404, detail="Cable not found")
+    
+    for key, value in cable_in.model_dump().items():
+        setattr(db_cable, key, value)
+        
+    db.commit()
+    db.refresh(db_cable)
+    return db_cable
+
+@router.delete("/{cable_id}")
+def delete_cable(cable_id: uuid.UUID, db: Session = Depends(get_db)):
+    db_cable = db.query(Cable).filter(Cable.id == cable_id).first()
+    if not db_cable:
+        raise HTTPException(status_code=404, detail="Cable not found")
+    
+    # Delete associated cores first
+    db.query(Core).filter(Core.cable_id == cable_id).delete()
+    db.delete(db_cable)
+    db.commit()
+    return {"message": "Cable and its cores deleted successfully"}
+
+@router.get("/{cable_id}/cores", response_model=List[CoreResponse])
+def get_cable_cores(cable_id: uuid.UUID, db: Session = Depends(get_db)):
+    db_cable = db.query(Cable).filter(Cable.id == cable_id).first()
+    if not db_cable:
+        raise HTTPException(status_code=404, detail="Cable not found")
+    
+    return db.query(Core).filter(Core.cable_id == cable_id).order_by(Core.core_number).all()
