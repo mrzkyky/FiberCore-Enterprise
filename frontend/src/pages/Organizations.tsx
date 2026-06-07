@@ -113,7 +113,7 @@ export default function Organizations() {
           onClick={() => openModal()}
           className="btn-primary flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-dark-bg font-semibold hover:bg-primary/90 transition-colors"
         >
-          <Plus size={18} /> Add Organization
+          <Plus size={18} /> Tambah Area
         </button>
       </div>
 
@@ -166,7 +166,7 @@ export default function Organizations() {
         )}
       </div>
 
-      <Modal isOpen={isModalOpen} onClose={closeModal} title={editingId ? "Edit Organization" : "Add Organization"}>
+      <Modal isOpen={isModalOpen} onClose={closeModal} title={editingId ? "Edit Organization" : "Tambah Area"}>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-dark-muted mb-1">Organization Name</label>

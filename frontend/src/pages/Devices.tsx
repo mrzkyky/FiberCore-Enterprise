@@ -131,7 +131,7 @@ export default function Devices() {
           onClick={() => openModal()}
           className="btn-primary flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-dark-bg font-semibold hover:bg-primary/90 transition-colors"
         >
-          <Plus size={18} /> Add Device
+          <Plus size={18} /> Tambah Perangkat
         </button>
       </div>
 
@@ -182,7 +182,7 @@ export default function Devices() {
         )}
       </div>
 
-      <Modal isOpen={isModalOpen} onClose={closeModal} title={editingId ? "Edit Device" : "Add Device"}>
+      <Modal isOpen={isModalOpen} onClose={closeModal} title={editingId ? "Edit Device" : "Tambah Perangkat"}>
         <form onSubmit={handleSubmit(onSubmit as any)} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-dark-muted mb-1">Device Name</label>

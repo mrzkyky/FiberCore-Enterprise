@@ -254,7 +254,7 @@ export default function Cables() {
             onClick={() => openModal()}
             className="btn-primary flex items-center gap-2"
           >
-            <Plus size={18} /> Add Cable
+            <Plus size={18} /> Tambah Kabel
           </button>
         </div>
       </div>

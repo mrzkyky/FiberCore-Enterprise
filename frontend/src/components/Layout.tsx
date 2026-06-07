@@ -23,12 +23,12 @@ export default function Layout({ children }: LayoutProps) {
 
   const navItems = [
     { name: 'Dashboard', icon: BarChart3, path: '/' },
-    { name: 'GIS Map', icon: Map, path: '/map' },
-    { name: 'Fiber Cables', icon: Route, path: '/cables' },
-    { name: 'ODP / OTB', icon: Box, path: '/devices' },
-    { name: 'PoP Sites', icon: Server, path: '/pops' },
-    { name: 'Organizations', icon: Users, path: '/organizations' },
-    { name: 'Incidents', icon: ShieldAlert, path: '/incidents' },
+    { name: 'Peta Jaringan (GIS)', icon: Map, path: '/map' },
+    { name: 'Area / Witel', icon: Users, path: '/organizations' },
+    { name: 'STO / PoP', icon: Server, path: '/pops' },
+    { name: 'Perangkat ODP/ODC', icon: Box, path: '/devices' },
+    { name: 'Kabel FO', icon: Route, path: '/cables' },
+    { name: 'Penyambungan (Splicing)', icon: Layers, path: '/splicing' },
   ];
 
   return (
