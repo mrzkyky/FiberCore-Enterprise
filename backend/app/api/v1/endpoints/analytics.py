@@ -43,7 +43,7 @@ def get_dashboard_stats(db: Session = Depends(get_db)):
     cable_types_data = [{"name": t if t else "Unknown", "value": c} for t, c in cable_type_query]
 
     # Device Distribution
-    device_type_query = db.query(Device.type, func.count(Device.id)).group_by(Device.type).all()
+    device_type_query = db.query(Device.device_type, func.count(Device.id)).group_by(Device.device_type).all()
     device_types_data = [{"name": t if t else "Unknown", "value": c} for t, c in device_type_query]
 
     return {

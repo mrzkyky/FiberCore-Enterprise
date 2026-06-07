@@ -166,20 +166,20 @@ export default function Splicing() {
         <div>
           <h2 className="text-2xl font-bold text-dark-text flex items-center gap-2">
             <Network className="text-primary" />
-            Splicing & Patching
+            Manajemen Penyambungan (Splicing)
           </h2>
-          <p className="text-dark-muted text-sm mt-1">Manage core-to-core connections inside closures</p>
+          <p className="text-dark-muted text-sm mt-1">Kelola penyambungan antar core kabel di dalam perangkat (Closure/ODP/OTB)</p>
         </div>
       </div>
 
-      <div className="glass-panel p-6 mb-6">
-        <label className="block text-sm font-medium text-dark-muted mb-2">Select a Device (Closure / ODP / OTB) to manage splices</label>
+      <div className="bg-white border border-dark-border rounded-xl p-6 mb-6 shadow-sm">
+        <label className="block text-sm font-medium text-dark-muted mb-2">Pilih Perangkat (Closure / ODP / OTB) untuk mengelola splicing</label>
         <select 
           value={selectedClosureId}
           onChange={(e) => setSelectedClosureId(e.target.value)}
           className="w-full md:w-1/2 bg-white border border-dark-border rounded-lg px-4 py-3 text-dark-text focus:outline-none focus:border-primary text-lg"
         >
-          <option value="">-- Choose Device --</option>
+          <option value="">-- Pilih Perangkat --</option>
           {devices?.map(d => (
             <option key={d.id} value={d.id}>{d.name} ({d.device_type})</option>
           ))}
@@ -187,17 +187,17 @@ export default function Splicing() {
       </div>
 
       {selectedClosureId && (
-        <div className="glass-panel p-6">
+        <div className="bg-white border border-dark-border rounded-xl p-6 shadow-sm">
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-lg font-semibold text-dark-text flex items-center gap-2">
-              <Cable className="text-accent" />
-              Splicing Records
+              <Cable className="text-primary" />
+              Data Penyambungan
             </h3>
             <button 
               onClick={() => setIsSpliceModalOpen(true)}
-              className="btn-primary flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-dark-bg font-semibold hover:bg-primary/90 transition-colors"
+              className="btn-primary flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white font-semibold hover:bg-primary/90 transition-colors"
             >
-              <Plus size={18} /> New Splice
+              <Plus size={18} /> Penyambungan Baru
             </button>
           </div>
 

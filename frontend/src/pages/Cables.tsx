@@ -261,7 +261,7 @@ export default function Cables() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Cables Table */}
-        <div className="lg:col-span-2 glass-panel flex flex-col h-[700px]">
+        <div className="lg:col-span-2 bg-white border border-dark-border rounded-xl flex flex-col shadow-sm h-[calc(100vh-160px)] min-h-[600px]">
           <div className="p-5 border-b border-dark-border flex justify-between items-center bg-white rounded-t-xl z-10 shrink-0">
             <h3 className="text-lg font-bold text-dark-text">Cable Data Grid</h3>
             {uniqueRegions.length > 0 && (
@@ -314,13 +314,13 @@ export default function Cables() {
                       <td className="py-4 px-5 font-mono font-medium">{cable.capacity}C</td>
                       <td className="py-4 px-5 text-right whitespace-nowrap space-x-3">
                         {cable.import_batch && (
-                           <button onClick={(e) => { e.stopPropagation(); handleDeleteBatch(cable.import_batch); }} className="text-orange hover:text-orange-light text-xs font-medium" title="Delete entire KMZ batch">Del KMZ</button>
+                           <button onClick={(e) => { e.stopPropagation(); handleDeleteBatch(cable.import_batch); }} className="text-orange hover:text-orange-light transition-colors" title="Delete entire KMZ batch"><Trash2 size={16}/></button>
                         )}
                         {!cable.import_batch && cable.region && (
-                           <button onClick={(e) => { e.stopPropagation(); handleDeleteRegion(cable.region); }} className="text-orange hover:text-orange-light text-xs font-medium" title="Delete ALL cables in this region">Del Region</button>
+                           <button onClick={(e) => { e.stopPropagation(); handleDeleteRegion(cable.region); }} className="text-orange hover:text-orange-light transition-colors" title="Delete ALL cables in this region"><Trash2 size={16}/></button>
                         )}
-                        <button onClick={(e) => { e.stopPropagation(); openModal(cable); }} className="text-primary hover:text-primary-glow text-xs font-medium">Edit</button>
-                        <button onClick={(e) => { e.stopPropagation(); deleteMutation.mutate(cable.id); }} className="text-danger hover:text-red-400 text-xs font-medium">Del</button>
+                        <button onClick={(e) => { e.stopPropagation(); openModal(cable); }} className="text-primary hover:text-primary-glow transition-colors" title="Edit Cable"><Edit2 size={16}/></button>
+                        <button onClick={(e) => { e.stopPropagation(); deleteMutation.mutate(cable.id); }} className="text-danger hover:text-red-400 transition-colors" title="Delete Cable"><Trash2 size={16}/></button>
                       </td>
                     </tr>
                   ))}
@@ -338,7 +338,7 @@ export default function Cables() {
         </div>
 
         {/* Core Management */}
-        <div className="glass-panel flex flex-col h-[700px]">
+        <div className="bg-white border border-dark-border rounded-xl flex flex-col shadow-sm h-[calc(100vh-160px)] min-h-[600px]">
           <div className="p-5 border-b border-dark-border bg-dark-surface rounded-t-xl shrink-0">
             <h3 className="text-lg font-bold text-dark-text flex items-center gap-2">
               <Layers size={20} className="text-primary" />
