@@ -57,7 +57,9 @@ def get_map_topology(db: Session = Depends(get_db)):
                 "name": device.name,
                 "type": "device",
                 "device_type": device.device_type,
-                "pop_id": str(device.pop_id) if device.pop_id else None
+                "pop_id": str(device.pop_id) if device.pop_id else None,
+                "description": device.description,
+                "used_capacity": device.used_capacity
             }
         })
 
@@ -81,7 +83,8 @@ def get_map_topology(db: Session = Depends(get_db)):
                 "type": "cable",
                 "cable_type": cable.type,
                 "capacity": cable.capacity,
-                "region": cable.region
+                "region": cable.region,
+                "description": cable.description
             }
         })
     

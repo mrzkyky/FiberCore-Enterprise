@@ -12,6 +12,8 @@ import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 import iconRetina from 'leaflet/dist/images/marker-icon-2x.png';
 import MarkerClusterGroup from 'react-leaflet-cluster';
+import 'leaflet.markercluster/dist/MarkerCluster.css';
+import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 
 let DefaultIcon = L.icon({
   iconUrl: icon,
@@ -171,6 +173,11 @@ export default function GisTopology() {
                           {isDevice ? <Server size={14} /> : <MapPin size={14} />} 
                           {isDevice ? feature.properties.device_type : 'PoP Site'}
                         </p>
+                        {feature.properties.used_capacity !== undefined && feature.properties.used_capacity !== null && (
+                          <p className="text-sm text-gray-700 mb-2 font-medium">
+                             Capacity: <span className="text-primary">{feature.properties.used_capacity}</span> Ports Used
+                          </p>
+                        )}
                         {feature.properties.description && (
                           <p className="text-xs text-gray-500 mb-2 italic">
                             "{feature.properties.description}"

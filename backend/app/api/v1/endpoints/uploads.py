@@ -63,9 +63,20 @@ def parse_kml_coordinates(kml_content: bytes):
                             
                         ctype = "Distribution"
                         name_lower = name.lower()
-                        if "feeder" in name_lower: ctype = "Feeder"
-                        elif "backbone" in name_lower: ctype = "Backbone"
-                        elif "drop" in name_lower: ctype = "Drop"
+                        if "feeder" in name_lower: 
+                            ctype = "Feeder"
+                        elif "backbone" in name_lower: 
+                            ctype = "Backbone"
+                        elif "drop" in name_lower: 
+                            ctype = "Drop"
+                        else:
+                            # Heuristic based on capacity
+                            if capacity >= 96:
+                                ctype = "Backbone"
+                            elif capacity >= 24:
+                                ctype = "Feeder"
+                            else:
+                                ctype = "Distribution"
                             
                         routes.append({"name": name, "wkt": wkt, "capacity": capacity, "type": ctype, "description": description})
             
