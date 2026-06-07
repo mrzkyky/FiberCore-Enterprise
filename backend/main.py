@@ -17,6 +17,9 @@ def on_startup():
         try:
             conn.execute(text("ALTER TABLE cables ADD COLUMN IF NOT EXISTS region VARCHAR;"))
             conn.execute(text("ALTER TABLE cables ADD COLUMN IF NOT EXISTS import_batch VARCHAR;"))
+            conn.execute(text("ALTER TABLE cables ADD COLUMN IF NOT EXISTS description VARCHAR;"))
+            conn.execute(text("ALTER TABLE devices ADD COLUMN IF NOT EXISTS description VARCHAR;"))
+            conn.execute(text("ALTER TABLE devices ADD COLUMN IF NOT EXISTS used_capacity INTEGER DEFAULT 0;"))
         except Exception as e:
             print(f"Migration error: {e}")
 

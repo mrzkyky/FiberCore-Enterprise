@@ -43,6 +43,7 @@ class Cable(Base):
     route = Column(Geometry('LINESTRING', spatial_index=False))
     region = Column(String, nullable=True) # E.g., Brebes, Tegal
     import_batch = Column(String, nullable=True) # Identifies which KMZ import this cable came from
+    description = Column(String, nullable=True) # Store KMZ descriptions or manual notes
     
     cores = relationship("Core", back_populates="cable", cascade="all, delete-orphan")
 
@@ -74,11 +75,13 @@ class Device(Base):
     __tablename__ = "devices"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String, index=True)
-    device_type = Column(String) # OLT, OTB, ODP, Closure
+    device_type = Column(String) # OLT, OTB, ODP, Closure, Pole
     pop_id = Column(UUID(as_uuid=True), ForeignKey("pops.id"), nullable=True)
     location = Column(Geometry('POINT', spatial_index=False), nullable=True)
     capacity = Column(Integer, nullable=True) # Ports for ODP/OLT, Trays for Closure
+    used_capacity = Column(Integer, default=0) # Track used ports for OLT/OTB/ODP
     brand = Column(String, nullable=True)
+    description = Column(String, nullable=True) # Store KMZ descriptions (slack, spare, etc)
     created_at = Column(DateTime, default=func.now())
     
     pop = relationship("POP", back_populates="devices")

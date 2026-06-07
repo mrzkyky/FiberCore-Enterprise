@@ -12,6 +12,7 @@ const cableSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
   type: z.string().min(1, "Type is required"),
   capacity: z.preprocess((val) => Number(val), z.number().min(1, "Capacity must be at least 1 core")),
+  description: z.string().optional()
 });
 
 type CableFormData = z.infer<typeof cableSchema>;
@@ -23,6 +24,7 @@ interface Cable {
   capacity: number;
   region?: string;
   import_batch?: string;
+  description?: string;
 }
 
 interface Core {
@@ -144,6 +146,7 @@ export default function Cables() {
       setValue('name', cable.name);
       setValue('type', cable.type);
       setValue('capacity', cable.capacity);
+      setValue('description', cable.description || '');
     } else {
       setEditingId(null);
       reset();
@@ -294,6 +297,7 @@ export default function Cables() {
                     <th className="py-3 px-5 font-semibold">Region</th>
                     <th className="py-3 px-5 font-semibold">Type</th>
                     <th className="py-3 px-5 font-semibold">Capacity</th>
+                    <th className="py-3 px-5 font-semibold">Details</th>
                     <th className="py-3 px-5 font-semibold text-right">Actions</th>
                   </tr>
                 </thead>
@@ -312,6 +316,7 @@ export default function Cables() {
                       </td>
                       <td className="py-4 px-5">{cable.type}</td>
                       <td className="py-4 px-5 font-mono font-medium">{cable.capacity}C</td>
+                      <td className="py-4 px-5 max-w-[150px] truncate" title={cable.description}>{cable.description || '-'}</td>
                       <td className="py-4 px-5 text-right whitespace-nowrap space-x-3">
                         {cable.import_batch && (
                            <button onClick={(e) => { e.stopPropagation(); handleDeleteBatch(cable.import_batch); }} className="text-orange hover:text-orange-light transition-colors" title="Delete entire KMZ batch"><Trash2 size={16}/></button>
@@ -443,6 +448,16 @@ export default function Cables() {
               </select>
               {errors.capacity && <p className="text-danger text-xs mt-1 font-medium">{errors.capacity.message}</p>}
             </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-bold text-dark-text mb-1.5">Description / Cable Notes</label>
+            <textarea 
+              {...register('description')} 
+              rows={3}
+              className="w-full bg-white border border-dark-border rounded-lg px-4 py-2.5 text-dark-text focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all resize-none"
+              placeholder="e.g. Slack 20m di Tiang ODP-XYZ, disambung dengan FO Drop..."
+            />
           </div>
 
           <div className="pt-6 flex justify-end gap-3 border-t border-dark-border mt-6">

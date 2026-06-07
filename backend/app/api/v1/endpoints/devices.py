@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from pydantic import BaseModel
 import uuid
+from datetime import datetime
 
 from app.db.session import SessionLocal
 from app.db.models import Device
@@ -13,16 +14,23 @@ router = APIRouter()
 class DeviceBase(BaseModel):
     name: str
     device_type: str
-    pop_id: Optional[uuid.UUID] = None
     capacity: Optional[int] = None
+    used_capacity: Optional[int] = 0
     brand: Optional[str] = None
+    description: Optional[str] = None
+    location_wkt: Optional[str] = None
+    pop_id: Optional[str] = None
 
 class DeviceCreate(DeviceBase):
     pass
 
+class DeviceUpdate(DeviceBase):
+    pass
+
 class DeviceResponse(DeviceBase):
     id: uuid.UUID
-
+    created_at: Optional[datetime] = None
+    
     class Config:
         from_attributes = True
 

@@ -13,7 +13,9 @@ const deviceSchema = z.object({
   device_type: z.string().min(1, "Device Type is required"),
   pop_id: z.string().uuid("Invalid PoP ID").optional().or(z.literal('')),
   capacity: z.preprocess((val) => val === '' ? undefined : Number(val), z.number().min(0, "Capacity must be positive").optional()),
-  brand: z.string().optional()
+  used_capacity: z.preprocess((val) => val === '' ? undefined : Number(val), z.number().min(0).optional()),
+  brand: z.string().optional(),
+  description: z.string().optional()
 });
 
 type DeviceFormData = z.infer<typeof deviceSchema>;
@@ -24,7 +26,9 @@ interface Device {
   device_type: string;
   pop_id?: string;
   capacity?: number;
+  used_capacity?: number;
   brand?: string;
+  description?: string;
 }
 
 export default function Devices() {
@@ -99,7 +103,9 @@ export default function Devices() {
       setValue('device_type', device.device_type);
       setValue('pop_id', device.pop_id || '');
       setValue('capacity', device.capacity || 0);
+      setValue('used_capacity', device.used_capacity || 0);
       setValue('brand', device.brand || '');
+      setValue('description', device.description || '');
     } else {
       setEditingId(null);
       reset();
@@ -151,7 +157,7 @@ export default function Devices() {
                   <th className="pb-3 px-4 font-medium">Type</th>
                   <th className="pb-3 px-4 font-medium">Brand</th>
                   <th className="pb-3 px-4 font-medium">Capacity</th>
-                  <th className="pb-3 px-4 font-medium">PoP ID</th>
+                  <th className="pb-3 px-4 font-medium">Details (Desc)</th>
                   <th className="pb-3 px-4 font-medium text-right">Actions</th>
                 </tr>
               </thead>
@@ -161,8 +167,15 @@ export default function Devices() {
                     <td className="py-4 px-4 font-medium">{dev.name}</td>
                     <td className="py-4 px-4 text-primary font-mono text-xs">{dev.device_type}</td>
                     <td className="py-4 px-4">{dev.brand || '-'}</td>
-                    <td className="py-4 px-4">{dev.capacity ? `${dev.capacity} ports` : '-'}</td>
-                    <td className="py-4 px-4 font-mono text-xs text-dark-muted">{dev.pop_id || '-'}</td>
+                    <td className="py-4 px-4">
+                      {dev.capacity ? (
+                        <div className="flex flex-col">
+                          <span className="font-semibold">{dev.used_capacity || 0} / {dev.capacity}</span>
+                          <span className="text-xs text-dark-muted">Ports</span>
+                        </div>
+                      ) : '-'}
+                    </td>
+                    <td className="py-4 px-4 max-w-[200px] truncate" title={dev.description}>{dev.description || '-'}</td>
                     <td className="py-4 px-4 text-right">
                       <button onClick={() => openModal(dev)} className="text-primary hover:underline text-xs mr-3">Edit</button>
                       <button onClick={() => deleteMutation.mutate(dev.id)} className="text-danger hover:underline text-xs">Delete</button>
@@ -235,16 +248,36 @@ export default function Devices() {
               {errors.pop_id && <p className="text-danger text-xs mt-1">{errors.pop_id.message}</p>}
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-dark-muted mb-1">Capacity (Ports/Trays)</label>
-              <input 
-                type="number"
-                {...register('capacity')} 
-                className="w-full bg-white border border-dark-border rounded-lg px-4 py-2 text-dark-text focus:outline-none focus:border-primary"
-                placeholder="e.g. 16"
-              />
-              {errors.capacity && <p className="text-danger text-xs mt-1">{errors.capacity.message}</p>}
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-sm font-medium text-dark-muted mb-1">Used Ports</label>
+                <input 
+                  type="number"
+                  {...register('used_capacity')} 
+                  className="w-full bg-white border border-dark-border rounded-lg px-4 py-2 text-dark-text focus:outline-none focus:border-primary"
+                  placeholder="e.g. 4"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-dark-muted mb-1">Total Ports</label>
+                <input 
+                  type="number"
+                  {...register('capacity')} 
+                  className="w-full bg-white border border-dark-border rounded-lg px-4 py-2 text-dark-text focus:outline-none focus:border-primary"
+                  placeholder="e.g. 16"
+                />
+              </div>
             </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-dark-muted mb-1">Description / Detail Tiang / Slack / Catatan</label>
+            <textarea 
+              {...register('description')} 
+              rows={3}
+              className="w-full bg-white border border-dark-border rounded-lg px-4 py-2 text-dark-text focus:outline-none focus:border-primary resize-none"
+              placeholder="e.g. Slack kabel 10m, Tiang beton 7m, Sisa spare tiang..."
+            />
           </div>
 
           <div className="pt-4 flex justify-end gap-3">

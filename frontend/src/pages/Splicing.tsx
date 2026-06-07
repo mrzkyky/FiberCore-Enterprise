@@ -95,11 +95,11 @@ export default function Splicing() {
     enabled: !!cableOutId
   });
 
-  const { data: splices, isLoading: isLoadingSplices } = useQuery({
+  const { data: matrixData, isLoading: isLoadingSplices } = useQuery({
     queryKey: ['splices', selectedClosureId],
     queryFn: async () => {
-      if (!selectedClosureId) return [];
-      const response = await axios.get<SpliceRecord[]>(`/api/v1/splices/?closure_id=${selectedClosureId}`, {
+      if (!selectedClosureId) return null;
+      const response = await axios.get(`/api/v1/splices/matrix/${selectedClosureId}`, {
         
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -107,6 +107,9 @@ export default function Splicing() {
     },
     enabled: !!selectedClosureId
   });
+
+  const splices = matrixData?.splices || [];
+  const analytics = matrixData?.analytics;
 
   // Mutations
   const spliceMutation = useMutation({
@@ -201,36 +204,62 @@ export default function Splicing() {
             </button>
           </div>
 
+          {/* Closure Analytics Summary */}
+          {analytics && (
+            <div className="grid grid-cols-3 gap-4 mb-6">
+              <div className="bg-dark-surface p-4 rounded-lg border border-dark-border text-center">
+                <p className="text-dark-muted text-xs uppercase font-semibold mb-1">Kabel Tersambung</p>
+                <p className="text-2xl font-bold text-primary">{analytics.total_cables_connected}</p>
+              </div>
+              <div className="bg-dark-surface p-4 rounded-lg border border-dark-border text-center">
+                <p className="text-dark-muted text-xs uppercase font-semibold mb-1">Core Di-Splice</p>
+                <p className="text-2xl font-bold text-accent">{analytics.total_spliced_cores}</p>
+              </div>
+              <div className="bg-dark-surface p-4 rounded-lg border border-dark-border text-center">
+                <p className="text-dark-muted text-xs uppercase font-semibold mb-1">Sisa Core (Free)</p>
+                <p className="text-2xl font-bold text-success">{analytics.total_free_cores}</p>
+              </div>
+            </div>
+          )}
+
           {isLoadingSplices ? (
              <div className="flex justify-center p-8 text-primary">
                <Loader2 className="animate-spin" size={32} />
              </div>
           ) : splices?.length === 0 ? (
             <div className="text-center py-12 text-dark-muted border border-dashed border-dark-border rounded-lg">
-              <p>No splice records found in this device.</p>
+              <p>Belum ada data penyambungan di perangkat ini.</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="border-b border-dark-border text-dark-muted text-sm">
-                    <th className="pb-3 px-4 font-medium">Splice ID</th>
-                    <th className="pb-3 px-4 font-medium">Core A (ID)</th>
-                    <th className="pb-3 px-4 font-medium">Core B (ID)</th>
+                    <th className="pb-3 px-4 font-medium">Core A</th>
+                    <th className="pb-3 px-4 font-medium">Core B</th>
                     <th className="pb-3 px-4 font-medium">Loss (dB)</th>
                     <th className="pb-3 px-4 font-medium text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="text-dark-text text-sm font-mono">
-                  {splices?.map((splice) => (
-                    <tr key={splice.id} className="border-b border-dark-border/50 hover:bg-white/5 transition-colors">
-                      <td className="py-4 px-4 text-xs text-dark-muted">{splice.id.split('-')[0]}...</td>
-                      <td className="py-4 px-4 text-accent">{splice.core_a_id.split('-')[0]}</td>
-                      <td className="py-4 px-4 text-accent">{splice.core_b_id.split('-')[0]}</td>
+                  {splices?.map((splice: any) => (
+                    <tr key={splice.splice_id} className="border-b border-dark-border/50 hover:bg-white/5 transition-colors">
+                      <td className="py-4 px-4">
+                        <div className="flex items-center gap-2">
+                           <span className={`inline-block w-3 h-3 rounded-full ${getTailwindColor(splice.core_a.color)}`}></span>
+                           <span>Tube {splice.core_a.tube_number} - Core {splice.core_a.core_number}</span>
+                        </div>
+                      </td>
+                      <td className="py-4 px-4">
+                        <div className="flex items-center gap-2">
+                           <span className={`inline-block w-3 h-3 rounded-full ${getTailwindColor(splice.core_b.color)}`}></span>
+                           <span>Tube {splice.core_b.tube_number} - Core {splice.core_b.core_number}</span>
+                        </div>
+                      </td>
                       <td className="py-4 px-4">{splice.attenuation} dB</td>
                       <td className="py-4 px-4 text-right">
                         <button 
-                          onClick={() => deleteSpliceMutation.mutate(splice.id)} 
+                          onClick={() => deleteSpliceMutation.mutate(splice.splice_id)} 
                           className="text-danger hover:text-red-400 p-1"
                           title="Delete Splice (Unsplice)"
                         >

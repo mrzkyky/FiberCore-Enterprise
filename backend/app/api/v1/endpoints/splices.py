@@ -93,10 +93,26 @@ def get_splice_matrix(device_id: uuid.UUID, db: Session = Depends(get_db)):
             }
         })
         
+    # Calculate analytics
+    total_cables = len(cables_info)
+    total_spliced_cores = len(matrix) * 2
+    
+    # Calculate free cores from all involved cables
+    total_free_cores = 0
+    for cable_id in cables_info.keys():
+        # Count cores with status 'Free' for this cable
+        free_count = db.query(Core).filter(Core.cable_id == cable_id, Core.status == "Free").count()
+        total_free_cores += free_count
+        
     return {
         "device_id": str(device_id),
         "cables": list(cables_info.values()),
-        "splices": matrix
+        "splices": matrix,
+        "analytics": {
+            "total_cables_connected": total_cables,
+            "total_spliced_cores": total_spliced_cores,
+            "total_free_cores": total_free_cores
+        }
     }
 
 @router.delete("/{splice_id}")

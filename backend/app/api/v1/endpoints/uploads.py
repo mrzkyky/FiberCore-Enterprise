@@ -19,60 +19,83 @@ def get_db():
         db.close()
 
 def parse_kml_coordinates(kml_content: bytes):
-    """Parses KML content and returns a list of LineString coordinates as WKT strings."""
+    """Parses KML content and returns a list of routes (LineString) and points (Point)."""
     routes = []
+    points_data = []
     
     try:
         root = ET.fromstring(kml_content)
         # KML usually has a namespace, so we need to handle it or strip it.
-        # Stripping namespace for easier search:
         for elem in root.iter():
             if '}' in elem.tag:
                 elem.tag = elem.tag.split('}', 1)[1]
                 
-        # Find all Placemarks with LineString
+        # Find all Placemarks
         for placemark in root.findall('.//Placemark'):
             name_elem = placemark.find('name')
-            name = name_elem.text if name_elem is not None else "Imported Route"
+            name = name_elem.text if name_elem is not None else "Unknown Asset"
+            
+            desc_elem = placemark.find('description')
+            description = desc_elem.text if desc_elem is not None else ""
+            # Strip html tags if any
+            description = re.sub(r'<[^>]+>', ' ', description).strip()
             
             linestring = placemark.find('.//LineString')
+            point = placemark.find('.//Point')
+            
             if linestring is not None:
                 coords_elem = linestring.find('coordinates')
                 if coords_elem is not None and coords_elem.text:
                     coords_text = coords_elem.text.strip()
-                    # coords_text is "lon,lat,alt lon,lat,alt ..."
                     points = []
                     for pt in coords_text.split():
                         parts = pt.split(',')
                         if len(parts) >= 2:
-                            lon = parts[0]
-                            lat = parts[1]
-                            points.append(f"{lon} {lat}")
+                            points.append(f"{parts[0]} {parts[1]}")
                             
                     if len(points) >= 2:
                         wkt = f"LINESTRING({', '.join(points)})"
                         
-                        # Try to detect capacity from name (e.g., 144C, 48c, 96 C)
-                        capacity = 24 # default
+                        capacity = 24
                         match = re.search(r'(\d+)\s*[cC]', name)
                         if match:
                             capacity = int(match.group(1))
                             
-                        # Try to detect cable type
                         ctype = "Distribution"
                         name_lower = name.lower()
-                        if "feeder" in name_lower:
-                            ctype = "Feeder"
-                        elif "backbone" in name_lower:
-                            ctype = "Backbone"
-                        elif "drop" in name_lower:
-                            ctype = "Drop"
+                        if "feeder" in name_lower: ctype = "Feeder"
+                        elif "backbone" in name_lower: ctype = "Backbone"
+                        elif "drop" in name_lower: ctype = "Drop"
                             
-                        routes.append({"name": name, "wkt": wkt, "capacity": capacity, "type": ctype})
+                        routes.append({"name": name, "wkt": wkt, "capacity": capacity, "type": ctype, "description": description})
+            
+            elif point is not None:
+                coords_elem = point.find('coordinates')
+                if coords_elem is not None and coords_elem.text:
+                    parts = coords_elem.text.strip().split(',')
+                    if len(parts) >= 2:
+                        wkt = f"POINT({parts[0]} {parts[1]})"
+                        
+                        # Guess device type from name
+                        dtype = "Pole"
+                        name_lower = name.lower()
+                        if "odp" in name_lower: dtype = "ODP"
+                        elif "closure" in name_lower or "jb" in name_lower or "jc" in name_lower: dtype = "Closure"
+                        elif "olt" in name_lower: dtype = "OLT"
+                        elif "otb" in name_lower: dtype = "OTB"
+                        elif "pop" in name_lower or "sto" in name_lower: dtype = "POP" # We could map to POP table, but Device is okay for now
+                            
+                        points_data.append({
+                            "name": name,
+                            "wkt": wkt,
+                            "device_type": dtype,
+                            "description": description
+                        })
+                        
     except Exception as e:
         print(f"Error parsing KML: {e}")
         
-    return routes
+    return {"routes": routes, "points": points_data}
 
 TIA_COLORS = ["Blue", "Orange", "Green", "Brown", "Slate", "White", "Red", "Black", "Yellow", "Violet", "Rose", "Aqua"]
 
@@ -102,15 +125,33 @@ async def upload_kml(
     else:
         kml_data = content
         
-    routes = parse_kml_coordinates(kml_data)
+    parsed_data = parse_kml_coordinates(kml_data)
+    routes = parsed_data.get("routes", [])
+    points = parsed_data.get("points", [])
     
-    if not routes:
-        raise HTTPException(status_code=400, detail="No valid LineString routes found in the file")
+    if not routes and not points:
+        raise HTTPException(status_code=400, detail="No valid LineString or Point placemarks found in the file")
         
     imported_cables = []
+    imported_devices = []
     batch_id = str(uuid.uuid4())
     
-    # Save routes to database
+    from app.db.models import Device
+    
+    # Save devices (Points)
+    for pt in points:
+        new_device = Device(
+            name=pt['name'],
+            device_type=pt['device_type'],
+            location=func.ST_GeomFromText(pt['wkt'], 4326),
+            description=pt['description']
+        )
+        db.add(new_device)
+        imported_devices.append(pt['name'])
+        
+    db.commit() # Commit devices
+    
+    # Save routes (Cables)
     for route in routes:
         new_cable = Cable(
             name=route['name'],
@@ -118,7 +159,8 @@ async def upload_kml(
             type=route['type'],
             route=func.ST_GeomFromText(route['wkt'], 4326),
             region=region,
-            import_batch=batch_id
+            import_batch=batch_id,
+            description=route['description']
         )
         db.add(new_cable)
         db.flush() # Flush to get new_cable.id
@@ -145,7 +187,8 @@ async def upload_kml(
         imported_cables.append({"id": new_cable.id, "name": new_cable.name})
         
     return {
-        "message": f"Successfully imported {len(imported_cables)} routes into region {region}",
+        "message": f"Successfully imported {len(imported_cables)} routes and {len(imported_devices)} devices into region {region}",
         "cables": imported_cables,
+        "devices_count": len(imported_devices),
         "batch_id": batch_id
     }
