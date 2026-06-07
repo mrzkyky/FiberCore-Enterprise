@@ -29,7 +29,7 @@ export default function Map() {
     <div className="flex flex-col h-full space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+          <h2 className="text-2xl font-bold text-dark-text flex items-center gap-2">
             <MapIcon className="text-primary" />
             GIS Topology Map
           </h2>

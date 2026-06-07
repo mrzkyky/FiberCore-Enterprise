@@ -8,32 +8,43 @@ export default {
     extend: {
       colors: {
         dark: {
-          bg: '#0a0f1a', // Deep dark space background
-          surface: '#121822', // Slightly lighter for cards
-          panel: '#1a2230', // Floating panel background
-          border: '#2a3547', // Subtle border
-          text: '#e2e8f0', // Gray-200 text
-          muted: '#94a3b8', // Gray-400 muted
+          bg: '#FFFFFF', // Migrated to Light
+          surface: '#F8FAFC',
+          panel: '#FFFFFF',
+          border: '#E2E8F0', // slate-200
+          text: '#1E293B', // slate-800
+          muted: '#64748B', // slate-500
+          card: '#F1F5F9', // slate-100
         },
         primary: {
-          DEFAULT: '#3b82f6', // Fiber blue
-          glow: '#60a5fa', // Neon glow
+          DEFAULT: '#0F4C81', // Primary Blue
+          glow: '#2563EB', // Secondary Blue
         },
         accent: {
-          DEFAULT: '#10b981', // Emerald green
+          DEFAULT: '#EFF6FF', // Soft Blue Background
+        },
+        orange: {
+          DEFAULT: '#F97316',
+          light: '#FB923C'
+        },
+        success: {
+          DEFAULT: '#22C55E'
+        },
+        warning: {
+          DEFAULT: '#F59E0B'
         },
         danger: {
-          DEFAULT: '#ef4444', // Red for broken cores
+          DEFAULT: '#EF4444', 
         }
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'], // Professional font
-        mono: ['Fira Code', 'monospace'], // For tech data like MAC addresses
+        sans: ['Inter', 'system-ui', 'sans-serif'],
+        mono: ['Fira Code', 'monospace'],
       },
       boxShadow: {
-        'glow-primary': '0 0 15px -3px rgba(59, 130, 246, 0.4)',
-        'glow-accent': '0 0 15px -3px rgba(16, 185, 129, 0.4)',
-        'floating': '0 10px 40px -10px rgba(0,0,0,0.5)',
+        'glow-primary': '0 4px 14px 0 rgba(37, 99, 235, 0.2)',
+        'floating': '0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.025)',
+        'card': '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
       }
     },
   },

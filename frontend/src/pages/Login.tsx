@@ -52,17 +52,17 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen w-screen flex items-center justify-center bg-dark-bg relative overflow-hidden">
+    <div className="min-h-screen w-screen flex items-center justify-center bg-white relative overflow-hidden">
       {/* Background abstract glowing lines */}
       <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/20 rounded-full blur-[100px]"></div>
       <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-accent/20 rounded-full blur-[100px]"></div>
       
       <div className="glass-panel w-full max-w-md p-8 relative z-10">
         <div className="flex flex-col items-center mb-8">
-          <div className="w-16 h-16 rounded-2xl bg-dark-bg border border-dark-border shadow-glow-primary flex items-center justify-center mb-4">
+          <div className="w-16 h-16 rounded-2xl bg-white border border-dark-border shadow-glow-primary flex items-center justify-center mb-4">
             <Activity size={32} className="text-primary" />
           </div>
-          <h1 className="text-2xl font-bold text-white">System Access</h1>
+          <h1 className="text-2xl font-bold text-dark-text">System Access</h1>
           <p className="text-dark-muted text-sm mt-1">FiberCore Enterprise Network</p>
         </div>
 
@@ -81,7 +81,7 @@ export default function Login() {
                 type="email" 
                 value={email}
                 onChange={e => setEmail(e.target.value)}
-                className="w-full bg-dark-bg border border-dark-border text-white rounded-lg pl-10 pr-4 py-3 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                className="w-full bg-white border border-dark-border text-dark-text rounded-lg pl-10 pr-4 py-3 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
                 placeholder="admin@fibercore.local"
                 required
               />
@@ -96,7 +96,7 @@ export default function Login() {
                 type="password" 
                 value={password}
                 onChange={e => setPassword(e.target.value)}
-                className="w-full bg-dark-bg border border-dark-border text-white rounded-lg pl-10 pr-4 py-3 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                className="w-full bg-white border border-dark-border text-dark-text rounded-lg pl-10 pr-4 py-3 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
                 placeholder="••••••••"
                 required
               />

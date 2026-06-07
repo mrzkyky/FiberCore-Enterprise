@@ -103,7 +103,7 @@ export default function Organizations() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+          <h2 className="text-2xl font-bold text-dark-text flex items-center gap-2">
             <Building2 className="text-primary" />
             Organizations
           </h2>
@@ -135,7 +135,7 @@ export default function Organizations() {
                   <th className="pb-3 px-4 font-medium text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="text-white text-sm">
+              <tbody className="text-dark-text text-sm">
                 {organizations?.map((org) => (
                   <tr key={org.id} className="border-b border-dark-border/50 hover:bg-white/5 transition-colors">
                     <td className="py-4 px-4 font-medium">{org.name}</td>
@@ -172,7 +172,7 @@ export default function Organizations() {
             <label className="block text-sm font-medium text-dark-muted mb-1">Organization Name</label>
             <input 
               {...register('name')} 
-              className="w-full bg-dark-bg border border-dark-border rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary"
+              className="w-full bg-white border border-dark-border rounded-lg px-4 py-2 text-dark-text focus:outline-none focus:border-primary"
               placeholder="e.g. Headquarter Jakarta"
             />
             {errors.name && <p className="text-danger text-xs mt-1">{errors.name.message}</p>}
@@ -182,7 +182,7 @@ export default function Organizations() {
             <label className="block text-sm font-medium text-dark-muted mb-1">Level</label>
             <select 
               {...register('level')} 
-              className="w-full bg-dark-bg border border-dark-border rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary"
+              className="w-full bg-white border border-dark-border rounded-lg px-4 py-2 text-dark-text focus:outline-none focus:border-primary"
             >
               <option value="">Select Level</option>
               <option value="Region">Region</option>
@@ -197,7 +197,7 @@ export default function Organizations() {
             <label className="block text-sm font-medium text-dark-muted mb-1">Parent Organization</label>
             <select 
               {...register('parent_id')} 
-              className="w-full bg-dark-bg border border-dark-border rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary"
+              className="w-full bg-white border border-dark-border rounded-lg px-4 py-2 text-dark-text focus:outline-none focus:border-primary"
             >
               <option value="">None (Top Level)</option>
               {organizations?.filter(o => o.id !== editingId).map(org => (
@@ -208,7 +208,7 @@ export default function Organizations() {
           </div>
 
           <div className="pt-4 flex justify-end gap-3">
-            <button type="button" onClick={closeModal} className="px-4 py-2 rounded-lg text-dark-muted hover:text-white transition-colors">
+            <button type="button" onClick={closeModal} className="px-4 py-2 rounded-lg text-dark-muted hover:text-primary transition-colors">
               Cancel
             </button>
             <button type="submit" disabled={mutation.isPending} className="px-4 py-2 rounded-lg bg-primary text-dark-bg font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50">

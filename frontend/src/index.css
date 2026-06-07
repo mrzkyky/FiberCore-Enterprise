@@ -6,37 +6,37 @@
 
 @layer base {
   body {
-    @apply bg-dark-bg text-dark-text font-sans antialiased overflow-hidden h-screen w-screen selection:bg-primary/30 selection:text-white;
+    @apply bg-dark-surface text-dark-text font-sans antialiased overflow-hidden h-screen w-screen selection:bg-primary/20 selection:text-primary;
   }
 }
 
 @layer components {
-  /* Glassmorphism Panel */
+  /* Clean White Panel */
   .glass-panel {
-    @apply bg-dark-surface/80 backdrop-blur-md border border-dark-border shadow-floating rounded-xl;
+    @apply bg-white border border-dark-border shadow-card rounded-xl;
   }
   
-  /* Glowing Neon Buttons */
-  .btn-neon {
-    @apply px-4 py-2 rounded-lg font-medium transition-all duration-300;
+  /* Standard Enterprise Buttons */
+  .btn-primary {
+    @apply bg-primary text-white hover:bg-primary-glow px-4 py-2 rounded-lg font-medium transition-all duration-200 shadow-sm hover:shadow-glow-primary;
   }
-  .btn-neon-primary {
-    @apply bg-primary/10 text-primary border border-primary/30 hover:bg-primary/20 hover:shadow-glow-primary;
+  .btn-secondary {
+    @apply bg-white text-dark-text border border-dark-border hover:bg-dark-surface px-4 py-2 rounded-lg font-medium transition-all duration-200 shadow-sm;
   }
-  .btn-neon-accent {
-    @apply bg-accent/10 text-accent border border-accent/30 hover:bg-accent/20 hover:shadow-glow-accent;
+  .btn-danger {
+    @apply bg-white text-danger border border-danger/30 hover:bg-danger/10 px-4 py-2 rounded-lg font-medium transition-all duration-200 shadow-sm;
   }
   
   /* Sidebar Item */
   .sidebar-item {
-    @apply flex items-center gap-3 px-4 py-3 rounded-lg text-dark-muted transition-all duration-200 cursor-pointer hover:bg-dark-panel hover:text-white;
+    @apply flex items-center gap-3 px-4 py-2.5 mx-2 rounded-lg text-dark-muted font-medium transition-all duration-200 cursor-pointer hover:bg-accent hover:text-primary;
   }
   .sidebar-item.active {
-    @apply bg-primary/10 text-primary border-r-2 border-primary shadow-glow-primary rounded-r-none;
+    @apply bg-accent text-primary shadow-sm;
   }
 }
 
-/* Custom scrollbar for dark mode */
+/* Custom scrollbar for light mode */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;

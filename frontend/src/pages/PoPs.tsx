@@ -126,7 +126,7 @@ export default function PoPs() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+          <h2 className="text-2xl font-bold text-dark-text flex items-center gap-2">
             <MapPin className="text-primary" />
             Point of Presence (PoP)
           </h2>
@@ -157,7 +157,7 @@ export default function PoPs() {
                   <th className="pb-3 px-4 font-medium text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="text-white text-sm">
+              <tbody className="text-dark-text text-sm">
                 {pops?.map((pop) => (
                   <tr key={pop.id} className="border-b border-dark-border/50 hover:bg-white/5 transition-colors">
                     <td className="py-4 px-4 font-medium flex items-center gap-2">
@@ -190,7 +190,7 @@ export default function PoPs() {
             <label className="block text-sm font-medium text-dark-muted mb-1">PoP Name</label>
             <input 
               {...register('name')} 
-              className="w-full bg-dark-bg border border-dark-border rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary"
+              className="w-full bg-white border border-dark-border rounded-lg px-4 py-2 text-dark-text focus:outline-none focus:border-primary"
               placeholder="e.g. PoP Sudirman"
             />
             {errors.name && <p className="text-danger text-xs mt-1">{errors.name.message}</p>}
@@ -200,7 +200,7 @@ export default function PoPs() {
             <label className="block text-sm font-medium text-dark-muted mb-1">Organization</label>
             <select 
               {...register('org_id')} 
-              className="w-full bg-dark-bg border border-dark-border rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary"
+              className="w-full bg-white border border-dark-border rounded-lg px-4 py-2 text-dark-text focus:outline-none focus:border-primary"
             >
               <option value="">Select Organization</option>
               {organizations?.map(org => (
@@ -214,14 +214,14 @@ export default function PoPs() {
             <label className="block text-sm font-medium text-dark-muted mb-1">Location / Coordinates</label>
             <input 
               {...register('location')} 
-              className="w-full bg-dark-bg border border-dark-border rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary"
+              className="w-full bg-white border border-dark-border rounded-lg px-4 py-2 text-dark-text focus:outline-none focus:border-primary"
               placeholder="e.g. -6.882452, 109.054952 (Decimal Degrees)"
             />
             {errors.location && <p className="text-danger text-xs mt-1">{errors.location.message}</p>}
           </div>
 
           <div className="pt-4 flex justify-end gap-3">
-            <button type="button" onClick={closeModal} className="px-4 py-2 rounded-lg text-dark-muted hover:text-white transition-colors">
+            <button type="button" onClick={closeModal} className="px-4 py-2 rounded-lg text-dark-muted hover:text-primary transition-colors">
               Cancel
             </button>
             <button type="submit" disabled={mutation.isPending} className="px-4 py-2 rounded-lg bg-primary text-dark-bg font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50">

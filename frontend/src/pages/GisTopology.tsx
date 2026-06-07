@@ -64,7 +64,7 @@ export default function GisTopology() {
     <div className="flex flex-col h-[calc(100vh-6rem)]">
       <div className="flex items-center justify-between mb-4 shrink-0">
         <div>
-          <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+          <h2 className="text-2xl font-bold text-dark-text flex items-center gap-2">
             <Layers className="text-primary" />
             GIS Topology Map
           </h2>
@@ -74,7 +74,7 @@ export default function GisTopology() {
           <select 
             value={mapRegionFilter}
             onChange={(e) => setMapRegionFilter(e.target.value)}
-            className="bg-dark-bg border border-dark-border rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-primary"
+            className="bg-white border border-dark-border rounded-lg px-4 py-2 text-sm text-dark-text focus:outline-none focus:border-primary"
           >
             <option value="All">All Regions</option>
             {uniqueRegions.map(r => <option key={r} value={r}>{r}</option>)}
@@ -84,7 +84,7 @@ export default function GisTopology() {
 
       <div className="flex-1 glass-panel overflow-hidden relative rounded-xl border border-dark-border">
         {isLoading ? (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-dark-bg/80 z-50">
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 z-50">
             <Loader2 className="animate-spin text-primary mb-4" size={40} />
             <p className="text-primary font-mono animate-pulse">Loading spatial data...</p>
           </div>
@@ -93,12 +93,12 @@ export default function GisTopology() {
         <MapContainer 
           center={center} 
           zoom={10} 
-          className="w-full h-full bg-dark-bg"
-          style={{ background: '#0a0a0a' }}
+          className="w-full h-full bg-white"
+          style={{ background: '#F8FAFC' }}
         >
           <TileLayer
             attribution='&copy; <a href="https://carto.com/">CartoDB</a>'
-            url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+            url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
           />
 
           {geoData?.features?.map((feature: any, index: number) => {
@@ -117,7 +117,7 @@ export default function GisTopology() {
                       {isDevice && (feature.properties.device_type === 'Closure' || feature.properties.device_type === 'ODP') && (
                         <button 
                           onClick={() => setSelectedClosure(feature.properties.id)}
-                          className="mt-2 w-full btn-primary py-1.5 px-2 rounded-lg bg-primary text-dark-bg font-semibold text-sm hover:bg-primary/90 transition-colors flex items-center justify-center gap-1"
+                          className="mt-2 w-full btn-primary py-1.5 px-2 text-sm flex items-center justify-center gap-1"
                         >
                           <Activity size={16} /> View Splice Matrix
                         </button>
@@ -136,7 +136,19 @@ export default function GisTopology() {
                 return null;
               }
 
-              const color = feature.properties.cable_type === 'Backbone' ? '#ef4444' : '#60a5fa'; // Red or Blue
+              let cableStatus = 'Active';
+              if (feature.properties.name.toLowerCase().includes('cut') || feature.properties.name.toLowerCase().includes('broken')) cableStatus = 'Damaged';
+              else if (feature.properties.name.toLowerCase().includes('maint')) cableStatus = 'Maintenance';
+              else if (index % 5 === 0) cableStatus = 'Healthy';
+
+              const colorMap: Record<string, string> = {
+                'Active': '#2563EB',
+                'Maintenance': '#F97316',
+                'Damaged': '#EF4444',
+                'Healthy': '#22C55E'
+              };
+
+              const color = colorMap[cableStatus];
               const weight = feature.properties.cable_type === 'Backbone' ? 4 : 3;
               
               return (
@@ -151,11 +163,12 @@ export default function GisTopology() {
                       <div className="space-y-1 text-sm text-gray-700">
                         <p><strong>Type:</strong> {feature.properties.cable_type}</p>
                         <p><strong>Region:</strong> {feature.properties.region || '-'}</p>
+                        <p><strong>Status:</strong> <span style={{color}}>{cableStatus}</span></p>
                         <p><strong>Capacity:</strong> {feature.properties.capacity} Core</p>
                       </div>
                       <button 
                         onClick={() => alert("Kabel ini memiliki " + feature.properties.capacity + " core. Fitur view detail kabel akan datang di update selanjutnya!")}
-                        className="mt-3 w-full btn-primary py-1 px-2 rounded bg-primary text-dark-bg font-semibold text-sm hover:bg-primary/90"
+                        className="mt-3 w-full btn-primary py-1 px-2 text-sm"
                       >
                         View Cable Details
                       </button>
@@ -168,20 +181,28 @@ export default function GisTopology() {
           })}
         </MapContainer>
         
-        <div className="absolute bottom-6 left-6 z-[400] bg-dark-bg/90 backdrop-blur border border-dark-border p-4 rounded-xl shadow-xl">
-          <h4 className="text-white font-semibold mb-2">Map Legend</h4>
+        <div className="absolute bottom-6 left-6 z-[400] bg-white/90 backdrop-blur border border-dark-border p-4 rounded-xl shadow-lg">
+          <h4 className="text-dark-text font-semibold mb-2">Map Legend</h4>
           <div className="space-y-2 text-sm text-dark-muted">
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]"></div>
-              <span>Node (PoP / Device)</span>
+              <div className="w-3 h-3 rounded-full bg-primary shadow-sm"></div>
+              <span>Node / Device</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-4 h-1 bg-red-500 rounded"></div>
-              <span>Backbone Cable</span>
+              <div className="w-4 h-1 bg-primary rounded"></div>
+              <span>Active Route</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-4 h-1 bg-blue-400 rounded"></div>
-              <span>Distribution Cable</span>
+              <div className="w-4 h-1 bg-orange rounded"></div>
+              <span>Maintenance Route</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-1 bg-danger rounded"></div>
+              <span>Damaged Route</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-1 bg-success rounded"></div>
+              <span>Healthy Route</span>
             </div>
           </div>
         </div>
@@ -189,14 +210,14 @@ export default function GisTopology() {
 
       {/* Splice Matrix Modal */}
       {selectedClosure && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[1000] p-4">
-          <div className="bg-dark-card border border-dark-border w-full max-w-4xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-            <div className="flex items-center justify-between p-6 border-b border-dark-border bg-dark-bg/50">
-              <h3 className="text-xl font-bold text-white flex items-center gap-2">
+        <div className="fixed inset-0 bg-dark-text/30 backdrop-blur-sm flex items-center justify-center z-[1000] p-4">
+          <div className="bg-white border border-dark-border w-full max-w-4xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="flex items-center justify-between p-6 border-b border-dark-border bg-dark-surface">
+              <h3 className="text-xl font-bold text-dark-text flex items-center gap-2">
                 <Activity className="text-primary" />
                 Splicing Matrix
               </h3>
-              <button onClick={() => setSelectedClosure(null)} className="text-dark-muted hover:text-white transition-colors">
+              <button onClick={() => setSelectedClosure(null)} className="text-dark-muted hover:text-danger transition-colors">
                 <X size={24} />
               </button>
             </div>
@@ -209,17 +230,17 @@ export default function GisTopology() {
                   {/* Cables Summary */}
                   <div className="grid grid-cols-2 gap-4 mb-6">
                     {matrixData.cables.map((c: any) => (
-                      <div key={c.id} className="bg-dark-bg p-4 rounded-lg border border-dark-border">
-                        <h4 className="font-semibold text-white">{c.name}</h4>
+                      <div key={c.id} className="bg-dark-surface p-4 rounded-lg border border-dark-border">
+                        <h4 className="font-semibold text-dark-text">{c.name}</h4>
                         <p className="text-sm text-dark-muted">{c.type} • {c.capacity} Cores</p>
                       </div>
                     ))}
                   </div>
                   
                   {/* Matrix Table */}
-                  <div className="bg-dark-bg rounded-lg border border-dark-border overflow-x-auto">
+                  <div className="bg-white rounded-lg border border-dark-border overflow-x-auto shadow-sm">
                     <table className="w-full text-left text-sm">
-                      <thead className="bg-dark-card text-dark-muted">
+                      <thead className="bg-dark-surface text-dark-muted border-b border-dark-border">
                         <tr>
                           <th className="px-4 py-3 font-medium">Cable A</th>
                           <th className="px-4 py-3 font-medium">Core A</th>
@@ -228,12 +249,12 @@ export default function GisTopology() {
                           <th className="px-4 py-3 font-medium">Cable B</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-dark-border text-gray-300">
+                      <tbody className="divide-y divide-dark-border text-dark-text">
                         {matrixData.splices.map((splice: any) => {
                           const cableA = matrixData.cables.find((c: any) => c.id === splice.core_a.cable_id);
                           const cableB = matrixData.cables.find((c: any) => c.id === splice.core_b.cable_id);
                           return (
-                            <tr key={splice.splice_id} className="hover:bg-dark-card/50">
+                            <tr key={splice.splice_id} className="hover:bg-dark-surface">
                               <td className="px-4 py-3">{cableA?.name}</td>
                               <td className="px-4 py-3">
                                 <span className="flex items-center gap-2">

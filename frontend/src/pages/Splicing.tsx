@@ -164,7 +164,7 @@ export default function Splicing() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+          <h2 className="text-2xl font-bold text-dark-text flex items-center gap-2">
             <Network className="text-primary" />
             Splicing & Patching
           </h2>
@@ -177,7 +177,7 @@ export default function Splicing() {
         <select 
           value={selectedClosureId}
           onChange={(e) => setSelectedClosureId(e.target.value)}
-          className="w-full md:w-1/2 bg-dark-bg border border-dark-border rounded-lg px-4 py-3 text-white focus:outline-none focus:border-primary text-lg"
+          className="w-full md:w-1/2 bg-white border border-dark-border rounded-lg px-4 py-3 text-dark-text focus:outline-none focus:border-primary text-lg"
         >
           <option value="">-- Choose Device --</option>
           {devices?.map(d => (
@@ -189,7 +189,7 @@ export default function Splicing() {
       {selectedClosureId && (
         <div className="glass-panel p-6">
           <div className="flex justify-between items-center mb-6">
-            <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+            <h3 className="text-lg font-semibold text-dark-text flex items-center gap-2">
               <Cable className="text-accent" />
               Splicing Records
             </h3>
@@ -221,7 +221,7 @@ export default function Splicing() {
                     <th className="pb-3 px-4 font-medium text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="text-white text-sm font-mono">
+                <tbody className="text-dark-text text-sm font-mono">
                   {splices?.map((splice) => (
                     <tr key={splice.id} className="border-b border-dark-border/50 hover:bg-white/5 transition-colors">
                       <td className="py-4 px-4 text-xs text-dark-muted">{splice.id.split('-')[0]}...</td>
@@ -251,13 +251,13 @@ export default function Splicing() {
           
           <div className="grid grid-cols-2 gap-6">
             {/* Cable IN Selection */}
-            <div className="p-4 bg-dark-bg border border-dark-border rounded-lg space-y-4">
+            <div className="p-4 bg-white border border-dark-border rounded-lg space-y-4">
               <h4 className="font-semibold text-primary">Cable IN (Source)</h4>
               <div>
                 <label className="block text-xs text-dark-muted mb-1">Select Cable</label>
                 <select 
                   value={cableInId} onChange={e => {setCableInId(e.target.value); setCoreInId('');}}
-                  className="w-full bg-dark-panel border border-dark-border rounded px-3 py-2 text-white text-sm focus:border-primary focus:outline-none"
+                  className="w-full bg-white border border-dark-border rounded px-3 py-2 text-dark-text text-sm focus:border-primary focus:outline-none"
                 >
                   <option value="">- Choose Cable -</option>
                   {cables?.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -267,7 +267,7 @@ export default function Splicing() {
                 <label className="block text-xs text-dark-muted mb-1">Select Core</label>
                 <select 
                   value={coreInId} onChange={e => setCoreInId(e.target.value)}
-                  className="w-full bg-dark-panel border border-dark-border rounded px-3 py-2 text-white text-sm focus:border-primary focus:outline-none"
+                  className="w-full bg-white border border-dark-border rounded px-3 py-2 text-dark-text text-sm focus:border-primary focus:outline-none"
                 >
                   <option value="">- Choose Free Core -</option>
                   {coresIn?.filter(c => c.status === 'Free').map(core => (
@@ -275,7 +275,7 @@ export default function Splicing() {
                   ))}
                 </select>
                 {coreInId && (
-                  <div className="mt-2 text-xs text-white">
+                  <div className="mt-2 text-xs text-dark-text">
                     Selected Core Color:{' '}
                     <span className={`inline-block w-3 h-3 rounded-full ml-1 ${getTailwindColor(coresIn?.find(c=>c.id===coreInId)?.color || '')}`}></span>
                   </div>
@@ -284,13 +284,13 @@ export default function Splicing() {
             </div>
 
             {/* Cable OUT Selection */}
-            <div className="p-4 bg-dark-bg border border-dark-border rounded-lg space-y-4">
+            <div className="p-4 bg-white border border-dark-border rounded-lg space-y-4">
               <h4 className="font-semibold text-accent">Cable OUT (Destination)</h4>
               <div>
                 <label className="block text-xs text-dark-muted mb-1">Select Cable</label>
                 <select 
                   value={cableOutId} onChange={e => {setCableOutId(e.target.value); setCoreOutId('');}}
-                  className="w-full bg-dark-panel border border-dark-border rounded px-3 py-2 text-white text-sm focus:border-primary focus:outline-none"
+                  className="w-full bg-white border border-dark-border rounded px-3 py-2 text-dark-text text-sm focus:border-primary focus:outline-none"
                 >
                   <option value="">- Choose Cable -</option>
                   {cables?.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -300,7 +300,7 @@ export default function Splicing() {
                 <label className="block text-xs text-dark-muted mb-1">Select Core</label>
                 <select 
                   value={coreOutId} onChange={e => setCoreOutId(e.target.value)}
-                  className="w-full bg-dark-panel border border-dark-border rounded px-3 py-2 text-white text-sm focus:border-primary focus:outline-none"
+                  className="w-full bg-white border border-dark-border rounded px-3 py-2 text-dark-text text-sm focus:border-primary focus:outline-none"
                 >
                   <option value="">- Choose Free Core -</option>
                   {coresOut?.filter(c => c.status === 'Free').map(core => (
@@ -308,7 +308,7 @@ export default function Splicing() {
                   ))}
                 </select>
                 {coreOutId && (
-                  <div className="mt-2 text-xs text-white">
+                  <div className="mt-2 text-xs text-dark-text">
                     Selected Core Color:{' '}
                     <span className={`inline-block w-3 h-3 rounded-full ml-1 ${getTailwindColor(coresOut?.find(c=>c.id===coreOutId)?.color || '')}`}></span>
                   </div>
@@ -317,16 +317,16 @@ export default function Splicing() {
             </div>
           </div>
 
-          <div className="p-4 bg-dark-bg border border-dark-border rounded-lg">
+          <div className="p-4 bg-white border border-dark-border rounded-lg">
              <label className="block text-xs text-dark-muted mb-1">Attenuation / Splice Loss (dB)</label>
              <input 
                 type="number" step="0.01" value={attenuation} onChange={e => setAttenuation(parseFloat(e.target.value))}
-                className="w-full md:w-1/3 bg-dark-panel border border-dark-border rounded px-3 py-2 text-white text-sm focus:border-primary focus:outline-none"
+                className="w-full md:w-1/3 bg-white border border-dark-border rounded px-3 py-2 text-dark-text text-sm focus:border-primary focus:outline-none"
              />
           </div>
 
           <div className="pt-4 flex justify-end gap-3">
-            <button onClick={() => setIsSpliceModalOpen(false)} className="px-4 py-2 rounded-lg text-dark-muted hover:text-white transition-colors">
+            <button onClick={() => setIsSpliceModalOpen(false)} className="px-4 py-2 rounded-lg text-dark-muted hover:text-primary transition-colors">
               Cancel
             </button>
             <button 

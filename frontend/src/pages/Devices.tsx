@@ -121,7 +121,7 @@ export default function Devices() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+          <h2 className="text-2xl font-bold text-dark-text flex items-center gap-2">
             <Server className="text-primary" />
             Devices & Assets
           </h2>
@@ -155,7 +155,7 @@ export default function Devices() {
                   <th className="pb-3 px-4 font-medium text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="text-white text-sm">
+              <tbody className="text-dark-text text-sm">
                 {devices?.map((dev) => (
                   <tr key={dev.id} className="border-b border-dark-border/50 hover:bg-white/5 transition-colors">
                     <td className="py-4 px-4 font-medium">{dev.name}</td>
@@ -188,7 +188,7 @@ export default function Devices() {
             <label className="block text-sm font-medium text-dark-muted mb-1">Device Name</label>
             <input 
               {...register('name')} 
-              className="w-full bg-dark-bg border border-dark-border rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary"
+              className="w-full bg-white border border-dark-border rounded-lg px-4 py-2 text-dark-text focus:outline-none focus:border-primary"
               placeholder="e.g. OLT ZTE C320"
             />
             {errors.name && <p className="text-danger text-xs mt-1">{errors.name.message}</p>}
@@ -199,7 +199,7 @@ export default function Devices() {
               <label className="block text-sm font-medium text-dark-muted mb-1">Device Type</label>
               <select 
                 {...register('device_type')} 
-                className="w-full bg-dark-bg border border-dark-border rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary"
+                className="w-full bg-white border border-dark-border rounded-lg px-4 py-2 text-dark-text focus:outline-none focus:border-primary"
               >
                 <option value="">Select Type</option>
                 <option value="OLT">OLT</option>
@@ -214,7 +214,7 @@ export default function Devices() {
               <label className="block text-sm font-medium text-dark-muted mb-1">Brand</label>
               <input 
                 {...register('brand')} 
-                className="w-full bg-dark-bg border border-dark-border rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary"
+                className="w-full bg-white border border-dark-border rounded-lg px-4 py-2 text-dark-text focus:outline-none focus:border-primary"
                 placeholder="e.g. ZTE, Huawei"
               />
             </div>
@@ -225,7 +225,7 @@ export default function Devices() {
               <label className="block text-sm font-medium text-dark-muted mb-1">PoP Location</label>
               <select 
                 {...register('pop_id')} 
-                className="w-full bg-dark-bg border border-dark-border rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary"
+                className="w-full bg-white border border-dark-border rounded-lg px-4 py-2 text-dark-text focus:outline-none focus:border-primary"
               >
                 <option value="">None / Field Area</option>
                 {pops?.map(pop => (
@@ -240,7 +240,7 @@ export default function Devices() {
               <input 
                 type="number"
                 {...register('capacity')} 
-                className="w-full bg-dark-bg border border-dark-border rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary"
+                className="w-full bg-white border border-dark-border rounded-lg px-4 py-2 text-dark-text focus:outline-none focus:border-primary"
                 placeholder="e.g. 16"
               />
               {errors.capacity && <p className="text-danger text-xs mt-1">{errors.capacity.message}</p>}
@@ -248,7 +248,7 @@ export default function Devices() {
           </div>
 
           <div className="pt-4 flex justify-end gap-3">
-            <button type="button" onClick={closeModal} className="px-4 py-2 rounded-lg text-dark-muted hover:text-white transition-colors">
+            <button type="button" onClick={closeModal} className="px-4 py-2 rounded-lg text-dark-muted hover:text-primary transition-colors">
               Cancel
             </button>
             <button type="submit" disabled={mutation.isPending} className="px-4 py-2 rounded-lg bg-primary text-dark-bg font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50">

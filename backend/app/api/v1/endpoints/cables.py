@@ -79,6 +79,20 @@ def delete_cables_by_region(region_name: str, db: Session = Depends(get_db)):
     db.commit()
     return {"message": f"Successfully deleted {deleted_count} cables in region '{region_name}'"}
 
+@router.delete("/batch/{batch_id}")
+def delete_cables_by_batch(batch_id: str, db: Session = Depends(get_db)):
+    cables = db.query(Cable).filter(Cable.import_batch == batch_id).all()
+    if not cables:
+        raise HTTPException(status_code=404, detail="No cables found for this batch")
+    
+    deleted_count = 0
+    for c in cables:
+        db.delete(c)
+        deleted_count += 1
+        
+    db.commit()
+    return {"message": f"Successfully deleted {deleted_count} cables in batch '{batch_id}'"}
+
 @router.delete("/{cable_id}")
 def delete_cable(cable_id: uuid.UUID, db: Session = Depends(get_db)):
     db_cable = db.query(Cable).filter(Cable.id == cable_id).first()

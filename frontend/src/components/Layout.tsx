@@ -1,23 +1,38 @@
 import React from 'react';
-import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { 
-  Activity, Map as MapIcon, Box, Server, 
-  LogOut, Search, Building2, MapPin, 
-  Network, Bell, Settings 
+  Activity, BarChart3, Box, Layers, LogOut, 
+  Map, Settings, ShieldAlert, Users, 
+  Server, Route, Cpu, Bell, Search 
 } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 
-export default function DashboardLayout() {
-  const { user, logout } = useAuthStore();
+interface LayoutProps {
+  children: React.ReactNode;
+}
+
+export default function Layout({ children }: LayoutProps) {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { user, logout } = useAuthStore();
 
   const handleLogout = () => {
     logout();
     navigate('/login');
   };
 
+  const navItems = [
+    { name: 'Dashboard', icon: BarChart3, path: '/' },
+    { name: 'GIS Map', icon: Map, path: '/map' },
+    { name: 'Fiber Cables', icon: Route, path: '/cables' },
+    { name: 'ODP / OTB', icon: Box, path: '/devices' },
+    { name: 'PoP Sites', icon: Server, path: '/pops' },
+    { name: 'Organizations', icon: Users, path: '/organizations' },
+    { name: 'Incidents', icon: ShieldAlert, path: '/incidents' },
+  ];
+
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-dark-surface">
+    <div className="flex h-screen w-screen bg-dark-surface overflow-hidden">
       {/* Left Sidebar */}
       <aside className="w-64 bg-white border-r border-dark-border flex flex-col shrink-0 z-20">
         <div className="h-16 flex items-center px-6 border-b border-dark-border">
@@ -31,48 +46,39 @@ export default function DashboardLayout() {
           <div className="px-6 mb-2 text-xs font-semibold text-dark-muted uppercase tracking-wider">
             Network Operations
           </div>
-          <NavLink to="/" className={({isActive}) => `sidebar-item ${isActive ? 'active' : ''}`}>
-            <Activity size={18} /> <span>Dashboard</span>
-          </NavLink>
-          <NavLink to="/map" className={({isActive}) => `sidebar-item ${isActive ? 'active' : ''}`}>
-            <MapIcon size={18} /> <span>GIS Topology</span>
-          </NavLink>
-          <NavLink to="/organizations" className={({isActive}) => `sidebar-item ${isActive ? 'active' : ''}`}>
-            <Building2 size={18} /> <span>Organizations</span>
-          </NavLink>
-          <NavLink to="/pops" className={({isActive}) => `sidebar-item ${isActive ? 'active' : ''}`}>
-            <MapPin size={18} /> <span>PoP Sites</span>
-          </NavLink>
-          <NavLink to="/devices" className={({isActive}) => `sidebar-item ${isActive ? 'active' : ''}`}>
-            <Server size={18} /> <span>Devices & Assets</span>
-          </NavLink>
-          <NavLink to="/cables" className={({isActive}) => `sidebar-item ${isActive ? 'active' : ''}`}>
-            <Box size={18} /> <span>Cables & Cores</span>
-          </NavLink>
-          <NavLink to="/splicing" className={({isActive}) => `sidebar-item ${isActive ? 'active' : ''}`}>
-            <Network size={18} /> <span>Splicing & Patching</span>
-          </NavLink>
+          {navItems.map((item) => (
+            <div
+              key={item.name}
+              onClick={() => navigate(item.path)}
+              className={`sidebar-item ${location.pathname === item.path ? 'active' : ''}`}
+            >
+              <item.icon size={18} />
+              <span className="text-sm">{item.name}</span>
+            </div>
+          ))}
 
           <div className="px-6 mb-2 mt-8 text-xs font-semibold text-dark-muted uppercase tracking-wider">
             System
           </div>
           <div className="sidebar-item">
-            <Settings size={18} /> <span>Settings</span>
+            <Settings size={18} />
+            <span className="text-sm">Settings</span>
           </div>
         </div>
 
         <div className="p-4 border-t border-dark-border">
-          <button 
-            onClick={handleLogout} 
-            className="flex items-center gap-3 w-full px-4 py-2.5 rounded-lg text-danger hover:bg-danger/10 transition-colors text-sm font-medium"
+          <div 
+            onClick={handleLogout}
+            className="sidebar-item text-danger hover:bg-danger/10 hover:text-danger mt-auto"
           >
-            <LogOut size={18} /> Sign Out
-          </button>
+            <LogOut size={18} />
+            <span className="text-sm">Sign Out</span>
+          </div>
         </div>
       </aside>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Top Navigation */}
         <header className="h-16 bg-white border-b border-dark-border flex items-center justify-between px-6 shrink-0 z-10">
           <div className="flex items-center flex-1">
@@ -81,7 +87,7 @@ export default function DashboardLayout() {
               <input 
                 type="text" 
                 placeholder="Search resources, cores, or incidents..." 
-                className="w-full pl-10 pr-4 py-2 bg-dark-surface border border-dark-border rounded-lg text-sm text-dark-text focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                className="w-full pl-10 pr-4 py-2 bg-dark-card border border-dark-border rounded-lg text-sm text-dark-text focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
               />
             </div>
           </div>
@@ -93,19 +99,19 @@ export default function DashboardLayout() {
             <div className="h-8 w-px bg-dark-border mx-2"></div>
             <div className="flex items-center gap-3">
               <div className="text-right">
-                <p className="text-sm font-semibold text-dark-text leading-tight">{user?.full_name}</p>
+                <p className="text-sm font-semibold text-dark-text">{user?.full_name}</p>
                 <p className="text-xs text-dark-muted">{user?.role}</p>
               </div>
               <div className="w-9 h-9 rounded-full bg-accent text-primary flex items-center justify-center font-bold border border-primary/20">
-                {user?.full_name?.charAt(0) || 'U'}
+                {user?.full_name?.charAt(0)}
               </div>
             </div>
           </div>
         </header>
 
-        {/* Content Router */}
+        {/* Page Content */}
         <main className="flex-1 overflow-auto p-6">
-          <Outlet />
+          {children}
         </main>
       </div>
     </div>
