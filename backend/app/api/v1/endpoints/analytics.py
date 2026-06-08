@@ -57,3 +57,43 @@ def get_dashboard_stats(db: Session = Depends(get_db)):
         "cable_types": cable_types_data,
         "device_types": device_types_data
     }
+
+@router.get("/region-stats")
+def get_region_stats(db: Session = Depends(get_db)):
+    # Group devices by region and device_type
+    device_query = db.query(
+        Device.region,
+        Device.device_type,
+        func.count(Device.id)
+    ).filter(Device.region != None).group_by(Device.region, Device.device_type).all()
+
+    # Group cables by region
+    cable_query = db.query(
+        Cable.region,
+        func.count(Cable.id)
+    ).filter(Cable.region != None).group_by(Cable.region).all()
+
+    stats_by_region = {}
+
+    for region, dtype, count in device_query:
+        if region not in stats_by_region:
+            stats_by_region[region] = {"region": region, "pole_count": 0, "odp_count": 0, "closure_count": 0, "slack_count": 0, "cable_count": 0, "other_count": 0}
+        
+        dtype_lower = dtype.lower() if dtype else ""
+        if "pole" in dtype_lower or "tiang" in dtype_lower:
+            stats_by_region[region]["pole_count"] += count
+        elif "odp" in dtype_lower:
+            stats_by_region[region]["odp_count"] += count
+        elif "closure" in dtype_lower or "jc" in dtype_lower or "jb" in dtype_lower:
+            stats_by_region[region]["closure_count"] += count
+        elif "slack" in dtype_lower or "oloop" in dtype_lower:
+            stats_by_region[region]["slack_count"] += count
+        else:
+            stats_by_region[region]["other_count"] += count
+
+    for region, count in cable_query:
+        if region not in stats_by_region:
+            stats_by_region[region] = {"region": region, "pole_count": 0, "odp_count": 0, "closure_count": 0, "slack_count": 0, "cable_count": 0, "other_count": 0}
+        stats_by_region[region]["cable_count"] += count
+
+    return list(stats_by_region.values())

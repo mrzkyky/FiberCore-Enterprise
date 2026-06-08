@@ -8,6 +8,7 @@ import Devices from './pages/Devices';
 import Cables from './pages/Cables';
 import Splicing from './pages/Splicing';
 import GisTopology from './pages/GisTopology';
+import PopAssetReports from './pages/PopAssetReports';
 import { useAuthStore } from './store/useAuthStore';
 
 // Protected Route Wrapper
@@ -31,6 +32,7 @@ function App() {
           <Route path="/map" element={<GisTopology />} />
           <Route path="organizations" element={<Organizations />} />
           <Route path="pops" element={<PoPs />} />
+          <Route path="pop-reports" element={<PopAssetReports />} />
           <Route path="devices" element={<Devices />} />
           <Route path="cables" element={<Cables />} />
           <Route path="splicing" element={<Splicing />} />

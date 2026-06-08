@@ -3,7 +3,7 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { 
   Activity, Map as MapIcon, Box, Server, 
   LogOut, Search, Building2, MapPin, 
-  Network, Bell, Settings 
+  Network, Bell, Settings, FileText
 } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 
@@ -42,6 +42,9 @@ export default function DashboardLayout() {
           </NavLink>
           <NavLink to="/pops" className={({isActive}) => `sidebar-item ${isActive ? 'active' : ''}`}>
             <MapPin size={18} /> <span>PoP Sites</span>
+          </NavLink>
+          <NavLink to="/pop-reports" className={({isActive}) => `sidebar-item ${isActive ? 'active' : ''}`}>
+            <FileText size={18} /> <span>POP Asset Reports</span>
           </NavLink>
           <NavLink to="/devices" className={({isActive}) => `sidebar-item ${isActive ? 'active' : ''}`}>
             <Server size={18} /> <span>Devices & Assets</span>
