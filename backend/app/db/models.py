@@ -86,6 +86,7 @@ class Device(Base):
     description = Column(String, nullable=True) # Store KMZ descriptions (slack, spare, etc)
     icon_url = Column(String, nullable=True) # KMZ icon base64 or URL
     region = Column(String, nullable=True) # Automatically assigned during KMZ upload
+    import_batch = Column(String, nullable=True) # Identifies which KMZ import this device came from
     created_at = Column(DateTime, default=func.now())
     
     pop = relationship("POP", back_populates="devices")

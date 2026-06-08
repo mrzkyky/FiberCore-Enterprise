@@ -123,7 +123,7 @@ export default function Cables() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cables'] });
       setSelectedCable(null);
-      alert("KMZ Batch deleted successfully!");
+      alert("Batch deleted successfully");
     }
   });
 
@@ -200,7 +200,7 @@ export default function Cables() {
 
   const handleDeleteBatch = (batchId: string | undefined) => {
     if (!batchId) return;
-    if (window.confirm(`Are you sure you want to delete this specific KMZ import batch? This will remove all associated cables and cores.`)) {
+    if (window.confirm(`Are you sure you want to delete this specific KMZ import batch? This will remove all associated cables, cores, and devices (Poles, ODPs, Closures).`)) {
       deleteBatchMutation.mutate(batchId);
     }
   };
@@ -319,7 +319,7 @@ export default function Cables() {
                       <td className="py-4 px-5 max-w-[150px] truncate" title={cable.description}>{cable.description || '-'}</td>
                       <td className="py-4 px-5 text-right whitespace-nowrap space-x-3">
                         {cable.import_batch && (
-                           <button onClick={(e) => { e.stopPropagation(); handleDeleteBatch(cable.import_batch); }} className="text-orange hover:text-orange-light transition-colors" title="Delete entire KMZ batch"><Trash2 size={16}/></button>
+                           <button onClick={(e) => { e.stopPropagation(); handleDeleteBatch(cable.import_batch); }} className="text-orange hover:text-orange-light transition-colors" title="Delete entire KMZ batch & its devices"><Trash2 size={16}/></button>
                         )}
                         {!cable.import_batch && cable.region && (
                            <button onClick={(e) => { e.stopPropagation(); handleDeleteRegion(cable.region); }} className="text-orange hover:text-orange-light transition-colors" title="Delete ALL cables in this region"><Trash2 size={16}/></button>
