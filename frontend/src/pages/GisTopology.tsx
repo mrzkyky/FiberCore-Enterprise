@@ -296,10 +296,10 @@ export default function GisTopology() {
     <div className="flex flex-col h-[calc(100vh-6rem)] relative gap-4">
       <div className="flex items-center justify-between shrink-0">
         <div>
-          <h2 className="text-2xl font-bold text-dark-text flex items-center gap-2">
-            <Layers className="text-primary" />
+          <h1 className="text-2xl font-bold text-dark-text flex items-center gap-2">
+            <MapPin className="text-primary" />
             FTTH Topology Viewer
-          </h2>
+          </h1>
           <p className="text-dark-muted text-sm mt-1">Interactive Map & Asset Dashboard</p>
         </div>
         <div className="flex items-center gap-3">

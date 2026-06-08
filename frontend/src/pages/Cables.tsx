@@ -245,7 +245,7 @@ export default function Cables() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-dark-text flex items-center gap-2">
-            <Box className="text-primary" />
+            <CableIcon className="text-primary" />
             Cables & Cores Inventory
           </h2>
           <p className="text-dark-muted text-sm mt-1">Manage physical fiber cables and internal core allocations</p>
@@ -579,6 +579,8 @@ export default function Cables() {
             </div>
           )}
         </div>
+      </Modal>
+
       {/* Import KMZ Modal */}
       <Modal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)} title="Import KMZ / KML">
         <form onSubmit={handleFileUpload} className="p-5 space-y-5">

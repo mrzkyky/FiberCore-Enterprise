@@ -21,10 +21,10 @@ export default function DashboardLayout() {
       {/* Left Sidebar */}
       <aside className="w-64 bg-white border-r border-dark-border flex flex-col shrink-0 z-20">
         <div className="h-16 flex items-center px-6 border-b border-dark-border">
-          <div className="w-8 h-8 rounded bg-primary text-white flex items-center justify-center font-bold text-xl mr-3 shadow-sm">
-            F
-          </div>
-          <h1 className="text-xl font-bold text-dark-text tracking-tight">FiberCore</h1>
+          <Network size={28} strokeWidth={2.5} className="text-primary mr-3" />
+          <h1 className="text-2xl font-extrabold text-dark-text tracking-tight flex items-center">
+            <span className="text-primary">Fiber</span>Core
+          </h1>
         </div>
         
         <div className="flex-1 overflow-y-auto py-4 space-y-1">
