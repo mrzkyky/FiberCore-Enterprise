@@ -97,7 +97,8 @@ def get_map_topology(region: Optional[str] = None, db: Session = Depends(get_db)
                 "capacity": cable.capacity,
                 "region": cable.region,
                 "description": cable.description,
-                "color": cable.color
+                "color": cable.color,
+                "length": cable.length
             }
         })
     

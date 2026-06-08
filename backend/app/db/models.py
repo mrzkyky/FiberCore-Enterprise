@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Column, String, Integer, ForeignKey, DateTime, func, Boolean
+from sqlalchemy import Column, String, Integer, Float, ForeignKey, DateTime, func, Boolean
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from geoalchemy2 import Geometry
@@ -45,6 +45,7 @@ class Cable(Base):
     import_batch = Column(String, nullable=True) # Identifies which KMZ import this cable came from
     description = Column(String, nullable=True) # Store KMZ descriptions or manual notes
     color = Column(String, nullable=True) # KMZ Hex Color
+    length = Column(Float, nullable=True) # Length in meters
     
     cores = relationship("Core", back_populates="cable", cascade="all, delete-orphan")
 

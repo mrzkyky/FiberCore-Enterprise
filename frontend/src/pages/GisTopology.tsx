@@ -6,7 +6,7 @@ import Map, { Source, Layer, Popup as MapPopup, NavigationControl, FullscreenCon
 import type { CircleLayer, LineLayer, SymbolLayer, MapRef } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { useAuthStore } from '../store/useAuthStore';
-import { Loader2, Layers, MapPin, Server, Activity, X, Edit } from 'lucide-react';
+import { Loader2, Layers, MapPin, Server, Activity, X, Edit, Box, GitMerge, List, Route, Database, ChevronDown, ChevronUp } from 'lucide-react';
 
 export default function GisTopology() {
   const token = useAuthStore(state => state.token);
@@ -84,6 +84,53 @@ export default function GisTopology() {
         .filter(Boolean)
     )) as string[];
   }, [allGeoData]);
+
+  // Computed KPI Stats from Map
+  const stats = useMemo(() => {
+    if (!geoData?.features) return null;
+    const s = {
+      pop: 0,
+      odp: 0,
+      totalTiang: 0,
+      closure: 0,
+      jointClosure: 0,
+      jointBox: 0,
+      backboneMeters: 0,
+      dropcoreMeters: 0,
+      distributionMeters: 0,
+      feederMeters: 0
+    };
+
+    geoData.features.forEach((f: any) => {
+      const props = f.properties;
+      if (props.type === 'pop') {
+        s.pop++;
+      } else if (props.type === 'device') {
+        const type = (props.device_type || '').toLowerCase();
+        if (type.includes('odp')) s.odp++;
+        else if (type.includes('tiang') || type.includes('pole')) s.totalTiang++;
+        else if (type === 'joint closure') s.jointClosure++;
+        else if (type === 'joint box') s.jointBox++;
+        else if (type.includes('closure')) s.closure++;
+      } else if (props.type === 'cable') {
+        const cType = (props.cable_type || '').toLowerCase();
+        const length = parseFloat(props.length) || 0;
+        if (cType === 'backbone') s.backboneMeters += length;
+        else if (cType === 'dropcore' || cType === 'drop') s.dropcoreMeters += length;
+        else if (cType === 'feeder') s.feederMeters += length;
+        else s.distributionMeters += length;
+      }
+    });
+    return s;
+  }, [geoData]);
+
+  const formatLength = (meters: number) => {
+    if (meters < 1000) return `${meters.toFixed(0)} m`;
+    return `${(meters / 1000).toFixed(2)} km`;
+  };
+
+  const [showDataTable, setShowDataTable] = useState(true);
+  const [tableSearch, setTableSearch] = useState('');
 
   const handleEditSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -246,29 +293,69 @@ export default function GisTopology() {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-6rem)] relative">
-      <div className="flex items-center justify-between mb-4 shrink-0">
+    <div className="flex flex-col h-[calc(100vh-6rem)] relative gap-4">
+      <div className="flex items-center justify-between shrink-0">
         <div>
           <h2 className="text-2xl font-bold text-dark-text flex items-center gap-2">
             <Layers className="text-primary" />
-            GIS Topology Map
+            FTTH Topology Viewer
           </h2>
-          <p className="text-dark-muted text-sm mt-1">Live Map with WebGL Acceleration</p>
+          <p className="text-dark-muted text-sm mt-1">Interactive Map & Asset Dashboard</p>
         </div>
-        <select 
-          value={mapRegionFilter}
-          onChange={(e) => {
-            setMapRegionFilter(e.target.value);
-            setPopupInfo(null);
-          }}
-          className="bg-white border border-dark-border rounded-lg px-4 py-2 text-sm text-dark-text focus:outline-none focus:border-primary"
-        >
-          <option value="All">All Regions</option>
-          {uniqueRegions.map(r => <option key={r} value={r}>{r}</option>)}
-        </select>
+        <div className="flex items-center gap-3">
+          <select 
+            value={mapRegionFilter}
+            onChange={(e) => {
+              setMapRegionFilter(e.target.value);
+              setPopupInfo(null);
+            }}
+            className="bg-dark-surface border border-dark-border rounded-lg px-4 py-2 text-sm text-dark-text focus:outline-none focus:border-primary font-medium"
+          >
+            <option value="All">🌐 All Regions / Overview</option>
+            {uniqueRegions.map(r => <option key={r} value={r}>📍 Region: {r}</option>)}
+          </select>
+        </div>
       </div>
 
-      <div className="flex-1 glass-panel overflow-hidden relative rounded-xl border border-dark-border">
+      {/* KPI Cards */}
+      {stats && (
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3 shrink-0">
+          <div className="bg-dark-surface border border-dark-border rounded-xl p-3 flex flex-col justify-between shadow-sm">
+            <span className="text-xs text-dark-muted font-semibold flex items-center gap-1 uppercase tracking-wider"><Server size={12}/> POP</span>
+            <span className="text-2xl font-bold text-orange-500 mt-2">{stats.pop}</span>
+          </div>
+          <div className="bg-dark-surface border border-dark-border rounded-xl p-3 flex flex-col justify-between shadow-sm">
+            <span className="text-xs text-dark-muted font-semibold flex items-center gap-1 uppercase tracking-wider"><Database size={12}/> ODP</span>
+            <span className="text-2xl font-bold text-blue-500 mt-2">{stats.odp}</span>
+          </div>
+          <div className="bg-dark-surface border border-dark-border rounded-xl p-3 flex flex-col justify-between shadow-sm col-span-2">
+            <span className="text-xs text-dark-muted font-semibold flex items-center gap-1 uppercase tracking-wider"><MapPin size={12}/> Total Tiang</span>
+            <div className="flex items-end justify-between mt-2">
+              <span className="text-2xl font-bold text-blue-400">{stats.totalTiang}</span>
+            </div>
+          </div>
+          <div className="bg-dark-surface border border-dark-border rounded-xl p-3 flex flex-col justify-between shadow-sm">
+            <span className="text-xs text-dark-muted font-semibold flex items-center gap-1 uppercase tracking-wider"><GitMerge size={12}/> Closure</span>
+            <span className="text-2xl font-bold text-purple-400 mt-2">{stats.closure}</span>
+          </div>
+          <div className="bg-dark-surface border border-dark-border rounded-xl p-3 flex flex-col justify-between shadow-sm">
+            <span className="text-xs text-dark-muted font-semibold flex items-center gap-1 uppercase tracking-wider"><Box size={12}/> Joint Closure</span>
+            <span className="text-2xl font-bold text-purple-500 mt-2">{stats.jointClosure}</span>
+          </div>
+          <div className="bg-dark-surface border border-dark-border rounded-xl p-3 flex flex-col justify-between shadow-sm">
+            <span className="text-xs text-dark-muted font-semibold flex items-center gap-1 uppercase tracking-wider"><Box size={12}/> Joint Box</span>
+            <span className="text-2xl font-bold text-red-500 mt-2">{stats.jointBox}</span>
+          </div>
+          <div className="bg-dark-surface border border-dark-border rounded-xl p-3 flex flex-col justify-between shadow-sm col-span-1">
+            <span className="text-xs text-dark-muted font-semibold flex items-center gap-1 uppercase tracking-wider"><Route size={12}/> Kabel Drop</span>
+            <div className="flex flex-col mt-2">
+              <span className="text-lg font-bold text-gray-300">{formatLength(stats.dropcoreMeters)}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="flex-1 flex flex-col min-h-0 bg-dark-surface border border-dark-border rounded-xl overflow-hidden relative shadow-sm">
         {isLoading ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 z-50">
             <Loader2 className="animate-spin text-primary mb-4" size={40} />
@@ -384,52 +471,87 @@ export default function GisTopology() {
         </Map>
 
         {/* Legend */}
-        <div className="absolute bottom-6 left-6 z-[400] bg-white/90 backdrop-blur border border-dark-border p-4 rounded-xl shadow-lg flex gap-8 pointer-events-none">
+        <div className="absolute top-4 right-12 z-[400] bg-dark-surface/90 backdrop-blur border border-dark-border p-3 rounded-xl shadow-lg flex gap-6 pointer-events-none max-w-sm">
           <div>
-            <h4 className="text-dark-text font-semibold mb-2 text-sm border-b pb-1">Nodes (Devices)</h4>
-            <div className="space-y-2 text-sm text-dark-muted">
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded-full bg-gray-500 border-2 border-white"></div>
-                <span>Pole (Tiang)</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-5 h-5 rounded-full bg-yellow-400 border-2 border-yellow-600"></div>
-                <span>Slack / Oloop</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-5 h-5 rounded-full bg-orange-500 border-2 border-white"></div>
-                <span>Closure (JC/JB)</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-5 h-5 rounded-full bg-green-500 border-2 border-white"></div>
-                <span>ODP</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded-full bg-purple-600 border-2 border-white"></div>
-                <span>PoP / OLT</span>
-              </div>
+            <div className="space-y-1.5 text-xs text-dark-text">
+              <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-gray-500 border border-white"></div><span>Pole</span></div>
+              <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-orange-500 border border-white"></div><span>Closure/JC/JB</span></div>
+              <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-green-500 border border-white"></div><span>ODP</span></div>
+              <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-purple-600 border border-white"></div><span>PoP/OLT</span></div>
             </div>
           </div>
           <div>
-            <h4 className="text-dark-text font-semibold mb-2 text-sm border-b pb-1">Cables (Routes)</h4>
-            <div className="space-y-2 text-sm text-dark-muted">
-              <div className="flex items-center gap-2">
-                <div className="w-6 h-1 bg-[#1E3A8A] rounded"></div>
-                <span>Backbone</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-6 h-0.5 bg-[#0284C7] rounded"></div>
-                <span>Feeder</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-6 border-b border-[#475569] rounded"></div>
-                <span>Distribution</span>
+            <div className="space-y-1.5 text-xs text-dark-text">
+              <div className="flex items-center gap-2"><div className="w-5 h-1 bg-[#1E3A8A] rounded"></div><span>Backbone</span></div>
+              <div className="flex items-center gap-2"><div className="w-5 h-0.5 bg-[#0284C7] rounded"></div><span>Feeder</span></div>
+              <div className="flex items-center gap-2"><div className="w-5 border-b border-[#475569] rounded"></div><span>Distribution/Drop</span></div>
+            </div>
+          </div>
+        </div>
+
+        {/* Data Table Panel */}
+        <div className={`absolute bottom-0 left-0 right-0 bg-dark-surface border-t border-dark-border transition-all duration-300 flex flex-col ${showDataTable ? 'h-64' : 'h-10'}`}>
+          <div 
+            className="h-10 flex items-center justify-between px-4 bg-dark-surface border-b border-dark-border cursor-pointer hover:bg-dark-surface/80"
+            onClick={() => setShowDataTable(!showDataTable)}
+          >
+            <div className="flex items-center gap-2 text-sm font-semibold text-dark-text">
+              <List size={16} className="text-primary" />
+              Data Table
+            </div>
+            <div className="flex items-center gap-3">
+              {showDataTable && (
+                <input 
+                  type="text"
+                  placeholder="Cari nama..."
+                  value={tableSearch}
+                  onChange={(e) => setTableSearch(e.target.value)}
+                  onClick={(e) => e.stopPropagation()}
+                  className="bg-black/20 border border-dark-border rounded px-2 py-1 text-xs text-dark-text focus:outline-none w-48"
+                />
+              )}
+              <div className="text-dark-muted">
+                {showDataTable ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
               </div>
             </div>
-            <p className="mt-3 text-xs text-dark-muted italic max-w-[120px]">
-              *Colors may vary based on KMZ authentic styles
-            </p>
           </div>
+          
+          {showDataTable && geoData && (
+            <div className="flex-1 overflow-auto">
+              <table className="w-full text-left text-xs whitespace-nowrap">
+                <thead className="bg-dark-surface sticky top-0 z-10 shadow-sm">
+                  <tr className="text-dark-muted uppercase tracking-wider">
+                    <th className="px-4 py-2 font-medium">Nama</th>
+                    <th className="px-4 py-2 font-medium">Tipe</th>
+                    <th className="px-4 py-2 font-medium">Kategori / Core</th>
+                    <th className="px-4 py-2 font-medium">Panjang / Info</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-dark-border text-dark-text">
+                  {geoData.features
+                    .filter((f: any) => f.properties.name.toLowerCase().includes(tableSearch.toLowerCase()))
+                    .map((f: any) => (
+                    <tr key={f.properties.id || Math.random()} className="hover:bg-dark-border/50">
+                      <td className="px-4 py-2 font-medium">{f.properties.name}</td>
+                      <td className="px-4 py-2 opacity-80">
+                        {f.properties.type === 'cable' ? 'Cable Route' : 'Node Device'}
+                      </td>
+                      <td className="px-4 py-2">
+                        {f.properties.type === 'cable' 
+                          ? `${f.properties.cable_type} (${f.properties.capacity} Core)` 
+                          : f.properties.device_type}
+                      </td>
+                      <td className="px-4 py-2 text-primary font-mono">
+                        {f.properties.type === 'cable' && f.properties.length
+                          ? formatLength(f.properties.length)
+                          : f.properties.description || '-'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
 

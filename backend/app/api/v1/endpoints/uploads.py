@@ -9,6 +9,7 @@ from app.db.session import SessionLocal
 from app.db.models import Cable, Core, Device
 import re
 import base64
+import math
 
 router = APIRouter()
 
@@ -56,6 +57,27 @@ def parse_kml_styles(root):
                     styles[map_id] = styles[target]
     return styles
 
+def haversine(lat1, lon1, lat2, lon2):
+    R = 6371000 # Earth radius in meters
+    phi1 = math.radians(lat1)
+    phi2 = math.radians(lat2)
+    delta_phi = math.radians(lat2 - lat1)
+    delta_lambda = math.radians(lon2 - lon1)
+    a = math.sin(delta_phi / 2.0) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(delta_lambda / 2.0) ** 2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    return R * c
+
+def calculate_linestring_length(coords_list):
+    total_length = 0.0
+    for i in range(len(coords_list) - 1):
+        try:
+            lon1, lat1 = map(float, coords_list[i].split())
+            lon2, lat2 = map(float, coords_list[i+1].split())
+            total_length += haversine(lat1, lon1, lat2, lon2)
+        except:
+            pass
+    return total_length
+
 def parse_kml_coordinates(kml_content: bytes, kmz_zip: zipfile.ZipFile = None):
     routes = []
     points_data = []
@@ -98,6 +120,8 @@ def parse_kml_coordinates(kml_content: bytes, kmz_zip: zipfile.ZipFile = None):
                     if len(points) >= 2:
                         wkt = f"LINESTRING({', '.join(points)})"
                         
+                        length_meters = calculate_linestring_length(points)
+                        
                         capacity = 24
                         match = re.search(r'(\d+)\s*[cC]', name)
                         if match:
@@ -110,7 +134,7 @@ def parse_kml_coordinates(kml_content: bytes, kmz_zip: zipfile.ZipFile = None):
                         elif "backbone" in name_lower: 
                             ctype = "Backbone"
                         elif "drop" in name_lower: 
-                            ctype = "Drop"
+                            ctype = "Dropcore"
                         else:
                             if capacity >= 96:
                                 ctype = "Backbone"
@@ -122,7 +146,8 @@ def parse_kml_coordinates(kml_content: bytes, kmz_zip: zipfile.ZipFile = None):
                         line_color = resolved_style.get('line_color', None)
                         routes.append({
                             "name": name, "wkt": wkt, "capacity": capacity, 
-                            "type": ctype, "description": description, "color": line_color
+                            "type": ctype, "description": description, "color": line_color,
+                            "length": length_meters
                         })
             
             elif point is not None:
@@ -134,8 +159,18 @@ def parse_kml_coordinates(kml_content: bytes, kmz_zip: zipfile.ZipFile = None):
                         
                         dtype = "Pole"
                         name_lower = name.lower()
+                        
+                        # Extract pole stages
+                        if "tahap" in name_lower:
+                            t_match = re.search(r'tahap\s*(\d+)', name_lower)
+                            if t_match:
+                                dtype = f"Tiang Tahap {t_match.group(1)}"
+                        
                         if "odp" in name_lower: dtype = "ODP"
-                        elif "closure" in name_lower or "jb" in name_lower or "jc" in name_lower: dtype = "Closure"
+                        elif "jc" in name_lower or "joint closure" in name_lower: dtype = "Joint Closure"
+                        elif "jb" in name_lower or "joint box" in name_lower: dtype = "Joint Box"
+                        elif "closure" in name_lower: dtype = "Closure"
+                        elif "oloop" in name_lower or "slack" in name_lower: dtype = "Slack"
                         elif "olt" in name_lower: dtype = "OLT"
                         elif "otb" in name_lower: dtype = "OTB"
                         elif "pop" in name_lower or "sto" in name_lower: dtype = "POP"
@@ -238,7 +273,8 @@ async def upload_kml(
             region=region,
             import_batch=batch_id,
             description=route['description'],
-            color=route['color']
+            color=route['color'],
+            length=route.get('length')
         )
         db.add(new_cable)
         db.flush()
