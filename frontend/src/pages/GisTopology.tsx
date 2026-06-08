@@ -257,7 +257,7 @@ export default function GisTopology() {
             zoom: 10
           }}
           mapStyle="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json"
-          interactiveLayerIds={['cables', 'pops', 'devices']}
+          interactiveLayerIds={['cables', 'pops', 'devices', 'devices-symbol']}
           onClick={onMapClick}
           cursor="pointer"
         >
