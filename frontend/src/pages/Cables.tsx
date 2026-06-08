@@ -170,13 +170,15 @@ export default function Cables() {
       event.target.value = '';
       return; 
     }
+
+    const replaceData = window.confirm(`Apakah Anda ingin MENGHAPUS & MENIMPA (Overwrite) semua data lama yang sudah ada di region '${region}' dengan data dari KMZ baru ini? \n\nKlik OK untuk Menimpa data lama.\nKlik Cancel untuk Menambahkan data baru tanpa menghapus data lama.`);
     
     setIsUploading(true);
     const formData = new FormData();
     formData.append('file', file);
     
     try {
-      await axios.post(`/api/v1/uploads/kml?region=${encodeURIComponent(region)}`, formData, {
+      await axios.post(`/api/v1/uploads/kml?region=${encodeURIComponent(region)}&replace=${replaceData}`, formData, {
         headers: { 
           Authorization: `Bearer ${token}`,
           'Content-Type': 'multipart/form-data'

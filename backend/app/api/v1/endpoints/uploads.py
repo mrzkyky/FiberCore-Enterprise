@@ -211,6 +211,7 @@ TIA_COLORS = ["Blue", "Orange", "Green", "Brown", "Slate", "White", "Red", "Blac
 @router.post("/kml")
 async def upload_kml(
     region: str = "Unknown", 
+    replace: bool = False,
     file: UploadFile = File(...), 
     db: Session = Depends(get_db)
 ):
@@ -246,6 +247,16 @@ async def upload_kml(
     if not routes and not points:
         raise HTTPException(status_code=400, detail="No valid LineString or Point placemarks found in the file")
         
+    if replace:
+        # Delete existing devices in region
+        db.query(Device).filter(Device.region == region).delete(synchronize_session=False)
+        # Delete existing cables in region (Cores should cascade if configured, but we do manual just in case)
+        existing_cables = db.query(Cable).filter(Cable.region == region).all()
+        for c in existing_cables:
+            db.query(Core).filter(Core.cable_id == c.id).delete(synchronize_session=False)
+            db.delete(c)
+        db.commit()
+
     imported_cables = []
     imported_devices = []
     batch_id = str(uuid.uuid4())
