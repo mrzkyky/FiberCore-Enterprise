@@ -36,6 +36,8 @@ class CableBase(BaseModel):
     type: str
     region: Optional[str] = None
     import_batch: Optional[str] = None
+    length: Optional[float] = None
+    description: Optional[str] = None
 
 class CableCreate(CableBase):
     pass

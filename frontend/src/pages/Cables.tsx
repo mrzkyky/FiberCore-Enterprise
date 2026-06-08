@@ -46,6 +46,7 @@ export default function Cables() {
   const [regionFilter, setRegionFilter] = useState<string>('All');
   const [tracingCoreId, setTracingCoreId] = useState<string | null>(null);
   const [isManageImportsOpen, setIsManageImportsOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
   const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<CableFormData>({
     // @ts-expect-error Zod resolver type mismatch with react-hook-form
@@ -161,36 +162,41 @@ export default function Cables() {
     reset();
   };
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    
-    const region = window.prompt("Enter Region Name for these routes (e.g., Brebes, Tegal):", "Unknown");
-    if (region === null) {
-      event.target.value = '';
-      return; 
-    }
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const file = formData.get('file') as File;
+    const region = formData.get('region') as string;
+    const replaceData = formData.get('replace') === 'on';
 
-    const replaceData = window.confirm(`Apakah Anda ingin MENGHAPUS & MENIMPA (Overwrite) semua data lama yang sudah ada di region '${region}' dengan data dari KMZ baru ini? \n\nKlik OK untuk Menimpa data lama.\nKlik Cancel untuk Menambahkan data baru tanpa menghapus data lama.`);
+    if (!file || !file.name) {
+      alert("Please select a KMZ file.");
+      return;
+    }
+    if (!region) {
+      alert("Please enter a region name.");
+      return;
+    }
     
     setIsUploading(true);
-    const formData = new FormData();
-    formData.append('file', file);
+    
+    const uploadData = new FormData();
+    uploadData.append('file', file);
     
     try {
-      await axios.post(`/api/v1/uploads/kml?region=${encodeURIComponent(region)}&replace=${replaceData}`, formData, {
+      await axios.post(`/api/v1/uploads/kml?region=${encodeURIComponent(region)}&replace=${replaceData}`, uploadData, {
         headers: { 
           Authorization: `Bearer ${token}`,
           'Content-Type': 'multipart/form-data'
         }
       });
       queryClient.invalidateQueries({ queryKey: ['cables'] });
+      setIsImportModalOpen(false);
       alert(`KMZ/KML Routes imported successfully into Region: ${region}!`);
     } catch (err: any) {
       alert("Failed to upload KMZ/KML: " + (err.response?.data?.detail || err.message));
     } finally {
       setIsUploading(false);
-      event.target.value = '';
     }
   };
 
@@ -247,18 +253,20 @@ export default function Cables() {
         <div className="flex gap-3">
           <button 
             onClick={() => setIsManageImportsOpen(true)}
-            className="btn-secondary flex items-center gap-2 px-4 py-2 rounded-lg border border-dark-border hover:bg-dark-surface transition-colors"
+            className="flex items-center gap-2 bg-white border border-red-200 text-red-600 px-4 py-2 rounded-lg shadow-sm hover:bg-red-50 hover:border-red-300 font-medium transition-all"
           >
-            <Trash2 size={18} /> Manage KMZs
+            <Trash2 size={18} /> Bersihkan Data Lama
           </button>
-          <label className="btn-secondary flex items-center gap-2 px-4 py-2 rounded-lg cursor-pointer transition-colors">
-            {isUploading ? <Loader2 size={18} className="animate-spin" /> : <UploadCloud size={18} />}
+          <button 
+            onClick={() => setIsImportModalOpen(true)}
+            className="flex items-center gap-2 bg-white border border-slate-200 text-slate-700 px-4 py-2 rounded-lg shadow-sm hover:bg-slate-50 hover:border-slate-300 font-medium transition-all"
+          >
+            <Upload size={18} />
             Import KMZ
-            <input type="file" accept=".kml,.kmz" className="hidden" onChange={handleFileUpload} disabled={isUploading} />
-          </label>
+          </button>
           <button 
             onClick={() => openModal()}
-            className="btn-primary flex items-center gap-2"
+            className="flex items-center gap-2 bg-[#0e4483] text-white px-4 py-2 rounded-lg shadow shadow-[#0e4483]/30 hover:bg-[#115bb0] font-medium transition-all"
           >
             <Plus size={18} /> Tambah Kabel
           </button>
@@ -571,6 +579,63 @@ export default function Cables() {
             </div>
           )}
         </div>
+      {/* Import KMZ Modal */}
+      <Modal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)} title="Import KMZ / KML">
+        <form onSubmit={handleFileUpload} className="p-5 space-y-5">
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-1">Nama Region / POP</label>
+            <input 
+              type="text" 
+              name="region" 
+              placeholder="e.g. PoP Pamekasan" 
+              className="w-full border border-slate-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary focus:border-primary outline-none"
+              required 
+            />
+            <p className="text-xs text-slate-500 mt-1">Pastikan nama region sama persis jika ingin menimpa data lama.</p>
+          </div>
+          
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-1">File KMZ / KML</label>
+            <input 
+              type="file" 
+              name="file" 
+              accept=".kmz,.kml"
+              className="w-full border border-slate-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary focus:border-primary outline-none"
+              required 
+            />
+          </div>
+
+          <div className="bg-red-50 border border-red-100 rounded-lg p-4 flex items-start gap-3">
+            <input 
+              type="checkbox" 
+              name="replace" 
+              id="replace"
+              className="mt-1 w-4 h-4 text-red-600 rounded focus:ring-red-500"
+            />
+            <label htmlFor="replace" className="text-sm text-red-800 cursor-pointer">
+              <span className="font-bold">Hapus & Timpa Data Lama (Overwrite)</span>
+              <p className="mt-0.5 opacity-80 text-xs">Centang ini jika Anda ingin menghapus semua Kabel, Tiang, dan ODP di region ini sebelum mengimpor file KMZ yang baru (agar tidak menumpuk/ganda).</p>
+            </label>
+          </div>
+
+          <div className="flex justify-end pt-4 border-t border-slate-200">
+            <button 
+              type="button" 
+              onClick={() => setIsImportModalOpen(false)}
+              className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg mr-2 font-medium"
+            >
+              Batal
+            </button>
+            <button 
+              type="submit" 
+              disabled={isUploading}
+              className="flex items-center gap-2 bg-[#0e4483] text-white px-6 py-2 rounded-lg font-medium hover:bg-[#115bb0] shadow-sm disabled:opacity-50"
+            >
+              {isUploading ? <Loader2 className="animate-spin" size={18} /> : <Upload size={18} />}
+              {isUploading ? 'Mengunggah...' : 'Upload KMZ'}
+            </button>
+          </div>
+        </form>
       </Modal>
     </div>
   );
