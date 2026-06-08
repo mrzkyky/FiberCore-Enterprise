@@ -33,38 +33,22 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6 pb-12">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-primary to-accent">
-            Command Center
-          </h1>
-          <p className="text-dark-muted mt-1">Live FTTH Network Overview & Telemetry</p>
-        </div>
-        <div className="flex gap-4">
-           <div className="bg-[#0B1120] border border-[#1e293b] rounded-xl p-3 flex items-center gap-4 shadow-lg">
-              <HeartPulse className={healthScore > 80 ? "text-green-500 animate-pulse" : "text-yellow-500"} size={28} />
-              <div>
-                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Network Health</p>
-                <p className="text-xl font-bold text-white leading-none mt-1">{isLoading ? '...' : `${healthScore}%`}</p>
-              </div>
-           </div>
-           <div className="bg-[#0B1120] border border-[#1e293b] rounded-xl p-3 flex items-center gap-4 shadow-lg">
-              <Activity className="text-blue-500" size={28} />
-              <div>
-                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Avg Splice Loss</p>
-                <p className="text-xl font-bold text-white leading-none mt-1">{isLoading ? '...' : `${stats?.avg_splice_loss || 0} dB`}</p>
-              </div>
-           </div>
-        </div>
+      <div className="mb-8">
+        <h1 className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-primary to-accent">
+          Command Center
+        </h1>
+        <p className="text-dark-muted mt-1">Live FTTH Network Overview & Telemetry</p>
       </div>
 
       {/* Top KPI Cards (Glassmorphism) */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
         {[
+          { label: 'Network Health', value: `${healthScore}%`, icon: HeartPulse, color: healthScore > 80 ? 'text-emerald-400' : 'text-yellow-400', glow: healthScore > 80 ? 'shadow-emerald-500/20' : 'shadow-yellow-500/20' },
+          { label: 'Avg Splice Loss', value: `${stats?.avg_splice_loss || 0} dB`, icon: Activity, color: 'text-indigo-400', glow: 'shadow-indigo-500/20' },
           { label: 'Cables / Routes', value: stats?.cables, icon: Route, color: 'text-blue-400', glow: 'shadow-blue-500/20' },
           { label: 'Total Spliced', value: stats?.splices, icon: Network, color: 'text-purple-400', glow: 'shadow-purple-500/20' },
           { label: 'Nodes & Devices', value: stats?.devices, icon: Box, color: 'text-orange-400', glow: 'shadow-orange-500/20' },
-          { label: 'Total PoPs', value: stats?.pops, icon: Server, color: 'text-emerald-400', glow: 'shadow-emerald-500/20' },
+          { label: 'Total PoPs', value: stats?.pops, icon: Server, color: 'text-teal-400', glow: 'shadow-teal-500/20' },
           { label: 'Total Cores', value: stats?.total_cores, icon: Cpu, color: 'text-yellow-400', glow: 'shadow-yellow-500/20' },
           { label: 'ODP Ports', value: `${stats?.used_ports || 0} / ${stats?.total_ports || 0}`, icon: Wifi, color: 'text-pink-400', glow: 'shadow-pink-500/20' },
         ].map((stat, i) => (

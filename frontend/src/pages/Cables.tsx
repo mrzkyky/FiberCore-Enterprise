@@ -25,6 +25,7 @@ interface Cable {
   region?: string;
   import_batch?: string;
   description?: string;
+  length?: number;
 }
 
 interface Core {
@@ -297,6 +298,7 @@ export default function Cables() {
                     <th className="py-3 px-5 font-semibold">Region</th>
                     <th className="py-3 px-5 font-semibold">Type</th>
                     <th className="py-3 px-5 font-semibold">Capacity</th>
+                    <th className="py-3 px-5 font-semibold">Length</th>
                     <th className="py-3 px-5 font-semibold">Details</th>
                     <th className="py-3 px-5 font-semibold text-right">Actions</th>
                   </tr>
@@ -316,6 +318,7 @@ export default function Cables() {
                       </td>
                       <td className="py-4 px-5">{cable.type}</td>
                       <td className="py-4 px-5 font-mono font-medium">{cable.capacity}C</td>
+                      <td className="py-4 px-5 font-mono">{cable.length ? `${Math.round(cable.length)} m` : '-'}</td>
                       <td className="py-4 px-5 max-w-[150px] truncate" title={cable.description}>{cable.description || '-'}</td>
                       <td className="py-4 px-5 text-right whitespace-nowrap space-x-3">
                         {cable.import_batch && (
