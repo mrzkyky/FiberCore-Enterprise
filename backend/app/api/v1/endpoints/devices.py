@@ -24,8 +24,15 @@ class DeviceBase(BaseModel):
 class DeviceCreate(DeviceBase):
     pass
 
-class DeviceUpdate(DeviceBase):
-    pass
+class DeviceUpdate(BaseModel):
+    name: Optional[str] = None
+    device_type: Optional[str] = None
+    capacity: Optional[int] = None
+    used_capacity: Optional[int] = None
+    brand: Optional[str] = None
+    description: Optional[str] = None
+    location_wkt: Optional[str] = None
+    pop_id: Optional[str] = None
 
 class DeviceResponse(DeviceBase):
     id: uuid.UUID
@@ -59,12 +66,12 @@ def get_devices(device_type: Optional[str] = None, skip: int = 0, limit: int = 1
     return query.offset(skip).limit(limit).all()
 
 @router.put("/{device_id}", response_model=DeviceResponse)
-def update_device(device_id: uuid.UUID, device_in: DeviceCreate, db: Session = Depends(get_db)):
+def update_device(device_id: uuid.UUID, device_in: DeviceUpdate, db: Session = Depends(get_db)):
     db_device = db.query(Device).filter(Device.id == device_id).first()
     if not db_device:
         raise HTTPException(status_code=404, detail="Device not found")
     
-    for key, value in device_in.model_dump().items():
+    for key, value in device_in.model_dump(exclude_unset=True).items():
         setattr(db_device, key, value)
         
     db.commit()

@@ -6,8 +6,9 @@ import zipfile
 import io
 import xml.etree.ElementTree as ET
 from app.db.session import SessionLocal
-from app.db.models import Cable, Core
+from app.db.models import Cable, Core, Device
 import re
+import base64
 
 router = APIRouter()
 
@@ -18,27 +19,68 @@ def get_db():
     finally:
         db.close()
 
-def parse_kml_coordinates(kml_content: bytes):
-    """Parses KML content and returns a list of routes (LineString) and points (Point)."""
+def parse_kml_styles(root):
+    styles = {}
+    for style in root.findall('.//Style'):
+        style_id = style.get('id')
+        if not style_id: continue
+        style_data = {}
+        
+        line_style = style.find('.//LineStyle')
+        if line_style is not None:
+            color_elem = line_style.find('color')
+            if color_elem is not None and color_elem.text:
+                # KML color is aabbggrr, we need #rrggbb
+                raw = color_elem.text.strip()
+                if len(raw) == 8:
+                    a, b, g, r = raw[0:2], raw[2:4], raw[4:6], raw[6:8]
+                    style_data['line_color'] = f"#{r}{g}{b}"
+                    
+        icon_style = style.find('.//IconStyle')
+        if icon_style is not None:
+            href_elem = icon_style.find('.//href')
+            if href_elem is not None and href_elem.text:
+                style_data['icon_href'] = href_elem.text.strip()
+                
+        styles[style_id] = style_data
+        
+    for style_map in root.findall('.//StyleMap'):
+        map_id = style_map.get('id')
+        if not map_id: continue
+        pair = style_map.find('.//Pair')
+        if pair is not None:
+            url_elem = pair.find('styleUrl')
+            if url_elem is not None and url_elem.text:
+                target = url_elem.text.replace('#', '')
+                if target in styles:
+                    styles[map_id] = styles[target]
+    return styles
+
+def parse_kml_coordinates(kml_content: bytes, kmz_zip: zipfile.ZipFile = None):
     routes = []
     points_data = []
     
     try:
         root = ET.fromstring(kml_content)
-        # KML usually has a namespace, so we need to handle it or strip it.
         for elem in root.iter():
             if '}' in elem.tag:
                 elem.tag = elem.tag.split('}', 1)[1]
                 
-        # Find all Placemarks
+        styles = parse_kml_styles(root)
+                
         for placemark in root.findall('.//Placemark'):
             name_elem = placemark.find('name')
             name = name_elem.text if name_elem is not None else "Unknown Asset"
             
             desc_elem = placemark.find('description')
             description = desc_elem.text if desc_elem is not None else ""
-            # Strip html tags if any
             description = re.sub(r'<[^>]+>', ' ', description).strip()
+            
+            style_url_elem = placemark.find('styleUrl')
+            resolved_style = {}
+            if style_url_elem is not None and style_url_elem.text:
+                s_id = style_url_elem.text.replace('#', '')
+                resolved_style = styles.get(s_id, {})
             
             linestring = placemark.find('.//LineString')
             point = placemark.find('.//Point')
@@ -70,7 +112,6 @@ def parse_kml_coordinates(kml_content: bytes):
                         elif "drop" in name_lower: 
                             ctype = "Drop"
                         else:
-                            # Heuristic based on capacity
                             if capacity >= 96:
                                 ctype = "Backbone"
                             elif capacity >= 24:
@@ -78,7 +119,11 @@ def parse_kml_coordinates(kml_content: bytes):
                             else:
                                 ctype = "Distribution"
                             
-                        routes.append({"name": name, "wkt": wkt, "capacity": capacity, "type": ctype, "description": description})
+                        line_color = resolved_style.get('line_color', None)
+                        routes.append({
+                            "name": name, "wkt": wkt, "capacity": capacity, 
+                            "type": ctype, "description": description, "color": line_color
+                        })
             
             elif point is not None:
                 coords_elem = point.find('coordinates')
@@ -87,20 +132,38 @@ def parse_kml_coordinates(kml_content: bytes):
                     if len(parts) >= 2:
                         wkt = f"POINT({parts[0]} {parts[1]})"
                         
-                        # Guess device type from name
                         dtype = "Pole"
                         name_lower = name.lower()
                         if "odp" in name_lower: dtype = "ODP"
                         elif "closure" in name_lower or "jb" in name_lower or "jc" in name_lower: dtype = "Closure"
                         elif "olt" in name_lower: dtype = "OLT"
                         elif "otb" in name_lower: dtype = "OTB"
-                        elif "pop" in name_lower or "sto" in name_lower: dtype = "POP" # We could map to POP table, but Device is okay for now
-                            
+                        elif "pop" in name_lower or "sto" in name_lower: dtype = "POP"
+                        
+                        icon_href = resolved_style.get('icon_href', None)
+                        icon_url_base64 = None
+                        
+                        # Process icon
+                        if icon_href:
+                            if icon_href.startswith('http'):
+                                icon_url_base64 = icon_href
+                            elif kmz_zip is not None:
+                                # Extract from zip
+                                try:
+                                    img_data = kmz_zip.read(icon_href)
+                                    ext = icon_href.split('.')[-1].lower()
+                                    mime = f"image/{ext}" if ext in ['png', 'jpg', 'jpeg', 'gif'] else "image/png"
+                                    b64 = base64.b64encode(img_data).decode('utf-8')
+                                    icon_url_base64 = f"data:{mime};base64,{b64}"
+                                except Exception as e:
+                                    print(f"Failed to extract icon {icon_href}: {e}")
+
                         points_data.append({
                             "name": name,
                             "wkt": wkt,
                             "device_type": dtype,
-                            "description": description
+                            "description": description,
+                            "icon_url": icon_url_base64
                         })
                         
     except Exception as e:
@@ -122,21 +185,26 @@ async def upload_kml(
     content = await file.read()
     
     kml_data = None
+    kmz_zip = None
+    
     if file.filename.endswith('.kmz'):
-        # Extract doc.kml from KMZ
         try:
-            with zipfile.ZipFile(io.BytesIO(content)) as kmz:
-                # Find the .kml file inside
-                kml_filename = next((name for name in kmz.namelist() if name.endswith('.kml')), None)
-                if not kml_filename:
-                    raise HTTPException(status_code=400, detail="No KML file found inside KMZ")
-                kml_data = kmz.read(kml_filename)
+            kmz_zip = zipfile.ZipFile(io.BytesIO(content))
+            kml_filename = next((name for name in kmz_zip.namelist() if name.endswith('.kml')), None)
+            if not kml_filename:
+                raise HTTPException(status_code=400, detail="No KML file found inside KMZ")
+            kml_data = kmz_zip.read(kml_filename)
         except zipfile.BadZipFile:
             raise HTTPException(status_code=400, detail="Invalid KMZ file format")
     else:
         kml_data = content
         
-    parsed_data = parse_kml_coordinates(kml_data)
+    parsed_data = parse_kml_coordinates(kml_data, kmz_zip)
+    
+    # Close zip if we opened it
+    if kmz_zip:
+        kmz_zip.close()
+        
     routes = parsed_data.get("routes", [])
     points = parsed_data.get("points", [])
     
@@ -147,22 +215,19 @@ async def upload_kml(
     imported_devices = []
     batch_id = str(uuid.uuid4())
     
-    from app.db.models import Device
-    
-    # Save devices (Points)
     for pt in points:
         new_device = Device(
             name=pt['name'],
             device_type=pt['device_type'],
             location=func.ST_GeomFromText(pt['wkt'], 4326),
-            description=pt['description']
+            description=pt['description'],
+            icon_url=pt['icon_url']
         )
         db.add(new_device)
         imported_devices.append(pt['name'])
         
-    db.commit() # Commit devices
+    db.commit()
     
-    # Save routes (Cables)
     for route in routes:
         new_cable = Cable(
             name=route['name'],
@@ -171,24 +236,20 @@ async def upload_kml(
             route=func.ST_GeomFromText(route['wkt'], 4326),
             region=region,
             import_batch=batch_id,
-            description=route['description']
+            description=route['description'],
+            color=route['color']
         )
         db.add(new_cable)
-        db.flush() # Flush to get new_cable.id
+        db.flush()
         
-        # Auto-generate Cores
         num_cores = route['capacity']
         cores_to_add = []
         for i in range(num_cores):
-            core_num = (i % 12) + 1
-            tube_num = (i // 12) + 1
-            color = TIA_COLORS[i % 12]
-            
             cores_to_add.append(Core(
                 cable_id=new_cable.id,
-                core_number=core_num,
-                tube_number=tube_num,
-                color=color,
+                core_number=(i % 12) + 1,
+                tube_number=(i // 12) + 1,
+                color=TIA_COLORS[i % 12],
                 status="Free"
             ))
         

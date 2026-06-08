@@ -44,6 +44,7 @@ class Cable(Base):
     region = Column(String, nullable=True) # E.g., Brebes, Tegal
     import_batch = Column(String, nullable=True) # Identifies which KMZ import this cable came from
     description = Column(String, nullable=True) # Store KMZ descriptions or manual notes
+    color = Column(String, nullable=True) # KMZ Hex Color
     
     cores = relationship("Core", back_populates="cable", cascade="all, delete-orphan")
 
@@ -82,6 +83,7 @@ class Device(Base):
     used_capacity = Column(Integer, default=0) # Track used ports for OLT/OTB/ODP
     brand = Column(String, nullable=True)
     description = Column(String, nullable=True) # Store KMZ descriptions (slack, spare, etc)
+    icon_url = Column(String, nullable=True) # KMZ icon base64 or URL
     created_at = Column(DateTime, default=func.now())
     
     pop = relationship("POP", back_populates="devices")
