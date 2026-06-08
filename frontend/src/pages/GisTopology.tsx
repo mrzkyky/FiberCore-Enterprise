@@ -14,6 +14,7 @@ export default function GisTopology() {
   const [selectedClosure, setSelectedClosure] = useState<string | null>(null);
   const [mapRegionFilter, setMapRegionFilter] = useState<string>('All');
   const mapRef = useRef<MapRef>(null);
+  const [loadedIcons, setLoadedIcons] = useState<string[]>([]);
   
   // Edit State & Popup State
   const [editingDevice, setEditingDevice] = useState<any | null>(null);
@@ -122,18 +123,40 @@ export default function GisTopology() {
       }
     });
 
+    const newlyLoaded: string[] = [];
+
     iconsToLoad.forEach(url => {
-      if (!map.hasImage(url)) {
+      if (map.hasImage(url)) {
+        newlyLoaded.push(url);
+      } else {
         const img = new Image();
-        img.crossOrigin = "Anonymous"; // In case it's an external URL
+        if (url.startsWith('http')) {
+          img.crossOrigin = "Anonymous";
+          // Use a cors proxy for external KMZ icons (like Google Maps pushpins)
+          img.src = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+        } else {
+          img.src = url;
+        }
+        
         img.onload = () => {
           if (!map.hasImage(url)) {
             map.addImage(url, img);
+            setLoadedIcons(prev => {
+              if (!prev.includes(url)) return [...prev, url];
+              return prev;
+            });
           }
         };
-        img.src = url;
+        
+        img.onerror = () => {
+          console.warn("Failed to load KMZ icon:", url);
+        }
       }
     });
+
+    if (newlyLoaded.length > 0) {
+      setLoadedIcons(prev => Array.from(new Set([...prev, ...newlyLoaded])));
+    }
   }, [geoData]);
 
   // --- MapLibre Styling Layers ---
@@ -170,11 +193,15 @@ export default function GisTopology() {
     }
   };
 
+  const hasIconExpression = loadedIcons.length > 0 
+    ? ['in', ['get', 'icon_url'], ['literal', loadedIcons]] 
+    : false;
+
   const deviceSymbolLayerStyle: SymbolLayer = {
     id: 'devices-symbol',
     type: 'symbol',
     source: 'topology',
-    filter: ['all', ['==', ['get', 'type'], 'device'], ['!=', ['get', 'icon_url'], null]],
+    filter: ['all', ['==', ['get', 'type'], 'device'], hasIconExpression],
     layout: {
       'icon-image': ['get', 'icon_url'],
       'icon-size': 0.8,
@@ -186,7 +213,7 @@ export default function GisTopology() {
     id: 'devices',
     type: 'circle',
     source: 'topology',
-    filter: ['all', ['==', ['get', 'type'], 'device'], ['==', ['get', 'icon_url'], null]],
+    filter: ['all', ['==', ['get', 'type'], 'device'], ['!', hasIconExpression]],
     paint: {
       'circle-radius': [
         'match',
