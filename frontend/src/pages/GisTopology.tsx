@@ -1,9 +1,9 @@
 // @ts-nocheck
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import Map, { Source, Layer, Popup as MapPopup, NavigationControl, FullscreenControl } from 'react-map-gl/maplibre';
-import type { CircleLayer, LineLayer } from 'react-map-gl/maplibre';
+import type { CircleLayer, LineLayer, SymbolLayer, MapRef } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { useAuthStore } from '../store/useAuthStore';
 import { Loader2, Layers, MapPin, Server, Activity, X, Edit } from 'lucide-react';
@@ -13,6 +13,7 @@ export default function GisTopology() {
   const queryClient = useQueryClient();
   const [selectedClosure, setSelectedClosure] = useState<string | null>(null);
   const [mapRegionFilter, setMapRegionFilter] = useState<string>('All');
+  const mapRef = useRef<MapRef>(null);
   
   // Edit State & Popup State
   const [editingDevice, setEditingDevice] = useState<any | null>(null);
@@ -109,6 +110,32 @@ export default function GisTopology() {
     }
   };
 
+  useEffect(() => {
+    if (!geoData || !mapRef.current) return;
+    const map = mapRef.current.getMap();
+    
+    // Extract unique icon_urls
+    const iconsToLoad = new Set<string>();
+    geoData.features.forEach((f: any) => {
+      if (f.properties?.icon_url) {
+        iconsToLoad.add(f.properties.icon_url);
+      }
+    });
+
+    iconsToLoad.forEach(url => {
+      if (!map.hasImage(url)) {
+        const img = new Image();
+        img.crossOrigin = "Anonymous"; // In case it's an external URL
+        img.onload = () => {
+          if (!map.hasImage(url)) {
+            map.addImage(url, img);
+          }
+        };
+        img.src = url;
+      }
+    });
+  }, [geoData]);
+
   // --- MapLibre Styling Layers ---
   
   const cableLayerStyle: LineLayer = {
@@ -143,11 +170,23 @@ export default function GisTopology() {
     }
   };
 
+  const deviceSymbolLayerStyle: SymbolLayer = {
+    id: 'devices-symbol',
+    type: 'symbol',
+    source: 'topology',
+    filter: ['all', ['==', ['get', 'type'], 'device'], ['!=', ['get', 'icon_url'], null]],
+    layout: {
+      'icon-image': ['get', 'icon_url'],
+      'icon-size': 0.8,
+      'icon-allow-overlap': true
+    }
+  };
+
   const deviceLayerStyle: CircleLayer = {
     id: 'devices',
     type: 'circle',
     source: 'topology',
-    filter: ['==', ['get', 'type'], 'device'],
+    filter: ['all', ['==', ['get', 'type'], 'device'], ['==', ['get', 'icon_url'], null]],
     paint: {
       'circle-radius': [
         'match',
@@ -189,19 +228,17 @@ export default function GisTopology() {
           </h2>
           <p className="text-dark-muted text-sm mt-1">Live Map with WebGL Acceleration</p>
         </div>
-        {uniqueRegions.length > 0 && (
-          <select 
-            value={mapRegionFilter}
-            onChange={(e) => {
-              setMapRegionFilter(e.target.value);
-              setPopupInfo(null);
-            }}
-            className="bg-white border border-dark-border rounded-lg px-4 py-2 text-sm text-dark-text focus:outline-none focus:border-primary"
-          >
-            <option value="All">All Regions</option>
-            {uniqueRegions.map(r => <option key={r} value={r}>{r}</option>)}
-          </select>
-        )}
+        <select 
+          value={mapRegionFilter}
+          onChange={(e) => {
+            setMapRegionFilter(e.target.value);
+            setPopupInfo(null);
+          }}
+          className="bg-white border border-dark-border rounded-lg px-4 py-2 text-sm text-dark-text focus:outline-none focus:border-primary"
+        >
+          <option value="All">All Regions</option>
+          {uniqueRegions.map(r => <option key={r} value={r}>{r}</option>)}
+        </select>
       </div>
 
       <div className="flex-1 glass-panel overflow-hidden relative rounded-xl border border-dark-border">
@@ -213,6 +250,7 @@ export default function GisTopology() {
         ) : null}
 
         <Map
+          ref={mapRef}
           initialViewState={{
             longitude: 106.816666,
             latitude: -6.200000,
@@ -231,6 +269,7 @@ export default function GisTopology() {
               <Layer {...cableLayerStyle} />
               <Layer {...popLayerStyle} />
               <Layer {...deviceLayerStyle} />
+              <Layer {...deviceSymbolLayerStyle} />
             </Source>
           )}
 
@@ -254,8 +293,13 @@ export default function GisTopology() {
                     <p><strong>Type:</strong> {popupInfo.feature.properties.cable_type}</p>
                     <p><strong>Region:</strong> {popupInfo.feature.properties.region || '-'}</p>
                     <p><strong>Capacity:</strong> {popupInfo.feature.properties.capacity} Core</p>
-                    {popupInfo.feature.properties.description && (
-                      <p className="italic text-xs mt-1">"{popupInfo.feature.properties.description}"</p>
+                    {popupInfo.feature.properties.description && popupInfo.feature.properties.description.trim() !== '' && (
+                      <div className="bg-gray-50 p-2 rounded border border-gray-200 mt-2 mb-2">
+                        <p className="text-sm text-gray-800 font-medium">Description:</p>
+                        <p className="text-xs text-gray-600">
+                          {popupInfo.feature.properties.description}
+                        </p>
+                      </div>
                     )}
                   </div>
                 ) : (
@@ -271,10 +315,13 @@ export default function GisTopology() {
                       </p>
                     )}
                     
-                    {popupInfo.feature.properties.description && (
-                      <p className="text-xs text-gray-500 mb-2 italic">
-                        "{popupInfo.feature.properties.description}"
-                      </p>
+                    {popupInfo.feature.properties.description && popupInfo.feature.properties.description.trim() !== '' && (
+                      <div className="bg-gray-50 p-2 rounded border border-gray-200 mt-2 mb-3">
+                        <p className="text-sm text-gray-800 font-medium mb-1">Description:</p>
+                        <p className="text-xs text-gray-600">
+                          {popupInfo.feature.properties.description}
+                        </p>
+                      </div>
                     )}
                     
                     {popupInfo.feature.properties.type === 'device' && (
