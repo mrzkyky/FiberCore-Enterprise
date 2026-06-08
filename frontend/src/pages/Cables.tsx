@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
-import { Cable as CableIcon, Plus, Loader2, UploadCloud, Layers, Box, Trash2, Edit2, ShieldAlert, Activity, AlertTriangle } from 'lucide-react';
+import { Cable as CableIcon, Plus, Loader2, UploadCloud, Upload, Layers, Box, Trash2, Edit2, ShieldAlert, Activity, AlertTriangle } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
