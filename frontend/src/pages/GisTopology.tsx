@@ -92,9 +92,12 @@ export default function GisTopology() {
       pop: 0,
       odp: 0,
       totalTiang: 0,
+      tiangSpek: 0,
+      tiangBiasa: 0,
       closure: 0,
       jointClosure: 0,
       jointBox: 0,
+      slack: 0,
       backboneMeters: 0,
       dropcoreMeters: 0,
       distributionMeters: 0,
@@ -107,11 +110,21 @@ export default function GisTopology() {
         s.pop++;
       } else if (props.type === 'device') {
         const type = (props.device_type || '').toLowerCase();
+        const desc = (props.description || '').toLowerCase();
+        
         if (type.includes('odp')) s.odp++;
-        else if (type.includes('tiang') || type.includes('pole')) s.totalTiang++;
+        else if (type.includes('tiang') || type.includes('pole')) {
+          s.totalTiang++;
+          if (desc.includes('spek') || type.includes('spek')) {
+            s.tiangSpek++;
+          } else {
+            s.tiangBiasa++;
+          }
+        }
         else if (type === 'joint closure') s.jointClosure++;
         else if (type === 'joint box') s.jointBox++;
         else if (type.includes('closure')) s.closure++;
+        else if (type.includes('slack')) s.slack++;
       } else if (props.type === 'cable') {
         const cType = (props.cable_type || '').toLowerCase();
         const length = parseFloat(props.length) || 0;
@@ -176,28 +189,20 @@ export default function GisTopology() {
       if (map.hasImage(url)) {
         newlyLoaded.push(url);
       } else {
-        const img = new Image();
-        if (url.startsWith('http')) {
-          img.crossOrigin = "Anonymous";
-          // Use a cors proxy for external KMZ icons (like Google Maps pushpins)
-          img.src = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
-        } else {
-          img.src = url;
-        }
-        
-        img.onload = () => {
-          if (!map.hasImage(url)) {
+        // Use MapLibre's native loadImage which handles some CORS internally
+        map.loadImage(url, (error, img) => {
+          if (error) {
+            console.warn("Failed to load KMZ icon:", url, error);
+            return;
+          }
+          if (img && !map.hasImage(url)) {
             map.addImage(url, img);
             setLoadedIcons(prev => {
               if (!prev.includes(url)) return [...prev, url];
               return prev;
             });
           }
-        };
-        
-        img.onerror = () => {
-          console.warn("Failed to load KMZ icon:", url);
-        }
+        });
       }
     });
 
@@ -330,8 +335,9 @@ export default function GisTopology() {
           </div>
           <div className="bg-dark-surface border border-dark-border rounded-xl p-3 flex flex-col justify-between shadow-sm col-span-2">
             <span className="text-xs text-dark-muted font-semibold flex items-center gap-1 uppercase tracking-wider"><MapPin size={12}/> Total Tiang</span>
-            <div className="flex items-end justify-between mt-2">
+            <div className="flex flex-col mt-1">
               <span className="text-2xl font-bold text-blue-400">{stats.totalTiang}</span>
+              <span className="text-[10px] text-dark-muted font-bold mt-1 tracking-wider uppercase">TIANG SPEK: {stats.tiangSpek}, TIANG BIASA: {stats.tiangBiasa}</span>
             </div>
           </div>
           <div className="bg-dark-surface border border-dark-border rounded-xl p-3 flex flex-col justify-between shadow-sm">
@@ -351,6 +357,10 @@ export default function GisTopology() {
             <div className="flex flex-col mt-2">
               <span className="text-lg font-bold text-gray-300">{formatLength(stats.dropcoreMeters)}</span>
             </div>
+          </div>
+          <div className="bg-dark-surface border border-dark-border rounded-xl p-3 flex flex-col justify-between shadow-sm">
+            <span className="text-xs text-dark-muted font-semibold flex items-center gap-1 uppercase tracking-wider"><Activity size={12}/> Slack Kabel</span>
+            <span className="text-2xl font-bold text-yellow-500 mt-2">{stats.slack}</span>
           </div>
         </div>
       )}
