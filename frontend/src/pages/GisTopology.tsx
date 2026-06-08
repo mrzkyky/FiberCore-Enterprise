@@ -113,18 +113,12 @@ export default function GisTopology() {
         const desc = (props.description || '').toLowerCase();
         
         if (type.includes('odp')) s.odp++;
-        else if (type.includes('tiang') || type.includes('pole')) {
-          s.totalTiang++;
-          if (desc.includes('spek') || type.includes('spek')) {
-            s.tiangSpek++;
-          } else {
-            s.tiangBiasa++;
-          }
-        }
+        else if (type === 'tiang spek') { s.totalTiang++; s.tiangSpek++; }
+        else if (type.includes('tiang') || type.includes('pole')) { s.totalTiang++; s.tiangBiasa++; }
         else if (type === 'joint closure') s.jointClosure++;
         else if (type === 'joint box') s.jointBox++;
         else if (type.includes('closure')) s.closure++;
-        else if (type.includes('slack')) s.slack++;
+        else if (type.includes('slack') || type.includes('oloop')) s.slack++;
       } else if (props.type === 'cable') {
         const cType = (props.cable_type || '').toLowerCase();
         const length = parseFloat(props.length) || 0;
@@ -188,11 +182,27 @@ export default function GisTopology() {
     iconsToLoad.forEach(url => {
       if (map.hasImage(url)) {
         newlyLoaded.push(url);
+      } else if (url.startsWith('data:')) {
+        // Base64 data URI from KMZ embedded icons
+        const img = new Image();
+        img.src = url;
+        img.onload = () => {
+          if (!map.hasImage(url)) {
+            map.addImage(url, img);
+            setLoadedIcons(prev => {
+              if (!prev.includes(url)) return [...prev, url];
+              return prev;
+            });
+          }
+        };
+        img.onerror = () => {
+          console.warn('Failed to load base64 icon');
+        };
       } else {
-        // Use MapLibre's native loadImage which handles some CORS internally
-        map.loadImage(url, (error, img) => {
+        // External HTTP URL
+        map.loadImage(url, (error: any, img: any) => {
           if (error) {
-            console.warn("Failed to load KMZ icon:", url, error);
+            console.warn('Failed to load external icon:', url, error);
             return;
           }
           if (img && !map.hasImage(url)) {
@@ -275,6 +285,7 @@ export default function GisTopology() {
         'Closure', 6,
         'ODP', 6,
         'Slack', 5,
+        'Tiang Spek', 5,
         4 // Default Pole
       ],
       'circle-color': [
@@ -285,13 +296,15 @@ export default function GisTopology() {
         'Closure', '#f97316',
         'ODP', '#22c55e',
         'Slack', '#facc15',
-        '#6b7280' // Default Pole
+        'Tiang Spek', '#ef4444',
+        '#6b7280' // Default Pole (Tiang Biasa)
       ],
       'circle-stroke-width': 2,
       'circle-stroke-color': [
         'match',
         ['get', 'device_type'],
         'Slack', '#ca8a04',
+        'Tiang Spek', '#dc2626',
         '#ffffff'
       ]
     }

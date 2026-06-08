@@ -89,10 +89,50 @@ def parse_kml_coordinates(kml_content: bytes, kmz_zip: zipfile.ZipFile = None):
                 elem.tag = elem.tag.split('}', 1)[1]
                 
         styles = parse_kml_styles(root)
-                
-        for placemark in root.findall('.//Placemark'):
+        
+        def classify_point(name, description, folder_name):
+            """Classify a point placemark into a device type using both name and folder context."""
+            name_lower = (name or "").lower()
+            desc_lower = (description or "").lower()
+            folder_lower = (folder_name or "").lower()
+            
+            # High-priority: specific device types from placemark name
+            if "odp" in name_lower:
+                return "ODP"
+            elif "jc" in name_lower or "joint closure" in name_lower:
+                return "Joint Closure"
+            elif "jb" in name_lower or "joint box" in name_lower:
+                return "Joint Box"
+            elif "closure" in name_lower:
+                return "Closure"
+            elif "olt" in name_lower:
+                return "OLT"
+            elif "otb" in name_lower:
+                return "OTB"
+            elif "pop" in name_lower or "sto" in name_lower:
+                return "POP"
+            elif "oloop" in name_lower or "slack" in name_lower:
+                return "Slack"
+            
+            # Medium-priority: folder-based classification
+            if "slack" in folder_lower or "oloop" in folder_lower or "reserve" in folder_lower:
+                return "Slack"
+            
+            # Pole sub-typing from folder name
+            if "spek" in folder_lower or "spec" in folder_lower:
+                return "Tiang Spek"
+            
+            # Check placemark name for tahap/spek patterns
+            if "tahap" in name_lower or "spek" in name_lower or "spec" in name_lower:
+                return "Tiang Spek"
+            
+            # Default: Pole (Tiang Biasa)
+            return "Pole"
+        
+        def process_placemark(placemark, folder_name=""):
+            """Process a single Placemark element."""
             name_elem = placemark.find('name')
-            name = name_elem.text if name_elem is not None else "Unknown Asset"
+            name = name_elem.text.strip() if name_elem is not None and name_elem.text else "Unknown Asset"
             
             desc_elem = placemark.find('description')
             description = desc_elem.text if desc_elem is not None else ""
@@ -111,16 +151,16 @@ def parse_kml_coordinates(kml_content: bytes, kmz_zip: zipfile.ZipFile = None):
                 coords_elem = linestring.find('coordinates')
                 if coords_elem is not None and coords_elem.text:
                     coords_text = coords_elem.text.strip()
-                    points = []
+                    coord_points = []
                     for pt in coords_text.split():
                         parts = pt.split(',')
                         if len(parts) >= 2:
-                            points.append(f"{parts[0]} {parts[1]}")
+                            coord_points.append(f"{parts[0]} {parts[1]}")
                             
-                    if len(points) >= 2:
-                        wkt = f"LINESTRING({', '.join(points)})"
+                    if len(coord_points) >= 2:
+                        wkt = f"LINESTRING({', '.join(coord_points)})"
                         
-                        length_meters = calculate_linestring_length(points)
+                        length_meters = calculate_linestring_length(coord_points)
                         
                         capacity = 24
                         match = re.search(r'(\d+)\s*[cC]', name)
@@ -129,11 +169,13 @@ def parse_kml_coordinates(kml_content: bytes, kmz_zip: zipfile.ZipFile = None):
                             
                         ctype = "Distribution"
                         name_lower = name.lower()
-                        if "feeder" in name_lower: 
+                        folder_lower = (folder_name or "").lower()
+                        
+                        if "feeder" in name_lower or "feeder" in folder_lower: 
                             ctype = "Feeder"
-                        elif "backbone" in name_lower: 
+                        elif "backbone" in name_lower or "backbone" in folder_lower: 
                             ctype = "Backbone"
-                        elif "drop" in name_lower: 
+                        elif "drop" in name_lower or "drop" in folder_lower: 
                             ctype = "Dropcore"
                         else:
                             if capacity >= 96:
@@ -157,23 +199,7 @@ def parse_kml_coordinates(kml_content: bytes, kmz_zip: zipfile.ZipFile = None):
                     if len(parts) >= 2:
                         wkt = f"POINT({parts[0]} {parts[1]})"
                         
-                        dtype = "Pole"
-                        name_lower = name.lower()
-                        
-                        # Extract pole stages
-                        if "tahap" in name_lower:
-                            t_match = re.search(r'tahap\s*(\d+)', name_lower)
-                            if t_match:
-                                dtype = f"Tiang Tahap {t_match.group(1)}"
-                        
-                        if "odp" in name_lower: dtype = "ODP"
-                        elif "jc" in name_lower or "joint closure" in name_lower: dtype = "Joint Closure"
-                        elif "jb" in name_lower or "joint box" in name_lower: dtype = "Joint Box"
-                        elif "closure" in name_lower: dtype = "Closure"
-                        elif "oloop" in name_lower or "slack" in name_lower: dtype = "Slack"
-                        elif "olt" in name_lower: dtype = "OLT"
-                        elif "otb" in name_lower: dtype = "OTB"
-                        elif "pop" in name_lower or "sto" in name_lower: dtype = "POP"
+                        dtype = classify_point(name, description, folder_name)
                         
                         icon_href = resolved_style.get('icon_href', None)
                         icon_url_base64 = None
@@ -200,9 +226,30 @@ def parse_kml_coordinates(kml_content: bytes, kmz_zip: zipfile.ZipFile = None):
                             "description": description,
                             "icon_url": icon_url_base64
                         })
+        
+        def process_element(element, parent_folder_name=""):
+            """Recursively process Folders and Placemarks, carrying folder name context."""
+            # Process direct Placemark children of this element
+            for placemark in element.findall('Placemark'):
+                process_placemark(placemark, parent_folder_name)
+            
+            # Recurse into Folder children
+            for folder in element.findall('Folder'):
+                folder_name_elem = folder.find('name')
+                folder_name = folder_name_elem.text.strip() if folder_name_elem is not None and folder_name_elem.text else parent_folder_name
+                process_element(folder, folder_name)
+        
+        # Start from root Document (or root itself)
+        doc = root.find('Document')
+        if doc is None:
+            doc = root
+        
+        process_element(doc)
                         
     except Exception as e:
         print(f"Error parsing KML: {e}")
+        import traceback
+        traceback.print_exc()
         
     return {"routes": routes, "points": points_data}
 
