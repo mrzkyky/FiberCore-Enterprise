@@ -13,8 +13,10 @@ def get_db():
     finally:
         db.close()
 
+from typing import Optional
+
 @router.get("/topology")
-def get_map_topology(db: Session = Depends(get_db)):
+def get_map_topology(region: Optional[str] = None, db: Session = Depends(get_db)):
     """
     Returns GeoJSON FeatureCollection of all PoPs (Points) and Cables (LineStrings)
     """
@@ -41,7 +43,11 @@ def get_map_topology(db: Session = Depends(get_db)):
         })
         
     # 2. Fetch Devices as Point Features
-    devices = db.query(Device, func.ST_AsGeoJSON(Device.location).label("geojson")).filter(Device.location.is_not(None)).all()
+    devices_query = db.query(Device, func.ST_AsGeoJSON(Device.location).label("geojson")).filter(Device.location.is_not(None))
+    if region and region != "All":
+        devices_query = devices_query.filter(Device.region == region)
+        
+    devices = devices_query.all()
     for device, geojson_str in devices:
         if not geojson_str:
             continue
@@ -60,12 +66,17 @@ def get_map_topology(db: Session = Depends(get_db)):
                 "pop_id": str(device.pop_id) if device.pop_id else None,
                 "description": device.description,
                 "used_capacity": device.used_capacity,
-                "icon_url": device.icon_url
+                "icon_url": device.icon_url,
+                "region": device.region
             }
         })
 
     # 3. Fetch Cables as LineString Features
-    cables = db.query(Cable, func.ST_AsGeoJSON(Cable.route).label("geojson")).all()
+    cables_query = db.query(Cable, func.ST_AsGeoJSON(Cable.route).label("geojson"))
+    if region and region != "All":
+        cables_query = cables_query.filter(Cable.region == region)
+        
+    cables = cables_query.all()
     for cable, geojson_str in cables:
         if not geojson_str:
             continue

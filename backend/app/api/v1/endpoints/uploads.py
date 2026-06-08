@@ -221,7 +221,8 @@ async def upload_kml(
             device_type=pt['device_type'],
             location=func.ST_GeomFromText(pt['wkt'], 4326),
             description=pt['description'],
-            icon_url=pt['icon_url']
+            icon_url=pt['icon_url'],
+            region=region
         )
         db.add(new_device)
         imported_devices.append(pt['name'])

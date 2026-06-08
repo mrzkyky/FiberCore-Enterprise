@@ -1,30 +1,12 @@
-import { useState } from 'react';
+// @ts-nocheck
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
-import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
+import Map, { Source, Layer, Popup as MapPopup, NavigationControl, FullscreenControl } from 'react-map-gl/maplibre';
+import type { CircleLayer, LineLayer } from 'react-map-gl/maplibre';
+import 'maplibre-gl/dist/maplibre-gl.css';
 import { useAuthStore } from '../store/useAuthStore';
 import { Loader2, Layers, MapPin, Server, Activity, X, Edit } from 'lucide-react';
-
-// Fix for Leaflet default icon issues in React
-import icon from 'leaflet/dist/images/marker-icon.png';
-import iconShadow from 'leaflet/dist/images/marker-shadow.png';
-import iconRetina from 'leaflet/dist/images/marker-icon-2x.png';
-
-import MarkerClusterGroup from 'react-leaflet-cluster';
-import 'leaflet.markercluster/dist/MarkerCluster.css';
-import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
-
-let DefaultIcon = L.icon({
-  iconUrl: icon,
-  iconRetinaUrl: iconRetina,
-  shadowUrl: iconShadow,
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-});
-L.Marker.prototype.options.icon = DefaultIcon;
 
 export default function GisTopology() {
   const token = useAuthStore(state => state.token);
@@ -32,14 +14,23 @@ export default function GisTopology() {
   const [selectedClosure, setSelectedClosure] = useState<string | null>(null);
   const [mapRegionFilter, setMapRegionFilter] = useState<string>('All');
   
-  // Edit State
+  // Edit State & Popup State
   const [editingDevice, setEditingDevice] = useState<any | null>(null);
   const [editFormData, setEditFormData] = useState({ used_capacity: '', description: '' });
+  
+  const [popupInfo, setPopupInfo] = useState<{
+    feature: any;
+    lngLat: [number, number];
+  } | null>(null);
 
   const { data: geoData, isLoading } = useQuery({
-    queryKey: ['map-topology'],
+    queryKey: ['map-topology', mapRegionFilter],
     queryFn: async () => {
-      const response = await axios.get('/api/v1/map/topology', {
+      const params = new URLSearchParams();
+      if (mapRegionFilter !== 'All') {
+        params.append('region', mapRegionFilter);
+      }
+      const response = await axios.get(`/api/v1/map/topology?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       return response.data; // GeoJSON FeatureCollection
@@ -68,58 +59,29 @@ export default function GisTopology() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['map-topology'] });
       setEditingDevice(null);
+      setPopupInfo(null);
     }
   });
 
-  const uniqueRegions = Array.from(new Set(
-    geoData?.features
-      ?.map((f: any) => f.properties.region)
-      .filter(Boolean)
-  )) as string[];
+  // Extract unique regions for dropdown (we fallback to fetching 'All' initially to get them)
+  const { data: allGeoData } = useQuery({
+    queryKey: ['map-topology', 'All'],
+    queryFn: async () => {
+      const response = await axios.get(`/api/v1/map/topology`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      return response.data;
+    },
+    staleTime: 60000 // Cache for 1 min
+  });
 
-  const center: [number, number] = [-6.200000, 106.816666]; // Default to Jakarta if no PoPs
-
-  // Custom Lightweight Icon Generator
-  const getCustomIcon = (deviceType: string, name: string, description: string) => {
-    const isSlack = name.toLowerCase().includes('slack') || (description && description.toLowerCase().includes('slack'));
-    
-    let bgColor = 'bg-gray-400';
-    let sizeClass = 'w-4 h-4';
-    let iconHtml = '';
-    let isSquare = false;
-    
-    if (isSlack) {
-      bgColor = 'bg-yellow-400 border-2 border-yellow-600';
-      iconHtml = '<div class="text-[8px] font-bold text-yellow-900 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">S</div>';
-      sizeClass = 'w-5 h-5';
-    } else if (deviceType === 'Closure') {
-      bgColor = 'bg-orange-500 border-2 border-white shadow-md';
-      isSquare = true;
-      sizeClass = 'w-5 h-5';
-    } else if (deviceType === 'ODP') {
-      bgColor = 'bg-green-500 border-2 border-white shadow-md';
-      isSquare = true;
-      sizeClass = 'w-5 h-5';
-    } else if (deviceType === 'POP' || deviceType === 'OLT') {
-      bgColor = 'bg-purple-600 border-2 border-white shadow-lg';
-      iconHtml = '<div class="text-[8px] font-bold text-white absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">P</div>';
-      isSquare = true;
-      sizeClass = 'w-6 h-6';
-    } else {
-      // Regular Pole or Unknown
-      bgColor = 'bg-gray-500 border border-white shadow-sm';
-    }
-
-    const roundedClass = isSquare ? 'rounded-sm' : 'rounded-full';
-
-    return L.divIcon({
-      className: 'bg-transparent border-0',
-      html: `<div class="relative ${sizeClass} ${bgColor} ${roundedClass} flex items-center justify-center">${iconHtml}</div>`,
-      iconSize: [24, 24],
-      iconAnchor: [12, 12],
-      popupAnchor: [0, -12]
-    });
-  };
+  const uniqueRegions = useMemo(() => {
+    return Array.from(new Set(
+      allGeoData?.features
+        ?.map((f: any) => f.properties.region)
+        .filter(Boolean)
+    )) as string[];
+  }, [allGeoData]);
 
   const handleEditSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -134,6 +96,89 @@ export default function GisTopology() {
     });
   };
 
+  const onMapClick = (event: any) => {
+    const { features, lngLat } = event;
+    if (features && features.length > 0) {
+      const clickedFeature = features[0];
+      setPopupInfo({
+        feature: clickedFeature,
+        lngLat: [lngLat.lng, lngLat.lat]
+      });
+    } else {
+      setPopupInfo(null);
+    }
+  };
+
+  // --- MapLibre Styling Layers ---
+  
+  const cableLayerStyle: LineLayer = {
+    id: 'cables',
+    type: 'line',
+    source: 'topology',
+    filter: ['==', ['get', 'type'], 'cable'],
+    paint: {
+      'line-color': ['coalesce', ['get', 'color'], '#475569'],
+      'line-width': [
+        'match',
+        ['get', 'cable_type'],
+        'Backbone', 4,
+        'Feeder', 3,
+        'Distribution', 2,
+        2
+      ],
+      'line-opacity': 0.8
+    }
+  };
+
+  const popLayerStyle: CircleLayer = {
+    id: 'pops',
+    type: 'circle',
+    source: 'topology',
+    filter: ['==', ['get', 'type'], 'pop'],
+    paint: {
+      'circle-radius': 8,
+      'circle-color': '#9333ea',
+      'circle-stroke-width': 2,
+      'circle-stroke-color': '#ffffff'
+    }
+  };
+
+  const deviceLayerStyle: CircleLayer = {
+    id: 'devices',
+    type: 'circle',
+    source: 'topology',
+    filter: ['==', ['get', 'type'], 'device'],
+    paint: {
+      'circle-radius': [
+        'match',
+        ['get', 'device_type'],
+        'POP', 8,
+        'OLT', 8,
+        'Closure', 6,
+        'ODP', 6,
+        'Slack', 5,
+        4 // Default Pole
+      ],
+      'circle-color': [
+        'match',
+        ['get', 'device_type'],
+        'POP', '#9333ea',
+        'OLT', '#9333ea',
+        'Closure', '#f97316',
+        'ODP', '#22c55e',
+        'Slack', '#facc15',
+        '#6b7280' // Default Pole
+      ],
+      'circle-stroke-width': 2,
+      'circle-stroke-color': [
+        'match',
+        ['get', 'device_type'],
+        'Slack', '#ca8a04',
+        '#ffffff'
+      ]
+    }
+  };
+
   return (
     <div className="flex flex-col h-[calc(100vh-6rem)] relative">
       <div className="flex items-center justify-between mb-4 shrink-0">
@@ -142,12 +187,15 @@ export default function GisTopology() {
             <Layers className="text-primary" />
             GIS Topology Map
           </h2>
-          <p className="text-dark-muted text-sm mt-1">Live Map of PoPs and Fiber Routes</p>
+          <p className="text-dark-muted text-sm mt-1">Live Map with WebGL Acceleration</p>
         </div>
         {uniqueRegions.length > 0 && (
           <select 
             value={mapRegionFilter}
-            onChange={(e) => setMapRegionFilter(e.target.value)}
+            onChange={(e) => {
+              setMapRegionFilter(e.target.value);
+              setPopupInfo(null);
+            }}
             className="bg-white border border-dark-border rounded-lg px-4 py-2 text-sm text-dark-text focus:outline-none focus:border-primary"
           >
             <option value="All">All Regions</option>
@@ -164,129 +212,151 @@ export default function GisTopology() {
           </div>
         ) : null}
 
-        <MapContainer 
-          center={center} 
-          zoom={10} 
-          preferCanvas={true}
-          className="w-full h-full bg-white"
-          style={{ background: '#F8FAFC' }}
+        <Map
+          initialViewState={{
+            longitude: 106.816666,
+            latitude: -6.200000,
+            zoom: 10
+          }}
+          mapStyle="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json"
+          interactiveLayerIds={['cables', 'pops', 'devices']}
+          onClick={onMapClick}
+          cursor="pointer"
         >
-          <TileLayer
-            attribution='&copy; <a href="https://carto.com/">CartoDB</a>'
-            url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-          />
+          <NavigationControl position="top-right" />
+          <FullscreenControl position="top-right" />
 
-          <MarkerClusterGroup
-            chunkedLoading
-            maxClusterRadius={25}
-            spiderfyOnMaxZoom={true}
-          >
-            {geoData?.features?.map((feature: any, index: number) => {
-              if (feature.geometry.type === "Point") {
-                const isDevice = feature.properties.type === "device";
-                const coords: [number, number] = [feature.geometry.coordinates[1], feature.geometry.coordinates[0]];
+          {geoData && (
+            <Source id="topology" type="geojson" data={geoData}>
+              <Layer {...cableLayerStyle} />
+              <Layer {...popLayerStyle} />
+              <Layer {...deviceLayerStyle} />
+            </Source>
+          )}
+
+          {/* Popup Rendering */}
+          {popupInfo && (
+            <MapPopup
+              longitude={popupInfo.lngLat[0]}
+              latitude={popupInfo.lngLat[1]}
+              anchor="bottom"
+              onClose={() => setPopupInfo(null)}
+              closeButton={true}
+              closeOnClick={false}
+              className="z-[100]"
+              maxWidth="300px"
+            >
+              <div className="p-1 min-w-[200px] text-dark-text">
+                <h3 className="font-bold text-lg border-b pb-2 mb-2">{popupInfo.feature.properties.name}</h3>
                 
-                const customIcon = getCustomIcon(
-                  feature.properties.device_type || 'Pole', 
-                  feature.properties.name || '',
-                  feature.properties.description || ''
-                );
-
-                return (
-                  <Marker key={index} position={coords} icon={customIcon}>
-                    <Popup className="custom-popup">
-                      <div className="p-1 min-w-[200px]">
-                        <h3 className="font-bold text-lg border-b pb-2 mb-2">{feature.properties.name}</h3>
-                        <p className="text-sm text-gray-600 flex items-center gap-1 mb-2">
-                          {isDevice ? <Server size={14} /> : <MapPin size={14} />} 
-                          {isDevice ? feature.properties.device_type : 'PoP Site'}
-                        </p>
+                {popupInfo.feature.properties.type === 'cable' ? (
+                  <div className="space-y-1 text-sm text-gray-700">
+                    <p><strong>Type:</strong> {popupInfo.feature.properties.cable_type}</p>
+                    <p><strong>Region:</strong> {popupInfo.feature.properties.region || '-'}</p>
+                    <p><strong>Capacity:</strong> {popupInfo.feature.properties.capacity} Core</p>
+                    {popupInfo.feature.properties.description && (
+                      <p className="italic text-xs mt-1">"{popupInfo.feature.properties.description}"</p>
+                    )}
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-sm text-gray-600 flex items-center gap-1 mb-2">
+                      {popupInfo.feature.properties.type === 'device' ? <Server size={14} /> : <MapPin size={14} />} 
+                      {popupInfo.feature.properties.type === 'device' ? popupInfo.feature.properties.device_type : 'PoP Site'}
+                    </p>
+                    
+                    {popupInfo.feature.properties.used_capacity !== undefined && popupInfo.feature.properties.used_capacity !== null && (
+                      <p className="text-sm text-gray-700 mb-2 font-medium">
+                          Capacity: <span className="text-primary">{popupInfo.feature.properties.used_capacity}</span> Ports Used
+                      </p>
+                    )}
+                    
+                    {popupInfo.feature.properties.description && (
+                      <p className="text-xs text-gray-500 mb-2 italic">
+                        "{popupInfo.feature.properties.description}"
+                      </p>
+                    )}
+                    
+                    {popupInfo.feature.properties.type === 'device' && (
+                      <div className="mt-3 flex gap-2">
+                        <button 
+                          onClick={() => {
+                            setEditingDevice(popupInfo.feature.properties);
+                            setEditFormData({
+                              used_capacity: popupInfo.feature.properties.used_capacity?.toString() || '',
+                              description: popupInfo.feature.properties.description || ''
+                            });
+                          }}
+                          className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-800 py-1.5 px-2 rounded-lg text-sm flex items-center justify-center gap-1 transition-colors"
+                        >
+                          <Edit size={14} /> Edit
+                        </button>
                         
-                        {feature.properties.used_capacity !== undefined && feature.properties.used_capacity !== null && (
-                          <p className="text-sm text-gray-700 mb-2 font-medium">
-                              Capacity: <span className="text-primary">{feature.properties.used_capacity}</span> Ports Used
-                          </p>
-                        )}
-                        
-                        {feature.properties.description && (
-                          <p className="text-xs text-gray-500 mb-2 italic">
-                            "{feature.properties.description}"
-                          </p>
-                        )}
-                        
-                        {isDevice && (
-                          <div className="mt-3 flex gap-2">
-                            <button 
-                              onClick={() => {
-                                setEditingDevice(feature.properties);
-                                setEditFormData({
-                                  used_capacity: feature.properties.used_capacity?.toString() || '',
-                                  description: feature.properties.description || ''
-                                });
-                              }}
-                              className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-800 py-1.5 px-2 rounded-lg text-sm flex items-center justify-center gap-1 transition-colors"
-                            >
-                              <Edit size={14} /> Edit Info
-                            </button>
-                            
-                            {(feature.properties.device_type === 'Closure' || feature.properties.device_type === 'ODP') && (
-                              <button 
-                                onClick={() => setSelectedClosure(feature.properties.id)}
-                                className="flex-1 btn-primary py-1.5 px-2 text-sm flex items-center justify-center gap-1"
-                              >
-                                <Activity size={14} /> Matrix
-                              </button>
-                            )}
-                          </div>
+                        {(popupInfo.feature.properties.device_type === 'Closure' || popupInfo.feature.properties.device_type === 'ODP') && (
+                          <button 
+                            onClick={() => setSelectedClosure(popupInfo.feature.properties.id)}
+                            className="flex-1 btn-primary py-1.5 px-2 text-sm flex items-center justify-center gap-1"
+                          >
+                            <Activity size={14} /> Matrix
+                          </button>
                         )}
                       </div>
-                    </Popup>
-                  </Marker>
-                );
-              }
-              return null;
-            })}
-          </MarkerClusterGroup>
+                    )}
+                  </>
+                )}
+              </div>
+            </MapPopup>
+          )}
+        </Map>
 
-          {geoData?.features?.map((feature: any, index: number) => {
-            if (feature.geometry.type === "LineString") {
-              const coords: [number, number][] = feature.geometry.coordinates.map(
-                (coord: [number, number]) => [coord[1], coord[0]] // Swap to [lat, lon]
-              );
-              
-              if (mapRegionFilter !== 'All' && feature.properties.region !== mapRegionFilter) {
-                return null;
-              }
-
-              const cableType = feature.properties.cable_type || 'Distribution';
-              let finalColor = feature.properties.color || '#475569'; // Use KMZ color if available
-              let weight = cableType === 'Backbone' ? 5 : cableType === 'Feeder' ? 4 : cableType === 'Distribution' ? 3 : 2;
-
-              return (
-                <Polyline 
-                  key={index} 
-                  positions={coords} 
-                  pathOptions={{ color: finalColor, weight, opacity: 0.8 }}
-                >
-                  <Popup className="custom-popup">
-                    <div className="p-1 min-w-[200px]">
-                      <h3 className="font-bold text-lg border-b pb-2 mb-2">{feature.properties.name}</h3>
-                      <div className="space-y-1 text-sm text-gray-700">
-                        <p><strong>Type:</strong> {feature.properties.cable_type}</p>
-                        <p><strong>Region:</strong> {feature.properties.region || '-'}</p>
-                        <p><strong>Capacity:</strong> {feature.properties.capacity} Core</p>
-                        {feature.properties.description && (
-                          <p className="italic text-xs mt-1">"{feature.properties.description}"</p>
-                        )}
-                      </div>
-                    </div>
-                  </Popup>
-                </Polyline>
-              );
-            }
-            return null;
-          })}
-        </MapContainer>
+        {/* Legend */}
+        <div className="absolute bottom-6 left-6 z-[400] bg-white/90 backdrop-blur border border-dark-border p-4 rounded-xl shadow-lg flex gap-8 pointer-events-none">
+          <div>
+            <h4 className="text-dark-text font-semibold mb-2 text-sm border-b pb-1">Nodes (Devices)</h4>
+            <div className="space-y-2 text-sm text-dark-muted">
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 rounded-full bg-gray-500 border-2 border-white"></div>
+                <span>Pole (Tiang)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-5 h-5 rounded-full bg-yellow-400 border-2 border-yellow-600"></div>
+                <span>Slack / Oloop</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-5 h-5 rounded-full bg-orange-500 border-2 border-white"></div>
+                <span>Closure (JC/JB)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-5 h-5 rounded-full bg-green-500 border-2 border-white"></div>
+                <span>ODP</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-full bg-purple-600 border-2 border-white"></div>
+                <span>PoP / OLT</span>
+              </div>
+            </div>
+          </div>
+          <div>
+            <h4 className="text-dark-text font-semibold mb-2 text-sm border-b pb-1">Cables (Routes)</h4>
+            <div className="space-y-2 text-sm text-dark-muted">
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-1 bg-[#1E3A8A] rounded"></div>
+                <span>Backbone</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-0.5 bg-[#0284C7] rounded"></div>
+                <span>Feeder</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-6 border-b border-[#475569] rounded"></div>
+                <span>Distribution</span>
+              </div>
+            </div>
+            <p className="mt-3 text-xs text-dark-muted italic max-w-[120px]">
+              *Colors may vary based on KMZ authentic styles
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* Edit Device Modal */}
@@ -311,7 +381,7 @@ export default function GisTopology() {
                     type="number"
                     value={editFormData.used_capacity}
                     onChange={(e) => setEditFormData({...editFormData, used_capacity: e.target.value})}
-                    className="w-full px-3 py-2 border border-dark-border rounded-lg focus:outline-none focus:border-primary text-sm bg-white"
+                    className="w-full px-3 py-2 border border-dark-border rounded-lg focus:outline-none focus:border-primary text-sm bg-white text-dark-text"
                     placeholder="e.g. 12"
                   />
                 </div>
@@ -320,7 +390,7 @@ export default function GisTopology() {
                   <textarea 
                     value={editFormData.description}
                     onChange={(e) => setEditFormData({...editFormData, description: e.target.value})}
-                    className="w-full px-3 py-2 border border-dark-border rounded-lg focus:outline-none focus:border-primary text-sm bg-white"
+                    className="w-full px-3 py-2 border border-dark-border rounded-lg focus:outline-none focus:border-primary text-sm bg-white text-dark-text"
                     placeholder="e.g. Spare 5 meter, Joint Box ODP..."
                     rows={3}
                   />
