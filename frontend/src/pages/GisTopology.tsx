@@ -12,6 +12,10 @@ import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 import iconRetina from 'leaflet/dist/images/marker-icon-2x.png';
 
+import MarkerClusterGroup from 'react-leaflet-cluster';
+import 'leaflet.markercluster/dist/MarkerCluster.css';
+import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
+
 let DefaultIcon = L.icon({
   iconUrl: icon,
   iconRetinaUrl: iconRetina,
@@ -75,17 +79,46 @@ export default function GisTopology() {
 
   const center: [number, number] = [-6.200000, 106.816666]; // Default to Jakarta if no PoPs
 
-  // Custom Icon Generator (Prefers KMZ icon if available)
-  const getCustomIcon = (iconUrl?: string) => {
-    if (iconUrl) {
-      return L.icon({
-        iconUrl: iconUrl,
-        iconSize: [32, 32],
-        iconAnchor: [16, 32],
-        popupAnchor: [0, -32]
-      });
+  // Custom Lightweight Icon Generator
+  const getCustomIcon = (deviceType: string, name: string, description: string) => {
+    const isSlack = name.toLowerCase().includes('slack') || (description && description.toLowerCase().includes('slack'));
+    
+    let bgColor = 'bg-gray-400';
+    let sizeClass = 'w-4 h-4';
+    let iconHtml = '';
+    let isSquare = false;
+    
+    if (isSlack) {
+      bgColor = 'bg-yellow-400 border-2 border-yellow-600';
+      iconHtml = '<div class="text-[8px] font-bold text-yellow-900 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">S</div>';
+      sizeClass = 'w-5 h-5';
+    } else if (deviceType === 'Closure') {
+      bgColor = 'bg-orange-500 border-2 border-white shadow-md';
+      isSquare = true;
+      sizeClass = 'w-5 h-5';
+    } else if (deviceType === 'ODP') {
+      bgColor = 'bg-green-500 border-2 border-white shadow-md';
+      isSquare = true;
+      sizeClass = 'w-5 h-5';
+    } else if (deviceType === 'POP' || deviceType === 'OLT') {
+      bgColor = 'bg-purple-600 border-2 border-white shadow-lg';
+      iconHtml = '<div class="text-[8px] font-bold text-white absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">P</div>';
+      isSquare = true;
+      sizeClass = 'w-6 h-6';
+    } else {
+      // Regular Pole or Unknown
+      bgColor = 'bg-gray-500 border border-white shadow-sm';
     }
-    return DefaultIcon;
+
+    const roundedClass = isSquare ? 'rounded-sm' : 'rounded-full';
+
+    return L.divIcon({
+      className: 'bg-transparent border-0',
+      html: `<div class="relative ${sizeClass} ${bgColor} ${roundedClass} flex items-center justify-center">${iconHtml}</div>`,
+      iconSize: [24, 24],
+      iconAnchor: [12, 12],
+      popupAnchor: [0, -12]
+    });
   };
 
   const handleEditSubmit = (e: React.FormEvent) => {
@@ -143,67 +176,77 @@ export default function GisTopology() {
             url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
           />
 
-          {geoData?.features?.map((feature: any, index: number) => {
-            if (feature.geometry.type === "Point") {
-              const isDevice = feature.properties.type === "device";
-              const coords: [number, number] = [feature.geometry.coordinates[1], feature.geometry.coordinates[0]];
-              
-              const customIcon = getCustomIcon(feature.properties.icon_url);
+          <MarkerClusterGroup
+            chunkedLoading
+            maxClusterRadius={25}
+            spiderfyOnMaxZoom={true}
+          >
+            {geoData?.features?.map((feature: any, index: number) => {
+              if (feature.geometry.type === "Point") {
+                const isDevice = feature.properties.type === "device";
+                const coords: [number, number] = [feature.geometry.coordinates[1], feature.geometry.coordinates[0]];
+                
+                const customIcon = getCustomIcon(
+                  feature.properties.device_type || 'Pole', 
+                  feature.properties.name || '',
+                  feature.properties.description || ''
+                );
 
-              return (
-                <Marker key={index} position={coords} icon={customIcon}>
-                  <Popup className="custom-popup">
-                    <div className="p-1 min-w-[200px]">
-                      <h3 className="font-bold text-lg border-b pb-2 mb-2">{feature.properties.name}</h3>
-                      <p className="text-sm text-gray-600 flex items-center gap-1 mb-2">
-                        {isDevice ? <Server size={14} /> : <MapPin size={14} />} 
-                        {isDevice ? feature.properties.device_type : 'PoP Site'}
-                      </p>
-                      
-                      {feature.properties.used_capacity !== undefined && feature.properties.used_capacity !== null && (
-                        <p className="text-sm text-gray-700 mb-2 font-medium">
-                            Capacity: <span className="text-primary">{feature.properties.used_capacity}</span> Ports Used
+                return (
+                  <Marker key={index} position={coords} icon={customIcon}>
+                    <Popup className="custom-popup">
+                      <div className="p-1 min-w-[200px]">
+                        <h3 className="font-bold text-lg border-b pb-2 mb-2">{feature.properties.name}</h3>
+                        <p className="text-sm text-gray-600 flex items-center gap-1 mb-2">
+                          {isDevice ? <Server size={14} /> : <MapPin size={14} />} 
+                          {isDevice ? feature.properties.device_type : 'PoP Site'}
                         </p>
-                      )}
-                      
-                      {feature.properties.description && (
-                        <p className="text-xs text-gray-500 mb-2 italic">
-                          "{feature.properties.description}"
-                        </p>
-                      )}
-                      
-                      {isDevice && (
-                        <div className="mt-3 flex gap-2">
-                          <button 
-                            onClick={() => {
-                              setEditingDevice(feature.properties);
-                              setEditFormData({
-                                used_capacity: feature.properties.used_capacity?.toString() || '',
-                                description: feature.properties.description || ''
-                              });
-                            }}
-                            className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-800 py-1.5 px-2 rounded-lg text-sm flex items-center justify-center gap-1 transition-colors"
-                          >
-                            <Edit size={14} /> Edit Info
-                          </button>
-                          
-                          {(feature.properties.device_type === 'Closure' || feature.properties.device_type === 'ODP') && (
+                        
+                        {feature.properties.used_capacity !== undefined && feature.properties.used_capacity !== null && (
+                          <p className="text-sm text-gray-700 mb-2 font-medium">
+                              Capacity: <span className="text-primary">{feature.properties.used_capacity}</span> Ports Used
+                          </p>
+                        )}
+                        
+                        {feature.properties.description && (
+                          <p className="text-xs text-gray-500 mb-2 italic">
+                            "{feature.properties.description}"
+                          </p>
+                        )}
+                        
+                        {isDevice && (
+                          <div className="mt-3 flex gap-2">
                             <button 
-                              onClick={() => setSelectedClosure(feature.properties.id)}
-                              className="flex-1 btn-primary py-1.5 px-2 text-sm flex items-center justify-center gap-1"
+                              onClick={() => {
+                                setEditingDevice(feature.properties);
+                                setEditFormData({
+                                  used_capacity: feature.properties.used_capacity?.toString() || '',
+                                  description: feature.properties.description || ''
+                                });
+                              }}
+                              className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-800 py-1.5 px-2 rounded-lg text-sm flex items-center justify-center gap-1 transition-colors"
                             >
-                              <Activity size={14} /> Matrix
+                              <Edit size={14} /> Edit Info
                             </button>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </Popup>
-                </Marker>
-              );
-            }
-            return null;
-          })}
+                            
+                            {(feature.properties.device_type === 'Closure' || feature.properties.device_type === 'ODP') && (
+                              <button 
+                                onClick={() => setSelectedClosure(feature.properties.id)}
+                                className="flex-1 btn-primary py-1.5 px-2 text-sm flex items-center justify-center gap-1"
+                              >
+                                <Activity size={14} /> Matrix
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </Popup>
+                  </Marker>
+                );
+              }
+              return null;
+            })}
+          </MarkerClusterGroup>
 
           {geoData?.features?.map((feature: any, index: number) => {
             if (feature.geometry.type === "LineString") {
