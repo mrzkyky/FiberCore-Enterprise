@@ -91,3 +91,26 @@ class Device(Base):
     
     pop = relationship("POP", back_populates="devices")
     splices = relationship("Splice", back_populates="closure")
+    ports = relationship("Port", back_populates="device", cascade="all, delete-orphan")
+
+class Port(Base):
+    __tablename__ = "ports"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    device_id = Column(UUID(as_uuid=True), ForeignKey("devices.id"), nullable=False)
+    port_number = Column(Integer, nullable=False)
+    status = Column(String, default="Free") # Free, Connected, Broken
+    core_id = Column(UUID(as_uuid=True), ForeignKey("cores.id"), nullable=True) # Core plugged into port
+    
+    device = relationship("Device", back_populates="ports")
+    core = relationship("Core")
+    customer = relationship("Customer", back_populates="port", uselist=False)
+
+class Customer(Base):
+    __tablename__ = "customers"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name = Column(String, nullable=False)
+    service_id = Column(String, unique=True, index=True) # e.g. INET-12345
+    address = Column(String, nullable=True)
+    port_id = Column(UUID(as_uuid=True), ForeignKey("ports.id"), unique=True, nullable=True)
+    
+    port = relationship("Port", back_populates="customer")

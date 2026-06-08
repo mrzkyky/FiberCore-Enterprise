@@ -4,6 +4,7 @@ import axios from 'axios';
 import { Network, Plus, Loader2, Cable, Trash2 } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import Modal from '../components/Modal';
+import SpliceVisualizer from '../components/SpliceVisualizer';
 
 interface Device {
   id: string;
@@ -231,8 +232,13 @@ export default function Splicing() {
               <p>Belum ada data penyambungan di perangkat ini.</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
+            <>
+              {/* SVG Splice Matrix */}
+              <SpliceVisualizer splices={splices} />
+              
+              {/* Tabular Data */}
+              <div className="overflow-x-auto mt-8">
+                <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="border-b border-dark-border text-dark-muted text-sm">
                     <th className="pb-3 px-4 font-medium">Core A</th>
@@ -271,6 +277,7 @@ export default function Splicing() {
                 </tbody>
               </table>
             </div>
+            </>
           )}
         </div>
       )}

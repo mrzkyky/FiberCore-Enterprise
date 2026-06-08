@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from app.db.session import SessionLocal
-from app.db.models import Organization, POP, Cable, Splice, Device, Core
+from app.db.models import Organization, POP, Cable, Splice, Device, Core, Port
 
 router = APIRouter()
 
@@ -20,6 +20,13 @@ def get_dashboard_stats(db: Session = Depends(get_db)):
     cable_count = db.query(Cable).count()
     splice_count = db.query(Splice).count()
     device_count = db.query(Device).count()
+    
+    total_ports = db.query(Port).count()
+    used_ports = db.query(Port).filter(Port.status != 'Free').count()
+    
+    # Average splice loss
+    avg_loss_result = db.query(func.avg(Splice.attenuation)).scalar()
+    avg_loss = round(avg_loss_result, 2) if avg_loss_result else 0.0
     
     # Core Status Aggregation
     core_stats_query = db.query(Core.status, func.count(Core.id)).group_by(Core.status).all()
@@ -53,6 +60,9 @@ def get_dashboard_stats(db: Session = Depends(get_db)):
         "splices": splice_count,
         "devices": device_count,
         "total_cores": total_cores,
+        "total_ports": total_ports,
+        "used_ports": used_ports,
+        "avg_splice_loss": avg_loss,
         "core_status": core_status_data,
         "cable_types": cable_types_data,
         "device_types": device_types_data
