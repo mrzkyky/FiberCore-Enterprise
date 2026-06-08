@@ -50,9 +50,11 @@ export default function PopAssetReports() {
                   <th className="px-6 py-4 font-semibold uppercase tracking-wider">POP / Region</th>
                   <th className="px-6 py-4 font-semibold text-center">Tiang (Poles)</th>
                   <th className="px-6 py-4 font-semibold text-center">ODP</th>
-                  <th className="px-6 py-4 font-semibold text-center">Closure (JC/JB)</th>
+                  <th className="px-6 py-4 font-semibold text-center">Joint Closure</th>
+                  <th className="px-6 py-4 font-semibold text-center">Joint Box</th>
                   <th className="px-6 py-4 font-semibold text-center">Slack / Oloop</th>
                   <th className="px-6 py-4 font-semibold text-center">Kabel (Routes)</th>
+                  <th className="px-6 py-4 font-semibold text-center">Panjang Kabel (km)</th>
                   <th className="px-6 py-4 font-semibold text-center">Lainnya</th>
                 </tr>
               </thead>
@@ -77,21 +79,31 @@ export default function PopAssetReports() {
                     </td>
                     <td className="px-6 py-4 text-center">
                       <div className="inline-flex items-center gap-1.5 bg-orange-50 text-orange-700 px-3 py-1 rounded-full font-medium">
-                        {stat.closure_count}
+                        {stat.jc_count || 0}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <div className="inline-flex items-center gap-1.5 bg-amber-50 text-amber-700 px-3 py-1 rounded-full font-medium">
+                        {stat.jb_count || 0}
                       </div>
                     </td>
                     <td className="px-6 py-4 text-center">
                       <div className="inline-flex items-center gap-1.5 bg-yellow-50 text-yellow-700 px-3 py-1 rounded-full font-medium">
-                        {stat.slack_count}
+                        {stat.slack_count || 0}
                       </div>
                     </td>
                     <td className="px-6 py-4 text-center">
                       <div className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-700 px-3 py-1 rounded-full font-medium">
-                        <Route size={14} className="opacity-70" /> {stat.cable_count}
+                        <Route size={14} className="opacity-70" /> {stat.cable_count || 0}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <div className="inline-flex items-center gap-1.5 bg-purple-50 text-purple-700 px-3 py-1 rounded-full font-medium">
+                        {stat.cable_length_km || 0} km
                       </div>
                     </td>
                     <td className="px-6 py-4 text-center text-dark-muted font-medium">
-                      {stat.other_count}
+                      {stat.other_count || 0}
                     </td>
                   </tr>
                 ))}
@@ -106,16 +118,22 @@ export default function PopAssetReports() {
                     {regionStats.reduce((acc: number, curr: any) => acc + curr.odp_count, 0)}
                   </td>
                   <td className="px-6 py-4 text-center text-orange-800">
-                    {regionStats.reduce((acc: number, curr: any) => acc + curr.closure_count, 0)}
+                    {regionStats.reduce((acc: number, curr: any) => acc + (curr.jc_count || 0), 0)}
+                  </td>
+                  <td className="px-6 py-4 text-center text-amber-800">
+                    {regionStats.reduce((acc: number, curr: any) => acc + (curr.jb_count || 0), 0)}
                   </td>
                   <td className="px-6 py-4 text-center text-yellow-800">
-                    {regionStats.reduce((acc: number, curr: any) => acc + curr.slack_count, 0)}
+                    {regionStats.reduce((acc: number, curr: any) => acc + (curr.slack_count || 0), 0)}
                   </td>
                   <td className="px-6 py-4 text-center text-blue-800">
-                    {regionStats.reduce((acc: number, curr: any) => acc + curr.cable_count, 0)}
+                    {regionStats.reduce((acc: number, curr: any) => acc + (curr.cable_count || 0), 0)}
+                  </td>
+                  <td className="px-6 py-4 text-center text-purple-800 font-bold">
+                    {regionStats.reduce((acc: number, curr: any) => acc + (curr.cable_length_km || 0), 0).toFixed(2)} km
                   </td>
                   <td className="px-6 py-4 text-center text-dark-muted">
-                    {regionStats.reduce((acc: number, curr: any) => acc + curr.other_count, 0)}
+                    {regionStats.reduce((acc: number, curr: any) => acc + (curr.other_count || 0), 0)}
                   </td>
                 </tr>
               </tbody>

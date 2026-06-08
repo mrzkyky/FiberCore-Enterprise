@@ -52,16 +52,16 @@ export default function Dashboard() {
           { label: 'Total Cores', value: stats?.total_cores, icon: Cpu, color: 'text-yellow-400', glow: 'shadow-yellow-500/20' },
           { label: 'ODP Ports', value: `${stats?.used_ports || 0} / ${stats?.total_ports || 0}`, icon: Wifi, color: 'text-pink-400', glow: 'shadow-pink-500/20' },
         ].map((stat, i) => (
-          <div key={i} className={`bg-dark-surface border border-dark-border rounded-2xl p-5 flex flex-col justify-between hover:-translate-y-1 transition-all duration-300 shadow-lg ${stat.glow} hover:shadow-xl hover:border-gray-700 relative overflow-hidden group`}>
-            <div className={`absolute -right-6 -top-6 w-24 h-24 rounded-full ${stat.color} opacity-5 group-hover:opacity-10 transition-opacity blur-2xl`}></div>
+          <div key={i} className={`bg-white border border-slate-200 rounded-2xl p-5 flex flex-col justify-between hover:-translate-y-1 transition-all duration-300 shadow-sm ${stat.glow} hover:shadow-md hover:border-slate-300 relative overflow-hidden group`}>
+            <div className={`absolute -right-6 -top-6 w-24 h-24 rounded-full ${stat.color} opacity-10 group-hover:opacity-20 transition-opacity blur-2xl`}></div>
             <div className="flex justify-between items-start mb-6">
-              <div className={`p-3 rounded-xl bg-black/40 border border-white/5 ${stat.color}`}>
+              <div className={`p-3 rounded-xl bg-slate-50 border border-slate-100 ${stat.color}`}>
                 <stat.icon size={22} strokeWidth={2} />
               </div>
             </div>
             <div>
-              <p className="text-3xl font-extrabold text-white tracking-tight">{isLoading ? '...' : stat.value || 0}</p>
-              <p className="text-gray-400 text-xs font-semibold uppercase mt-1 tracking-wider">{stat.label}</p>
+              <p className="text-3xl font-extrabold text-slate-800 tracking-tight">{isLoading ? '...' : stat.value || 0}</p>
+              <p className="text-slate-500 text-xs font-semibold uppercase mt-1 tracking-wider">{stat.label}</p>
             </div>
           </div>
         ))}
@@ -69,15 +69,15 @@ export default function Dashboard() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[400px]">
         {/* Left Section: Core Status */}
-        <div className="bg-dark-surface border border-dark-border rounded-2xl flex flex-col shadow-lg relative overflow-hidden">
-          <div className="px-6 py-5 border-b border-dark-border bg-black/20">
-            <h3 className="font-semibold text-gray-200 tracking-wide flex items-center gap-2">
+        <div className="bg-white border border-slate-200 rounded-2xl flex flex-col shadow-sm relative overflow-hidden">
+          <div className="px-6 py-5 border-b border-slate-200 bg-slate-50">
+            <h3 className="font-semibold text-slate-700 tracking-wide flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-blue-500"></div> Core Utilization
             </h3>
           </div>
           <div className="flex-1 p-4 pb-8">
             {isLoading ? (
-              <div className="h-full flex items-center justify-center text-dark-muted">Memuat grafik...</div>
+              <div className="h-full flex items-center justify-center text-slate-400">Memuat grafik...</div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
@@ -96,10 +96,10 @@ export default function Dashboard() {
                     ))}
                   </Pie>
                   <RechartsTooltip 
-                    contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', borderRadius: '8px', color: '#f8fafc' }}
-                    itemStyle={{ color: '#e2e8f0' }}
+                    contentStyle={{ backgroundColor: '#ffffff', borderColor: '#e2e8f0', borderRadius: '8px', color: '#1e293b' }}
+                    itemStyle={{ color: '#334155' }}
                   />
-                  <Legend verticalAlign="bottom" height={36} wrapperStyle={{ color: '#94a3b8' }}/>
+                  <Legend verticalAlign="bottom" height={36} wrapperStyle={{ color: '#64748b' }}/>
                 </PieChart>
               </ResponsiveContainer>
             )}
@@ -107,26 +107,26 @@ export default function Dashboard() {
         </div>
 
         {/* Right Section: Device/Cable Types Bar Chart */}
-        <div className="bg-dark-surface border border-dark-border rounded-2xl flex flex-col shadow-lg relative overflow-hidden">
-          <div className="px-6 py-5 border-b border-dark-border bg-black/20">
-            <h3 className="font-semibold text-gray-200 tracking-wide flex items-center gap-2">
+        <div className="bg-white border border-slate-200 rounded-2xl flex flex-col shadow-sm relative overflow-hidden">
+          <div className="px-6 py-5 border-b border-slate-200 bg-slate-50">
+            <h3 className="font-semibold text-slate-700 tracking-wide flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-purple-500"></div> Infrastructure Composition
             </h3>
           </div>
           <div className="flex-1 p-6">
             {isLoading ? (
-               <div className="h-full flex items-center justify-center text-dark-muted">Memuat grafik...</div>
+               <div className="h-full flex items-center justify-center text-slate-400">Memuat grafik...</div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
                   data={stats?.cable_types || []}
                   margin={{ top: 20, right: 30, left: 0, bottom: 5 }}
                 >
-                  <XAxis dataKey="name" stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />
-                  <YAxis stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />
+                  <XAxis dataKey="name" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
+                  <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
                   <RechartsTooltip 
-                    cursor={{fill: '#1e293b'}} 
-                    contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', borderRadius: '8px', color: '#f8fafc' }}
+                    cursor={{fill: '#f1f5f9'}} 
+                    contentStyle={{ backgroundColor: '#ffffff', borderColor: '#e2e8f0', borderRadius: '8px', color: '#1e293b' }}
                   />
                   <Bar dataKey="value" fill="url(#colorUv)" radius={[6, 6, 0, 0]} />
                   <defs>
