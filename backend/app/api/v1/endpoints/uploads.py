@@ -92,18 +92,18 @@ def parse_kml_coordinates(kml_content: bytes, kmz_zip: zipfile.ZipFile = None):
         
         def classify_point(name, description, folder_name):
             """Classify a point placemark into a device type using both name and folder context."""
-            name_lower = (name or "").lower()
+            name_lower = (name or "").lower().strip()
             desc_lower = (description or "").lower()
             folder_lower = (folder_name or "").lower()
             
-            # High-priority: specific device types from placemark name
+            # High-priority: specific device types from placemark name (only if name is descriptive)
             if "odp" in name_lower:
                 return "ODP"
             elif "jc" in name_lower or "joint closure" in name_lower:
                 return "Joint Closure"
             elif "jb" in name_lower or "joint box" in name_lower:
                 return "Joint Box"
-            elif "closure" in name_lower:
+            elif "closure" in name_lower and "joint" not in name_lower:
                 return "Closure"
             elif "olt" in name_lower:
                 return "OLT"
@@ -111,18 +111,25 @@ def parse_kml_coordinates(kml_content: bytes, kmz_zip: zipfile.ZipFile = None):
                 return "OTB"
             elif "pop" in name_lower or "sto" in name_lower:
                 return "POP"
-            elif "oloop" in name_lower or "slack" in name_lower:
+            elif "oloop" in name_lower or "slack" in name_lower or name_lower == "sk":
                 return "Slack"
             
             # Medium-priority: folder-based classification
-            if "slack" in folder_lower or "oloop" in folder_lower or "reserve" in folder_lower:
+            # This is critical for KMZ files where placemarks have generic names like "T"
+            if "odp" in folder_lower:
+                return "ODP"
+            elif "joint closure" in folder_lower or folder_lower.strip() == "jc":
+                return "Joint Closure"
+            elif "joint box" in folder_lower or folder_lower.strip() == "jb":
+                return "Joint Box"
+            elif "closure" in folder_lower and "joint" not in folder_lower:
+                return "Closure"
+            elif "slack" in folder_lower or "oloop" in folder_lower or "reserve" in folder_lower:
                 return "Slack"
             
-            # Pole sub-typing from folder name
-            if "spek" in folder_lower or "spec" in folder_lower:
+            # Pole sub-typing: Tiang Spek from folder or name
+            if "spek" in folder_lower or "spec" in folder_lower or "tahap" in folder_lower:
                 return "Tiang Spek"
-            
-            # Check placemark name for tahap/spek patterns
             if "tahap" in name_lower or "spek" in name_lower or "spec" in name_lower:
                 return "Tiang Spek"
             

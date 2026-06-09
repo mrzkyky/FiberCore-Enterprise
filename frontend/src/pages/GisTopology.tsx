@@ -165,50 +165,66 @@ export default function GisTopology() {
     }
   };
 
-  useEffect(() => {
-    if (!geoData || !mapRef.current) return;
-    const map = mapRef.current.getMap();
-    
-    // Extract unique icon_urls
-    const iconsToLoad = new Set<string>();
-    geoData.features.forEach((f: any) => {
+  // --- Icon System: Hash-based IDs for MapLibre ---
+  const iconMapping = useRef<Record<string, string>>({});
+  const iconCounter = useRef(0);
+
+  const processedGeoData = useMemo(() => {
+    if (!geoData) return null;
+    iconMapping.current = {};
+    iconCounter.current = 0;
+
+    const features = geoData.features.map((f: any) => {
       if (f.properties?.icon_url) {
-        iconsToLoad.add(f.properties.icon_url);
+        const url = f.properties.icon_url;
+        if (!iconMapping.current[url]) {
+          iconMapping.current[url] = `kmz-icon-${iconCounter.current++}`;
+        }
+        return {
+          ...f,
+          properties: {
+            ...f.properties,
+            icon_id: iconMapping.current[url]
+          }
+        };
       }
+      return f;
     });
 
+    return { ...geoData, features };
+  }, [geoData]);
+
+  useEffect(() => {
+    if (!processedGeoData || !mapRef.current || Object.keys(iconMapping.current).length === 0) return;
+    const map = mapRef.current.getMap();
     const newlyLoaded: string[] = [];
 
-    iconsToLoad.forEach(url => {
-      if (map.hasImage(url)) {
-        newlyLoaded.push(url);
-      } else if (url.startsWith('data:')) {
-        // Base64 data URI from KMZ embedded icons
+    Object.entries(iconMapping.current).forEach(([url, iconId]) => {
+      if (map.hasImage(iconId)) {
+        newlyLoaded.push(iconId);
+        return;
+      }
+
+      if (url.startsWith('data:')) {
         const img = new Image();
         img.src = url;
         img.onload = () => {
-          if (!map.hasImage(url)) {
-            map.addImage(url, img);
+          if (!map.hasImage(iconId)) {
+            map.addImage(iconId, img);
             setLoadedIcons(prev => {
-              if (!prev.includes(url)) return [...prev, url];
+              if (!prev.includes(iconId)) return [...prev, iconId];
               return prev;
             });
           }
         };
-        img.onerror = () => {
-          console.warn('Failed to load base64 icon');
-        };
+        img.onerror = () => console.warn('Failed to load base64 icon:', iconId);
       } else {
-        // External HTTP URL
-        map.loadImage(url, (error: any, img: any) => {
-          if (error) {
-            console.warn('Failed to load external icon:', url, error);
-            return;
-          }
-          if (img && !map.hasImage(url)) {
-            map.addImage(url, img);
+        map.loadImage(url, (error: any, imgData: any) => {
+          if (error) { console.warn('Failed to load icon:', iconId, error); return; }
+          if (imgData && !map.hasImage(iconId)) {
+            map.addImage(iconId, imgData);
             setLoadedIcons(prev => {
-              if (!prev.includes(url)) return [...prev, url];
+              if (!prev.includes(iconId)) return [...prev, iconId];
               return prev;
             });
           }
@@ -219,7 +235,7 @@ export default function GisTopology() {
     if (newlyLoaded.length > 0) {
       setLoadedIcons(prev => Array.from(new Set([...prev, ...newlyLoaded])));
     }
-  }, [geoData]);
+  }, [processedGeoData]);
 
   // --- MapLibre Styling Layers ---
   
@@ -236,6 +252,7 @@ export default function GisTopology() {
         'Backbone', 4,
         'Feeder', 3,
         'Distribution', 2,
+        'Dropcore', 2,
         2
       ],
       'line-opacity': 0.8
@@ -256,7 +273,7 @@ export default function GisTopology() {
   };
 
   const hasIconExpression = loadedIcons.length > 0 
-    ? ['in', ['get', 'icon_url'], ['literal', loadedIcons]] 
+    ? ['in', ['get', 'icon_id'], ['literal', loadedIcons]] 
     : false;
 
   const deviceSymbolLayerStyle: SymbolLayer = {
@@ -265,7 +282,7 @@ export default function GisTopology() {
     source: 'topology',
     filter: ['all', ['==', ['get', 'type'], 'device'], hasIconExpression],
     layout: {
-      'icon-image': ['get', 'icon_url'],
+      'icon-image': ['get', 'icon_id'],
       'icon-size': 0.8,
       'icon-allow-overlap': true
     }
@@ -283,10 +300,12 @@ export default function GisTopology() {
         'POP', 8,
         'OLT', 8,
         'Closure', 6,
-        'ODP', 6,
+        'Joint Closure', 6,
+        'Joint Box', 6,
+        'ODP', 5,
         'Slack', 5,
-        'Tiang Spek', 5,
-        4 // Default Pole
+        'Tiang Spek', 4,
+        4 // Default Pole (Tiang Biasa)
       ],
       'circle-color': [
         'match',
@@ -294,17 +313,21 @@ export default function GisTopology() {
         'POP', '#9333ea',
         'OLT', '#9333ea',
         'Closure', '#f97316',
+        'Joint Closure', '#a855f7',
+        'Joint Box', '#ec4899',
         'ODP', '#22c55e',
         'Slack', '#facc15',
         'Tiang Spek', '#ef4444',
-        '#6b7280' // Default Pole (Tiang Biasa)
+        '#ef4444' // Default Pole (Tiang Biasa) = RED like reference
       ],
-      'circle-stroke-width': 2,
+      'circle-stroke-width': 1.5,
       'circle-stroke-color': [
         'match',
         ['get', 'device_type'],
         'Slack', '#ca8a04',
-        'Tiang Spek', '#dc2626',
+        'Joint Closure', '#7c3aed',
+        'Joint Box', '#db2777',
+        'ODP', '#16a34a',
         '#ffffff'
       ]
     }
@@ -401,8 +424,8 @@ export default function GisTopology() {
           <NavigationControl position="top-right" />
           <FullscreenControl position="top-right" />
 
-          {geoData && (
-            <Source id="topology" type="geojson" data={geoData}>
+          {processedGeoData && (
+            <Source id="topology" type="geojson" data={processedGeoData}>
               <Layer {...cableLayerStyle} />
               <Layer {...popLayerStyle} />
               <Layer {...deviceLayerStyle} />
