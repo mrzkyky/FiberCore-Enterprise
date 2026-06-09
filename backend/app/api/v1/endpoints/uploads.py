@@ -234,17 +234,18 @@ def parse_kml_coordinates(kml_content: bytes, kmz_zip: zipfile.ZipFile = None):
                             "icon_url": icon_url_base64
                         })
         
-        def process_element(element, parent_folder_name=""):
-            """Recursively process Folders and Placemarks, carrying folder name context."""
+        def process_element(element, folder_path=""):
+            """Recursively process Folders and Placemarks, carrying accumulated folder path context."""
             # Process direct Placemark children of this element
             for placemark in element.findall('Placemark'):
-                process_placemark(placemark, parent_folder_name)
+                process_placemark(placemark, folder_path)
             
             # Recurse into Folder children
             for folder in element.findall('Folder'):
                 folder_name_elem = folder.find('name')
-                folder_name = folder_name_elem.text.strip() if folder_name_elem is not None and folder_name_elem.text else parent_folder_name
-                process_element(folder, folder_name)
+                folder_name = folder_name_elem.text.strip() if folder_name_elem is not None and folder_name_elem.text else ""
+                new_folder_path = f"{folder_path} | {folder_name}" if folder_path else folder_name
+                process_element(folder, new_folder_path)
         
         # Start from root Document (or root itself)
         doc = root.find('Document')

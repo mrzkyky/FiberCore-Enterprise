@@ -6,13 +6,14 @@ import Map, { Source, Layer, Popup as MapPopup, NavigationControl, FullscreenCon
 import type { CircleLayer, LineLayer, SymbolLayer, MapRef } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { useAuthStore } from '../store/useAuthStore';
-import { Loader2, Layers, MapPin, Server, Activity, X, Edit, Box, GitMerge, List, Route, Database, ChevronDown, ChevronUp } from 'lucide-react';
+import { Loader2, Layers, MapPin, Server, Activity, X, Edit, Box, GitMerge, List, Route, Database, ChevronDown, ChevronUp, Map as MapIcon } from 'lucide-react';
 
 export default function GisTopology() {
   const token = useAuthStore(state => state.token);
   const queryClient = useQueryClient();
   const [selectedClosure, setSelectedClosure] = useState<string | null>(null);
   const [mapRegionFilter, setMapRegionFilter] = useState<string>('All');
+  const [mapType, setMapType] = useState<'streets' | 'satellite'>('streets');
   const mapRef = useRef<MapRef>(null);
   const [loadedIcons, setLoadedIcons] = useState<string[]>([]);
   
@@ -416,13 +417,53 @@ export default function GisTopology() {
             latitude: -6.200000,
             zoom: 10
           }}
-          mapStyle="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json"
+          mapStyle={
+            mapType === 'streets' 
+              ? "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json"
+              : {
+                  version: 8,
+                  sources: {
+                    'esri-satellite': {
+                      type: 'raster',
+                      tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
+                      tileSize: 256
+                    }
+                  },
+                  layers: [
+                    {
+                      id: 'satellite',
+                      type: 'raster',
+                      source: 'esri-satellite',
+                      minzoom: 0,
+                      maxzoom: 22
+                    }
+                  ]
+                }
+          }
           interactiveLayerIds={['cables', 'pops', 'devices', 'devices-symbol']}
           onClick={onMapClick}
           cursor="pointer"
         >
           <NavigationControl position="top-right" />
           <FullscreenControl position="top-right" />
+          
+          {/* Map Style Toggle */}
+          <div className="absolute top-28 right-2.5 z-10 bg-white rounded-md shadow-sm border border-gray-200 overflow-hidden flex flex-col">
+            <button 
+              onClick={() => setMapType('streets')}
+              className={`p-2 transition-colors ${mapType === 'streets' ? 'bg-blue-100 text-blue-600' : 'bg-white hover:bg-gray-100'}`}
+              title="Streets View"
+            >
+              <MapPin size={18} />
+            </button>
+            <button 
+              onClick={() => setMapType('satellite')}
+              className={`p-2 transition-colors border-t border-gray-200 ${mapType === 'satellite' ? 'bg-blue-100 text-blue-600' : 'bg-white hover:bg-gray-100'}`}
+              title="Satellite View"
+            >
+              <MapIcon size={18} />
+            </button>
+          </div>
 
           {processedGeoData && (
             <Source id="topology" type="geojson" data={processedGeoData}>
