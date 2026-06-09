@@ -517,13 +517,16 @@ export default function GisTopology() {
         </Map>
 
         {/* Legend */}
-        <div className="absolute top-4 right-12 z-[400] bg-dark-surface/90 backdrop-blur border border-dark-border p-3 rounded-xl shadow-lg flex gap-6 pointer-events-none max-w-sm">
+        <div className="absolute top-4 right-12 z-[400] bg-dark-surface/90 backdrop-blur border border-dark-border p-3 rounded-xl shadow-lg flex gap-6 pointer-events-none max-w-md">
           <div>
             <div className="space-y-1.5 text-xs text-dark-text">
-              <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-gray-500 border border-white"></div><span>Pole</span></div>
-              <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-orange-500 border border-white"></div><span>Closure/JC/JB</span></div>
-              <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-green-500 border border-white"></div><span>ODP</span></div>
-              <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-purple-600 border border-white"></div><span>PoP/OLT</span></div>
+              <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-[#ef4444] border border-white"></div><span>Tiang</span></div>
+              <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-[#22c55e] border border-[#16a34a]"></div><span>ODP</span></div>
+              <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-[#f97316] border border-white"></div><span>Closure</span></div>
+              <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-[#a855f7] border border-[#7c3aed]"></div><span>Joint Closure</span></div>
+              <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-[#ec4899] border border-[#db2777]"></div><span>Joint Box</span></div>
+              <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-[#facc15] border border-[#ca8a04]"></div><span>Slack</span></div>
+              <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-[#9333ea] border border-white"></div><span>PoP/OLT</span></div>
             </div>
           </div>
           <div>

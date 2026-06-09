@@ -63,6 +63,16 @@ export default function Cables() {
     }
   });
 
+  const { data: regionsData } = useQuery({
+    queryKey: ['regions'],
+    queryFn: async () => {
+      const response = await axios.get<string[]>('/api/v1/cables/regions', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      return response.data;
+    }
+  });
+
   const { data: cores, isLoading: isLoadingCores } = useQuery({
     queryKey: ['cores', selectedCable?.id],
     queryFn: async () => {
@@ -228,7 +238,10 @@ export default function Cables() {
     return map[color] || 'bg-gray-500 text-white';
   };
 
-  const uniqueRegions = Array.from(new Set(cables?.map(c => c.region).filter(Boolean) as string[]));
+  const uniqueRegions = regionsData && regionsData.length > 0 
+    ? regionsData 
+    : Array.from(new Set(cables?.map(c => c.region).filter(Boolean) as string[]));
+    
   const filteredCables = cables?.filter(c => regionFilter === 'All' || c.region === regionFilter);
 
   const importBatches = Array.from(new Set(cables?.filter(c => c.import_batch).map(c => c.import_batch) as string[])).map(batchId => {

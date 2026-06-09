@@ -15,6 +15,19 @@ def get_db():
     finally:
         db.close()
 
+@router.get("/regions")
+def get_all_regions(db: Session = Depends(get_db)):
+    """Returns all unique region names from both cables and devices."""
+    from sqlalchemy import union_all
+    cable_regions = db.query(Cable.region).filter(Cable.region != None).distinct()
+    device_regions = db.query(Device.region).filter(Device.region != None).distinct()
+    all_regions = set()
+    for (r,) in cable_regions:
+        all_regions.add(r)
+    for (r,) in device_regions:
+        all_regions.add(r)
+    return sorted(list(all_regions))
+
 @router.post("/", response_model=CableResponse)
 def create_cable(cable_in: CableCreate, db: Session = Depends(get_db)):
     db_cable = Cable(**cable_in.model_dump())
