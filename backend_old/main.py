@@ -45,6 +45,14 @@ def on_startup():
             conn.execute(text("ALTER TABLE cables ADD COLUMN IF NOT EXISTS line_width FLOAT DEFAULT 3.0;"))
             conn.execute(text("ALTER TABLE devices ADD COLUMN IF NOT EXISTS description VARCHAR;"))
             conn.execute(text("ALTER TABLE devices ADD COLUMN IF NOT EXISTS used_capacity INTEGER DEFAULT 0;"))
+            
+            # Auto-fix: Correct core_number for multi-tube cables (e.g., 48C where core_number was previously wrapped 1..12)
+            conn.execute(text("""
+                UPDATE cores 
+                SET core_number = (tube_number - 1) * 12 + ((core_number - 1) % 12) + 1
+                WHERE tube_number > 1 AND core_number <= 12;
+            """))
+            print("Cores numbering migration applied successfully.")
         except Exception as e:
             print(f"Migration error: {e}")
 

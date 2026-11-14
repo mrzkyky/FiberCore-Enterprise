@@ -517,7 +517,7 @@ export default function GisTopology() {
 
     let note = batchSpliceForm.custom_note.trim();
     if (batchSpliceForm.splice_type === 'petik') {
-      const petikDesc = `${batchSpliceForm.petik_tube} / ${batchSpliceForm.petik_core}${batchSpliceForm.petik_target ? ' to ' + batchSpliceForm.petik_target : ''}`;
+      const petikDesc = `${batchSpliceForm.petik_tube} / ${batchSpliceForm.petik_core}${batchSpliceForm.petik_target ? ' - ' + batchSpliceForm.petik_target : ''}`;
       note = note ? `${petikDesc} | ${note}` : petikDesc;
     }
 
@@ -2528,15 +2528,15 @@ export default function GisTopology() {
                   <div className="text-purple-700 bg-white p-1.5 rounded border border-gray-100">
                     <strong className="text-purple-900">Di Joint Closure:</strong>{' '}
                     {batchSpliceForm.splice_type === 'petik'
-                      ? `${(availableCables.find(c => c.id === batchSpliceForm.cable_a_id)?.name || 'Kabel-A')} (C1) <-> ${(availableCables.find(c => c.id === batchSpliceForm.cable_b_id)?.name || 'Kabel-B')} (C${batchSpliceForm.start_core_b}) [${batchSpliceForm.petik_tube} / ${batchSpliceForm.petik_core}${batchSpliceForm.petik_target ? ' to ' + batchSpliceForm.petik_target : ''}]`
-                      : `${(availableCables.find(c => c.id === batchSpliceForm.cable_a_id)?.name || 'Kabel-A')} (C${batchSpliceForm.start_core_a}-C${Number(batchSpliceForm.start_core_a)+Number(batchSpliceForm.count)-1}) <-> ${(availableCables.find(c => c.id === batchSpliceForm.cable_b_id)?.name || 'Kabel-B')} (C${batchSpliceForm.start_core_b}-C${Number(batchSpliceForm.start_core_b)+Number(batchSpliceForm.count)-1})${batchSpliceForm.custom_note ? ` [${batchSpliceForm.custom_note}]` : ''}`
+                      ? `${(availableCables.find(c => c.id === batchSpliceForm.cable_a_id)?.name || 'Kabel-A')} ➔ ${(availableCables.find(c => c.id === batchSpliceForm.cable_b_id)?.name || 'Kabel-B')} (${batchSpliceForm.petik_tube} / ${batchSpliceForm.petik_core}${batchSpliceForm.petik_target ? ' - ' + batchSpliceForm.petik_target : ''})`
+                      : `${(availableCables.find(c => c.id === batchSpliceForm.cable_a_id)?.name || 'Kabel-A')} (Core ${batchSpliceForm.start_core_a}-${Number(batchSpliceForm.start_core_a)+Number(batchSpliceForm.count)-1}) ➔ ${(availableCables.find(c => c.id === batchSpliceForm.cable_b_id)?.name || 'Kabel-B')} (Core ${batchSpliceForm.start_core_b}-${Number(batchSpliceForm.start_core_b)+Number(batchSpliceForm.count)-1})${batchSpliceForm.custom_note ? ` - ${batchSpliceForm.custom_note}` : ''}`
                     }
                   </div>
                   <div className="text-emerald-700 bg-white p-1.5 rounded border border-gray-100">
                     <strong className="text-emerald-900">Di Kabel Asal:</strong>{' '}
                     {batchSpliceForm.splice_type === 'petik'
-                      ? `[Petik: C1 ke ${(availableCables.find(c => c.id === batchSpliceForm.cable_b_id)?.name || 'Kabel-B')} Core#${batchSpliceForm.start_core_b} (${batchSpliceForm.petik_tube}/${batchSpliceForm.petik_core}) via ${(sortedClosures.find(c => c.id === (batchSpliceForm.closure_id || sortedClosures[0]?.id))?.name || 'JC Terdekat')}]`
-                      : `[Pelebaran: C${batchSpliceForm.start_core_a}-C${Number(batchSpliceForm.start_core_a)+Number(batchSpliceForm.count)-1} sambung ke ${(availableCables.find(c => c.id === batchSpliceForm.cable_b_id)?.name || 'Kabel-B')} via ${(sortedClosures.find(c => c.id === (batchSpliceForm.closure_id || sortedClosures[0]?.id))?.name || 'JC Terdekat')}]`
+                      ? `Sambung ke ${(availableCables.find(c => c.id === batchSpliceForm.cable_b_id)?.name || 'Kabel-B')} via ${(sortedClosures.find(c => c.id === (batchSpliceForm.closure_id || sortedClosures[0]?.id))?.name || 'JC Terdekat')} (${batchSpliceForm.petik_tube} / ${batchSpliceForm.petik_core}${batchSpliceForm.petik_target ? ' - ' + batchSpliceForm.petik_target : ''})`
+                      : `Sambung ke ${(availableCables.find(c => c.id === batchSpliceForm.cable_b_id)?.name || 'Kabel-B')} via ${(sortedClosures.find(c => c.id === (batchSpliceForm.closure_id || sortedClosures[0]?.id))?.name || 'JC Terdekat')} (Core ${batchSpliceForm.start_core_a}-${Number(batchSpliceForm.start_core_a)+Number(batchSpliceForm.count)-1})${batchSpliceForm.custom_note ? ` - ${batchSpliceForm.custom_note}` : ''}`
                     }
                   </div>
                 </div>

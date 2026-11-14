@@ -351,7 +351,7 @@ async def upload_kml(
         for i in range(num_cores):
             cores_to_add.append(Core(
                 cable_id=new_cable.id,
-                core_number=(i % 12) + 1,
+                core_number=i + 1,
                 tube_number=(i // 12) + 1,
                 color=TIA_COLORS[i % 12],
                 status="Free"

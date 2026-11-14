@@ -40,8 +40,8 @@ def batch_connect_cables(payload: BatchSplicePayload, db: Session = Depends(get_
     if not cable_a or not cable_b:
         raise HTTPException(status_code=404, detail="One or both cables not found")
 
-    cores_a = db.query(Core).filter(Core.cable_id == cable_a.id).order_by(Core.core_number).all()
-    cores_b = db.query(Core).filter(Core.cable_id == cable_b.id).order_by(Core.core_number).all()
+    cores_a = db.query(Core).filter(Core.cable_id == cable_a.id).order_by(Core.tube_number, Core.core_number).all()
+    cores_b = db.query(Core).filter(Core.cable_id == cable_b.id).order_by(Core.tube_number, Core.core_number).all()
 
     closure = None
     if payload.closure_id:
@@ -134,29 +134,33 @@ def batch_connect_cables(payload: BatchSplicePayload, db: Session = Depends(get_
         )
 
     if payload.auto_update_description:
-        range_a = f"C{payload.start_core_a}-C{payload.start_core_a + spliced_count - 1}"
-        range_b = f"C{payload.start_core_b}-C{payload.start_core_b + spliced_count - 1}"
-        closure_label = closure.name if closure else "Joint"
+        closure_label = closure.name if closure else "JC"
+        is_petik = bool(payload.count == 1 and payload.custom_note and ("Tube" in payload.custom_note or "Core" in payload.custom_note))
         
-        # 1. Update Joint Closure description as the central meeting / splice reference point
-        if closure:
-            jc_entry = f"{cable_a.name} ({range_a}) <-> {cable_b.name} ({range_b})"
-            if payload.custom_note:
-                jc_entry += f" [{payload.custom_note}]"
+        if is_petik:
+            # Format Simpel & Bersih untuk Sambungan Petik (ODP/Dropcore)
+            detail = payload.custom_note
+            note_for_a = f"Sambung ke {cable_b.name} via {closure_label} ({detail})"
+            note_for_b = f"via {closure_label}: {detail} ➔ {cable_a.name}"
+            jc_entry = f"{cable_a.name} ➔ {cable_b.name} ({detail})"
+        else:
+            # Format Simpel & Bersih untuk Pelebaran Lurus (Trunk / Multi-Core)
+            core_info_a = f"Core {payload.start_core_a}" if payload.count == 1 else f"Core {payload.start_core_a}-{payload.start_core_a + spliced_count - 1}"
+            core_info_b = f"Core {payload.start_core_b}" if payload.count == 1 else f"Core {payload.start_core_b}-{payload.start_core_b + spliced_count - 1}"
+            extra = f" - {payload.custom_note}" if payload.custom_note else ""
             
+            note_for_a = f"Sambung ke {cable_b.name} via {closure_label} ({core_info_a}){extra}"
+            note_for_b = f"Sambung dari {cable_a.name} via {closure_label} ({core_info_b}){extra}"
+            jc_entry = f"{cable_a.name} ({core_info_a}) ➔ {cable_b.name} ({core_info_b}){extra}"
+
+        # 1. Update Joint Closure
+        if closure:
             if not closure.description:
                 closure.description = jc_entry
             elif jc_entry not in closure.description:
                 closure.description = f"{closure.description} | {jc_entry}"
 
-        # 2. Update Cable Descriptions
-        note_for_a = f"[Pelebaran: {range_a} sambung ke {cable_b.name} ({range_b}) via {closure_label}]"
-        note_for_b = f"[Pelebaran: {range_b} sambung dari {cable_a.name} ({range_a}) via {closure_label}]"
-        
-        if payload.custom_note:
-            note_for_a += f" Catatan: {payload.custom_note}"
-            note_for_b += f" Catatan: {payload.custom_note}"
-
+        # 2. Update Cable Descriptions (cegah duplikat)
         if not cable_a.description:
             cable_a.description = note_for_a
         elif note_for_a not in cable_a.description:

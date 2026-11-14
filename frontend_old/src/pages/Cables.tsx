@@ -400,19 +400,90 @@ export default function Cables() {
                 </div>
                 
                 <div>
-                  <h4 className="text-sm font-semibold text-dark-muted mb-3 uppercase tracking-wider">Physical Cores</h4>
-                  <div className="grid grid-cols-6 sm:grid-cols-8 lg:grid-cols-6 xl:grid-cols-8 gap-2">
-                    {cores?.map(core => (
-                      <div 
-                        key={core.id} 
-                        onClick={() => setTracingCoreId(core.id)}
-                        className={`h-10 w-full rounded-md shadow-sm border border-black/10 flex items-center justify-center text-xs font-bold cursor-pointer hover:opacity-80 hover:scale-105 transition-all ${getTailwindColor(core.color)}`}
-                        title={`Tube ${core.tube_number} | Core ${core.core_number} | ${core.color} | ${core.status}. Click to trace route.`}
-                      >
-                        {core.core_number}
-                      </div>
-                    ))}
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="text-sm font-semibold text-dark-muted uppercase tracking-wider">Physical Cores</h4>
+                    <span className="text-xs text-dark-muted font-medium">
+                      {cores?.filter(c => c.status === 'Spliced').length || 0} / {cores?.length || 0} Tersambung (Spliced)
+                    </span>
                   </div>
+
+                  {/* Group Cores by Tube jika kapasitas > 12 */}
+                  {selectedCable.capacity > 12 ? (
+                    <div className="space-y-4">
+                      {Object.entries(
+                        (cores || []).reduce((acc: Record<number, typeof cores>, core) => {
+                          const t = core.tube_number || 1;
+                          if (!acc[t]) acc[t] = [];
+                          acc[t].push(core);
+                          return acc;
+                        }, {})
+                      ).map(([tubeNum, tubeCores]) => {
+                        const tNum = Number(tubeNum);
+                        const tubeMeta = {
+                          1: { name: 'Tube 1 (Biru)', badge: 'bg-blue-50 text-blue-700 border-blue-200' },
+                          2: { name: 'Tube 2 (Oranye)', badge: 'bg-orange-50 text-orange-700 border-orange-200' },
+                          3: { name: 'Tube 3 (Hijau)', badge: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+                          4: { name: 'Tube 4 (Cokelat)', badge: 'bg-amber-50 text-amber-800 border-amber-200' },
+                          5: { name: 'Tube 5 (Abu-abu)', badge: 'bg-slate-50 text-slate-700 border-slate-200' },
+                          6: { name: 'Tube 6 (Putih)', badge: 'bg-gray-50 text-gray-700 border-gray-200' },
+                        }[tNum] || { name: `Tube ${tNum}`, badge: 'bg-gray-50 text-gray-700 border-gray-200' };
+
+                        const minCore = tubeCores[0]?.core_number;
+                        const maxCore = tubeCores[tubeCores.length - 1]?.core_number;
+
+                        return (
+                          <div key={tubeNum} className="p-3 bg-gray-50/70 rounded-xl border border-gray-200">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className={`text-xs font-bold px-2 py-0.5 rounded-md border ${tubeMeta.badge}`}>
+                                🌀 {tubeMeta.name}
+                              </span>
+                              <span className="text-[11px] font-mono text-gray-500 font-semibold">
+                                Core {minCore} - {maxCore}
+                              </span>
+                            </div>
+                            <div className="grid grid-cols-6 sm:grid-cols-6 md:grid-cols-12 gap-1.5">
+                              {tubeCores.map(core => {
+                                const isSpliced = core.status === 'Spliced';
+                                return (
+                                  <div
+                                    key={core.id}
+                                    onClick={() => setTracingCoreId(core.id)}
+                                    className={`relative h-9 rounded-md shadow-xs border flex flex-col items-center justify-center text-xs font-bold cursor-pointer hover:opacity-85 hover:scale-105 transition-all ${getTailwindColor(core.color)} ${isSpliced ? 'ring-2 ring-purple-500 ring-offset-1' : 'border-black/10'}`}
+                                    title={`Tube ${core.tube_number} | Core ${core.core_number} (${core.color}) | Status: ${core.status}. Klik untuk trace fisik.`}
+                                  >
+                                    <span>{core.core_number}</span>
+                                    {isSpliced && (
+                                      <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-purple-600 rounded-full border-2 border-white shadow-xs" title="Spliced" />
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    /* Kabel Kapasitas <= 12 (Dropcore / 12C) */
+                    <div className="grid grid-cols-6 sm:grid-cols-8 lg:grid-cols-6 xl:grid-cols-8 gap-2">
+                      {cores?.map(core => {
+                        const isSpliced = core.status === 'Spliced';
+                        return (
+                          <div 
+                            key={core.id} 
+                            onClick={() => setTracingCoreId(core.id)}
+                            className={`relative h-10 w-full rounded-md shadow-sm border flex items-center justify-center text-xs font-bold cursor-pointer hover:opacity-80 hover:scale-105 transition-all ${getTailwindColor(core.color)} ${isSpliced ? 'ring-2 ring-purple-500 ring-offset-1' : 'border-black/10'}`}
+                            title={`Tube ${core.tube_number} | Core ${core.core_number} (${core.color}) | Status: ${core.status}. Klik untuk trace fisik.`}
+                          >
+                            <span>{core.core_number}</span>
+                            {isSpliced && (
+                              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-purple-600 rounded-full border-2 border-white shadow-xs" title="Spliced" />
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
                 
                 <div className="p-4 bg-dark-surface rounded-lg border border-dark-border">

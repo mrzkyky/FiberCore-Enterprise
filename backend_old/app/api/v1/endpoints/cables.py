@@ -250,7 +250,7 @@ def get_cable_cores(cable_id: uuid.UUID, db: Session = Depends(get_db)):
     if not db_cable:
         raise HTTPException(status_code=404, detail="Cable not found")
     
-    return db.query(Core).filter(Core.cable_id == cable_id).order_by(Core.core_number).all()
+    return db.query(Core).filter(Core.cable_id == cable_id).order_by(Core.tube_number, Core.core_number).all()
 
 @router.post("/{cable_id}/reset-description")
 def reset_cable_description(cable_id: uuid.UUID, db: Session = Depends(get_db)):
