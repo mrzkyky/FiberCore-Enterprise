@@ -89,10 +89,28 @@ def get_map_topology(region: Optional[str] = None, db: Session = Depends(get_db)
             continue
             
         import json
+        import math
         geometry = json.loads(geojson_str)
         
-        # Calculate basic core stats
-        # This can be expanded later, but for now we send basic capacity
+        # Calculate length dynamically if missing
+        cable_len = cable.length
+        if cable_len is None or cable_len <= 0:
+            coords = geometry.get("coordinates", [])
+            if len(coords) >= 2:
+                R = 6371000
+                total = 0.0
+                for i in range(len(coords) - 1):
+                    p1, p2 = coords[i], coords[i+1]
+                    lat1, lon1 = math.radians(p1[1]), math.radians(p1[0])
+                    lat2, lon2 = math.radians(p2[1]), math.radians(p2[0])
+                    dlat = lat2 - lat1
+                    dlon = lon2 - lon1
+                    a = math.sin(dlat/2)**2 + math.cos(lat1)*math.cos(lat2)*math.sin(dlon/2)**2
+                    total += R * 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+                cable_len = round(total, 2)
+            else:
+                cable_len = 0.0
+
         features.append({
             "type": "Feature",
             "geometry": geometry,
@@ -105,7 +123,7 @@ def get_map_topology(region: Optional[str] = None, db: Session = Depends(get_db)
                 "region": cable.region,
                 "description": cable.description,
                 "color": cable.color,
-                "length": cable.length
+                "length": cable_len
             }
         })
     
@@ -114,13 +132,7 @@ def get_map_topology(region: Optional[str] = None, db: Session = Depends(get_db)
         "features": features
     }
 
-@router.get("/export-kmz")
-@router.get("/export-kmz/")
-def export_map_kmz(region: Optional[str] = None, db: Session = Depends(get_db)):
-    """
-    Exports all devices, cables, and PoPs for a given region (or all)
-    as a Google Earth .kmz archive containing styled KML placemarks.
-    """
+def build_kml_document(region: Optional[str], db: Session):
     safe_region = region if region and region != "All" else "All_Regions"
     safe_region_clean = re.sub(r'[^a-zA-Z0-9_\-]', '_', safe_region)
     
@@ -229,7 +241,22 @@ def export_map_kmz(region: Optional[str] = None, db: Session = Depends(get_db)):
         else:
             s_url = "#style_cable_default"
             
-        desc = f"Tipe: {cable.type or 'Kabel'}\nKapasitas: {cable.capacity or 0} Core\nPanjang: {round(cable.length or 0, 1)} m\nRegion: {cable.region or '-'}\nCatatan: {cable.description or '-'}"
+        cable_len = cable.length
+        if cable_len is None or cable_len <= 0:
+            import math
+            R = 6371000
+            total = 0.0
+            for i in range(len(coords) - 1):
+                p1, p2 = coords[i], coords[i+1]
+                lat1, lon1 = math.radians(p1[1]), math.radians(p1[0])
+                lat2, lon2 = math.radians(p2[1]), math.radians(p2[0])
+                dlat = lat2 - lat1
+                dlon = lon2 - lon1
+                a = math.sin(dlat/2)**2 + math.cos(lat1)*math.cos(lat2)*math.sin(dlon/2)**2
+                total += R * 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+            cable_len = round(total, 1)
+
+        desc = f"Tipe: {cable.type or 'Kabel'}\nKapasitas: {cable.capacity or 0} Core\nPanjang: {round(cable_len or 0, 1)} m\nRegion: {cable.region or '-'}\nCatatan: {cable.description or '-'}"
         
         kml_lines.append('      <Placemark>')
         kml_lines.append(f'        <name>{escape(cable.name or "Kabel")}</name>')
@@ -246,6 +273,34 @@ def export_map_kmz(region: Optional[str] = None, db: Session = Depends(get_db)):
     kml_lines.append('</kml>')
     
     kml_content = "\n".join(kml_lines)
+    return kml_content, safe_region_clean
+
+@router.get("/export-kml")
+@router.get("/export-kml/")
+def export_map_kml(region: Optional[str] = None, db: Session = Depends(get_db)):
+    """
+    Exports all devices, cables, and PoPs for a given region (or all)
+    as a raw KML file (text/xml) to avoid browser insecure download blocking.
+    """
+    kml_content, safe_region_clean = build_kml_document(region, db)
+    filename = f"FiberCore_{safe_region_clean}.kml"
+    
+    return Response(
+        content=kml_content.encode("utf-8"),
+        media_type="application/vnd.google-earth.kml+xml",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"'
+        }
+    )
+
+@router.get("/export-kmz")
+@router.get("/export-kmz/")
+def export_map_kmz(region: Optional[str] = None, db: Session = Depends(get_db)):
+    """
+    Exports all devices, cables, and PoPs for a given region (or all)
+    as a Google Earth .kmz archive containing styled KML placemarks.
+    """
+    kml_content, safe_region_clean = build_kml_document(region, db)
     
     # Create KMZ zip archive in memory
     kmz_buffer = io.BytesIO()

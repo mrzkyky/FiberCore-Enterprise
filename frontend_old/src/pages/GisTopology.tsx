@@ -10,7 +10,7 @@ import {
   Loader2, Layers, MapPin, Server, Activity, X, Edit, Box, GitMerge, List, 
   Route, Database, ChevronDown, ChevronUp, Map as MapIcon, RotateCw, 
   Plus, Download, Trash2, MousePointer, FolderPlus, Route as RouteIcon, 
-  Check, Undo2, Compass, AlertCircle 
+  Check, Undo2, Compass, AlertCircle, Maximize2, Minimize2, FileText
 } from 'lucide-react';
 
 export default function GisTopology() {
@@ -20,6 +20,7 @@ export default function GisTopology() {
   const [mapRegionFilter, setMapRegionFilter] = useState<string>('All');
   const [mapType, setMapType] = useState<'streets' | 'satellite'>('streets');
   const [autoSync, setAutoSync] = useState<boolean>(true);
+  const [isFullScreenMap, setIsFullScreenMap] = useState<boolean>(false);
   const mapRef = useRef<MapRef>(null);
   const [loadedIcons, setLoadedIcons] = useState<string[]>([]);
   
@@ -308,6 +309,24 @@ export default function GisTopology() {
     setNewProjectModal(false);
   };
 
+  const currentDrawnLength = useMemo(() => {
+    if (cablePoints.length < 2) return 0;
+    let total = 0;
+    for (let i = 0; i < cablePoints.length - 1; i++) {
+      const [lon1, lat1] = cablePoints[i];
+      const [lon2, lat2] = cablePoints[i + 1];
+      const R = 6371000;
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      total += R * c;
+    }
+    return total;
+  }, [cablePoints]);
+
   const handleExportKmz = async () => {
     try {
       const regParam = mapRegionFilter !== 'All' ? `?region=${encodeURIComponent(mapRegionFilter)}` : '';
@@ -315,7 +334,8 @@ export default function GisTopology() {
         responseType: 'blob',
         headers: { Authorization: `Bearer ${token}` }
       });
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const blob = new Blob([response.data], { type: 'application/vnd.google-earth.kmz' });
+      const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', `FiberCore_${mapRegionFilter}.kmz`);
@@ -325,6 +345,27 @@ export default function GisTopology() {
       window.URL.revokeObjectURL(url);
     } catch (err: any) {
       alert('Gagal mengekspor file KMZ: ' + (err.message || err));
+    }
+  };
+
+  const handleExportKml = async () => {
+    try {
+      const regParam = mapRegionFilter !== 'All' ? `?region=${encodeURIComponent(mapRegionFilter)}` : '';
+      const response = await axios.get(`/api/v1/map/export-kml${regParam}`, {
+        responseType: 'blob',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const blob = new Blob([response.data], { type: 'application/vnd.google-earth.kml+xml' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `FiberCore_${mapRegionFilter}.kml`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err: any) {
+      alert('Gagal mengekspor file KML: ' + (err.message || err));
     }
   };
 
@@ -604,10 +645,15 @@ export default function GisTopology() {
             <span className="text-xs text-dark-muted font-semibold flex items-center gap-1 uppercase tracking-wider"><Box size={12}/> Joint Box</span>
             <span className="text-2xl font-bold text-red-500 mt-2">{stats.jointBox}</span>
           </div>
-          <div className="bg-dark-surface border border-dark-border rounded-xl p-3 flex flex-col justify-between shadow-sm col-span-1">
-            <span className="text-xs text-dark-muted font-semibold flex items-center gap-1 uppercase tracking-wider"><Route size={12}/> Kabel Drop</span>
-            <div className="flex flex-col mt-2">
-              <span className="text-lg font-bold text-gray-300">{formatLength(stats.dropcoreMeters)}</span>
+          <div className="bg-dark-surface border border-dark-border rounded-xl p-3 flex flex-col justify-between shadow-sm col-span-2">
+            <span className="text-xs text-dark-muted font-semibold flex items-center gap-1 uppercase tracking-wider"><Route size={12}/> Total Panjang Kabel</span>
+            <div className="flex flex-col mt-1">
+              <span className="text-2xl font-bold text-emerald-400">
+                {formatLength(stats.backboneMeters + stats.feederMeters + stats.distributionMeters + stats.dropcoreMeters)}
+              </span>
+              <span className="text-[10px] text-dark-muted font-bold mt-1 tracking-wider uppercase">
+                DIST: {formatLength(stats.distributionMeters)}, FDR: {formatLength(stats.feederMeters)}, DROP: {formatLength(stats.dropcoreMeters)}
+              </span>
             </div>
           </div>
           <div className="bg-dark-surface border border-dark-border rounded-xl p-3 flex flex-col justify-between shadow-sm">
@@ -690,6 +736,12 @@ export default function GisTopology() {
                 Titik: {cablePoints.length}
               </span>
 
+              {cablePoints.length >= 2 && (
+                <span className="text-[11px] font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-200/60 dark:bg-emerald-900/60 px-1.5 py-0.5 rounded font-mono">
+                  Panjang: {formatLength(currentDrawnLength)}
+                </span>
+              )}
+
               {cablePoints.length > 0 && (
                 <button
                   type="button"
@@ -732,26 +784,66 @@ export default function GisTopology() {
           )}
         </div>
 
-        {/* Right: Project Management & Export */}
-        <div className="flex items-center gap-2">
+        {/* Right: Project Management, Export & Fullscreen */}
+        <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={() => setNewProjectModal(true)}
-            className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+            className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
           >
-            <FolderPlus size={14} /> + Buat Project Baru
+            <FolderPlus size={13} /> + Project Baru
+          </button>
+
+          <button
+            onClick={handleExportKml}
+            className="px-2.5 py-1.5 bg-sky-50 hover:bg-sky-100 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300 border border-sky-200 dark:border-sky-800 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+            title="Download file KML standar Google Earth (langsung tanpa blokir browser)"
+          >
+            <FileText size={13} /> Export KML
           </button>
 
           <button
             onClick={handleExportKmz}
-            className="px-3 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
-            title="Download file KMZ untuk dibuka di Google Earth Pro"
+            className="px-2.5 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+            title="Download file KMZ arsip untuk Google Earth Pro"
           >
-            <Download size={14} /> Export KMZ (Google Earth)
+            <Download size={13} /> Export KMZ
+          </button>
+
+          <button
+            onClick={() => {
+              setIsFullScreenMap(!isFullScreenMap);
+              setTimeout(() => mapRef.current?.resize(), 150);
+            }}
+            className="px-2.5 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+            title={isFullScreenMap ? "Keluar dari Layar Penuh" : "Tampilkan Peta Layar Penuh"}
+          >
+            {isFullScreenMap ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+            {isFullScreenMap ? "Keluar Fullscreen" : "Fullscreen Peta"}
           </button>
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col min-h-0 bg-dark-surface border border-dark-border rounded-xl overflow-hidden relative shadow-sm">
+      <div className={`flex flex-col bg-dark-surface border border-dark-border overflow-hidden relative shadow-sm transition-all duration-200 ${
+        isFullScreenMap 
+          ? 'fixed inset-0 z-[1100] w-screen h-screen rounded-none border-none' 
+          : 'flex-1 min-h-0 rounded-xl'
+      }`}>
+        {isFullScreenMap && (
+          <div className="absolute top-4 left-4 z-[450] bg-dark-surface/95 backdrop-blur-md border border-dark-border px-3 py-2 rounded-xl shadow-2xl flex items-center gap-3">
+            <span className="text-xs font-bold text-dark-text flex items-center gap-1.5">
+              <Compass size={14} className="text-primary" /> Mode Fullscreen
+            </span>
+            <button
+              onClick={() => {
+                setIsFullScreenMap(false);
+                setTimeout(() => mapRef.current?.resize(), 150);
+              }}
+              className="px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors shadow-xs"
+            >
+              <Minimize2 size={12} /> Keluar Fullscreen
+            </button>
+          </div>
+        )}
         {/* Floating Active Tool Banner */}
         {editorMode !== 'select' && (
           <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[450] bg-dark-surface/95 backdrop-blur-md border border-dark-border px-4 py-2 rounded-full shadow-xl flex items-center gap-2 text-xs font-bold text-dark-text animate-pulse">
@@ -885,6 +977,7 @@ export default function GisTopology() {
                     <p><strong>Type:</strong> {popupInfo.feature.properties.cable_type}</p>
                     <p><strong>Region:</strong> {popupInfo.feature.properties.region || '-'}</p>
                     <p><strong>Capacity:</strong> {popupInfo.feature.properties.capacity} Core</p>
+                    <p><strong>Panjang Kabel:</strong> <span className="font-bold text-emerald-600 font-mono">{formatLength(popupInfo.feature.properties.length || 0)}</span></p>
                     {popupInfo.feature.properties.description && popupInfo.feature.properties.description.trim() !== '' && (
                       <div className="bg-gray-50 p-2 rounded border border-gray-200 mt-2 mb-2">
                         <p className="text-sm text-gray-800 font-medium">Description:</p>
@@ -1381,8 +1474,9 @@ export default function GisTopology() {
                 />
               </div>
 
-              <div className="bg-amber-50 dark:bg-amber-950/40 p-2 rounded text-[11px] text-amber-800 dark:text-amber-300 font-medium">
-                📍 Total {cablePoints.length} titik koordinat rute tersambung.
+              <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 p-2.5 rounded-lg text-xs text-emerald-800 dark:text-emerald-300 font-medium flex items-center justify-between">
+                <span>📍 Total Titik: <strong>{cablePoints.length} Titik</strong></span>
+                <span>📏 Panjang: <strong className="font-mono text-sm">{formatLength(currentDrawnLength)}</strong></span>
               </div>
 
               <div className="mt-4 flex justify-end gap-2 pt-2 border-t border-dark-border">
