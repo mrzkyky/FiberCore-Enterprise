@@ -251,3 +251,55 @@ def get_cable_cores(cable_id: uuid.UUID, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Cable not found")
     
     return db.query(Core).filter(Core.cable_id == cable_id).order_by(Core.core_number).all()
+
+@router.post("/{cable_id}/reset-description")
+def reset_cable_description(cable_id: uuid.UUID, db: Session = Depends(get_db)):
+    """Reset/clear the auto-generated splice description from a cable."""
+    db_cable = db.query(Cable).filter(Cable.id == cable_id).first()
+    if not db_cable:
+        raise HTTPException(status_code=404, detail="Cable not found")
+    db_cable.description = None
+    db.commit()
+    return {"message": f"Deskripsi kabel '{db_cable.name}' berhasil direset.", "id": str(db_cable.id)}
+
+@router.post("/{cable_id}/unsplice-all")
+def unsplice_all_cores(cable_id: uuid.UUID, db: Session = Depends(get_db)):
+    """
+    Hapus semua splice yang terkait dengan kabel ini dan bebaskan core-nya.
+    Gunakan ini untuk membatalkan splice yang salah sebelum mengulang.
+    """
+    db_cable = db.query(Cable).filter(Cable.id == cable_id).first()
+    if not db_cable:
+        raise HTTPException(status_code=404, detail="Cable not found")
+    
+    cores = db.query(Core).filter(Core.cable_id == cable_id).all()
+    core_ids = [c.id for c in cores]
+    
+    splices = db.query(Splice).filter(
+        (Splice.core_a_id.in_(core_ids)) | (Splice.core_b_id.in_(core_ids))
+    ).all()
+    
+    freed_cores = set()
+    deleted_splices = 0
+    for sp in splices:
+        if sp.core_a_id:
+            freed_cores.add(sp.core_a_id)
+        if sp.core_b_id:
+            freed_cores.add(sp.core_b_id)
+        db.delete(sp)
+        deleted_splices += 1
+    
+    for core_id in freed_cores:
+        core = db.query(Core).filter(Core.id == core_id).first()
+        if core:
+            core.status = "Free"
+    
+    # Reset description of this cable
+    db_cable.description = None
+    
+    db.commit()
+    return {
+        "message": f"Berhasil menghapus {deleted_splices} splice dari kabel '{db_cable.name}'. Core dibebaskan.",
+        "deleted_splices": deleted_splices,
+        "freed_cores": len(freed_cores)
+    }

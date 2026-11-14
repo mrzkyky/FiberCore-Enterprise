@@ -83,6 +83,18 @@ def batch_connect_cables(payload: BatchSplicePayload, db: Session = Depends(get_
     spliced_count = 0
     splice_details = []
 
+    # Validate start core indices
+    if payload.start_core_a > len(cores_a):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Start Core A ({payload.start_core_a}) melebihi kapasitas kabel '{cable_a.name}' yang hanya memiliki {len(cores_a)} core. Gunakan Core 1 s/d {len(cores_a)}."
+        )
+    if payload.start_core_b > len(cores_b):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Start Core B ({payload.start_core_b}) melebihi kapasitas kabel '{cable_b.name}' yang hanya memiliki {len(cores_b)} core. Gunakan Core 1 s/d {len(cores_b)}."
+        )
+
     for i in range(payload.count):
         idx_a = payload.start_core_a - 1 + i
         idx_b = payload.start_core_b - 1 + i
@@ -113,7 +125,13 @@ def batch_connect_cables(payload: BatchSplicePayload, db: Session = Depends(get_
             splice_details.append(f"C{ca.core_number}({ca.color}) <-> C{cb.core_number}({cb.color})")
 
     if spliced_count == 0:
-        raise HTTPException(status_code=400, detail="No cores were available or eligible to be spliced")
+        already_spliced = sum(1 for c in cores_a if c.status == "Spliced")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Tidak ada core yang bisa disambung. "
+                   f"Kabel '{cable_a.name}' memiliki {len(cores_a)} core total, {already_spliced} sudah tersambung. "
+                   f"Pastikan Start Core A ({payload.start_core_a}) dan Start Core B ({payload.start_core_b}) valid dan core belum pernah disambung sebelumnya."
+        )
 
     if payload.auto_update_description:
         range_a = f"C{payload.start_core_a}-C{payload.start_core_a + spliced_count - 1}"
@@ -139,8 +157,15 @@ def batch_connect_cables(payload: BatchSplicePayload, db: Session = Depends(get_
             note_for_a += f" Catatan: {payload.custom_note}"
             note_for_b += f" Catatan: {payload.custom_note}"
 
-        cable_a.description = f"{cable_a.description} | {note_for_a}" if cable_a.description else note_for_a
-        cable_b.description = f"{cable_b.description} | {note_for_b}" if cable_b.description else note_for_b
+        if not cable_a.description:
+            cable_a.description = note_for_a
+        elif note_for_a not in cable_a.description:
+            cable_a.description = f"{cable_a.description} | {note_for_a}"
+
+        if not cable_b.description:
+            cable_b.description = note_for_b
+        elif note_for_b not in cable_b.description:
+            cable_b.description = f"{cable_b.description} | {note_for_b}"
 
     db.commit()
 

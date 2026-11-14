@@ -8,7 +8,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { useAuthStore } from '../store/useAuthStore';
 import { 
   Loader2, Layers, MapPin, Server, Activity, X, Edit, Box, GitMerge, List, 
-  Route, Database, ChevronDown, ChevronUp, Map as MapIcon, RotateCw, 
+  Route, Database, ChevronDown, ChevronUp, Map as MapIcon, RotateCw, RotateCcw,
   Plus, Download, Trash2, MousePointer, FolderPlus, Route as RouteIcon, 
   Check, Undo2, Compass, AlertCircle, Maximize2, Minimize2, FileText
 } from 'lucide-react';
@@ -1333,6 +1333,25 @@ export default function GisTopology() {
                           className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-800 py-1.5 px-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1 transition-colors cursor-pointer"
                         >
                           <Edit size={13} /> Edit Kabel
+                        </button>
+                        <button 
+                          onClick={async () => {
+                            const cableId = popupInfo.feature.properties.id;
+                            const cableName = popupInfo.feature.properties.name;
+                            if (!confirm(`Reset semua splice & deskripsi kabel "${cableName}"?\n\nSemua sambungan splice akan dihapus dan core dibebaskan. Lakukan ini hanya jika input sebelumnya salah.`)) return;
+                            try {
+                              await axios.post(`/api/v1/cables/${cableId}/unsplice-all`, {}, { headers: { Authorization: `Bearer ${token}` } });
+                              queryClient.invalidateQueries({ queryKey: ['map-topology'] });
+                              setPopupInfo(null);
+                              alert(`✅ Splice kabel "${cableName}" berhasil direset. Silakan input ulang.`);
+                            } catch (err: any) {
+                              alert('Gagal reset: ' + (err.response?.data?.detail || err.message));
+                            }
+                          }}
+                          className="bg-orange-50 hover:bg-orange-100 text-orange-600 border border-orange-200 py-1.5 px-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                          title="Reset semua splice & deskripsi kabel ini (untuk koreksi input yang salah)"
+                        >
+                          <RotateCcw size={13} />
                         </button>
                         <button 
                           onClick={() => handleDeleteFeature(popupInfo.feature.properties.id, 'cable', popupInfo.feature.properties.name)}
