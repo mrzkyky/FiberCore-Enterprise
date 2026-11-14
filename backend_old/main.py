@@ -42,6 +42,7 @@ def on_startup():
             conn.execute(text("ALTER TABLE cables ADD COLUMN IF NOT EXISTS region VARCHAR;"))
             conn.execute(text("ALTER TABLE cables ADD COLUMN IF NOT EXISTS import_batch VARCHAR;"))
             conn.execute(text("ALTER TABLE cables ADD COLUMN IF NOT EXISTS description VARCHAR;"))
+            conn.execute(text("ALTER TABLE cables ADD COLUMN IF NOT EXISTS line_width FLOAT DEFAULT 3.0;"))
             conn.execute(text("ALTER TABLE devices ADD COLUMN IF NOT EXISTS description VARCHAR;"))
             conn.execute(text("ALTER TABLE devices ADD COLUMN IF NOT EXISTS used_capacity INTEGER DEFAULT 0;"))
         except Exception as e:

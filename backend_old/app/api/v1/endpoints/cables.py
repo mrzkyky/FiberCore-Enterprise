@@ -27,6 +27,7 @@ class CableDrawPayload(BaseModel):
     type: str = "Distribution" # Backbone, Feeder, Distribution, Dropcore
     region: Optional[str] = None
     color: Optional[str] = None
+    line_width: Optional[float] = 3.0
     description: Optional[str] = None
     coordinates: List[List[float]] # [[lng, lat], [lng, lat], ...]
 
@@ -81,6 +82,7 @@ def create_drawn_cable(payload: CableDrawPayload, db: Session = Depends(get_db))
         region=payload.region,
         color=cable_color,
         length=round(total_len, 2),
+        line_width=payload.line_width or 3.0,
         description=payload.description
     )
     db.add(db_cable)

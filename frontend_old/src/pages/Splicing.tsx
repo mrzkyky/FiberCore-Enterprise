@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
-import { Network, Plus, Loader2, Cable, Trash2 } from 'lucide-react';
+import { Network, Plus, Loader2, Cable, Trash2, GitMerge, Check, X } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import Modal from '../components/Modal';
 import SpliceVisualizer from '../components/SpliceVisualizer';
@@ -15,6 +15,8 @@ interface Device {
 interface CableType {
   id: string;
   name: string;
+  capacity?: number;
+  region?: string;
 }
 
 interface CoreType {
@@ -39,6 +41,17 @@ export default function Splicing() {
 
   const [selectedClosureId, setSelectedClosureId] = useState<string>('');
   const [isSpliceModalOpen, setIsSpliceModalOpen] = useState(false);
+  const [isBatchSpliceOpen, setIsBatchSpliceOpen] = useState(false);
+  const [batchForm, setBatchForm] = useState({
+    cable_a_id: '',
+    cable_b_id: '',
+    start_core_a: 1,
+    start_core_b: 1,
+    count: 12,
+    auto_update_description: true,
+    custom_note: ''
+  });
+  const [isBatchSubmitting, setIsBatchSubmitting] = useState(false);
 
   // Form State
   const [cableInId, setCableInId] = useState<string>('');
@@ -164,6 +177,41 @@ export default function Splicing() {
     return map[color] || 'bg-gray-500';
   };
 
+  const handleBatchSpliceSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!batchForm.cable_a_id || !batchForm.cable_b_id) {
+      alert("Harap pilih kedua kabel!");
+      return;
+    }
+    if (batchForm.cable_a_id === batchForm.cable_b_id) {
+      alert("Kabel asal dan tujuan tidak boleh sama!");
+      return;
+    }
+    setIsBatchSubmitting(true);
+    try {
+      const res = await axios.post('/api/v1/splices/batch-connect', {
+        cable_a_id: batchForm.cable_a_id,
+        cable_b_id: batchForm.cable_b_id,
+        closure_id: selectedClosureId || null,
+        count: Number(batchForm.count) || 12,
+        start_core_a: Number(batchForm.start_core_a) || 1,
+        start_core_b: Number(batchForm.start_core_b) || 1,
+        auto_update_description: batchForm.auto_update_description,
+        custom_note: batchForm.custom_note
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      alert(res.data.message);
+      queryClient.invalidateQueries({ queryKey: ['splices'] });
+      queryClient.invalidateQueries({ queryKey: ['cores'] });
+      setIsBatchSpliceOpen(false);
+    } catch (err: any) {
+      alert('Gagal menyambung kabel: ' + (err.response?.data?.detail || err.message));
+    } finally {
+      setIsBatchSubmitting(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -197,12 +245,21 @@ export default function Splicing() {
               <Cable className="text-primary" />
               Data Penyambungan
             </h3>
-            <button 
-              onClick={() => setIsSpliceModalOpen(true)}
-              className="btn-primary flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white font-semibold hover:bg-primary/90 transition-colors"
-            >
-              <Plus size={18} /> Penyambungan Baru
-            </button>
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => setIsBatchSpliceOpen(true)}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-600 text-white font-semibold hover:bg-purple-700 transition-colors cursor-pointer text-sm"
+                title="Sambung batch kabel untuk pelebaran proyek"
+              >
+                <GitMerge size={16} /> Sambung Pelebaran (Batch)
+              </button>
+              <button 
+                onClick={() => setIsSpliceModalOpen(true)}
+                className="btn-primary flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white font-semibold hover:bg-primary/90 transition-colors text-sm"
+              >
+                <Plus size={16} /> Single Core Splice
+              </button>
+            </div>
           </div>
 
           {/* Closure Analytics Summary */}
@@ -375,6 +432,135 @@ export default function Splicing() {
           </div>
         </div>
       </Modal>
+      {/* Batch Splicing (Pelebaran) Modal */}
+      {isBatchSpliceOpen && (
+        <div className="fixed inset-0 bg-dark-text/40 backdrop-blur-sm flex items-center justify-center z-[2000] p-4">
+          <div className="bg-white border border-dark-border w-full max-w-lg rounded-xl shadow-2xl overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b border-dark-border bg-dark-surface">
+              <h3 className="text-base font-bold text-dark-text flex items-center gap-2">
+                <GitMerge className="text-purple-600" size={18} />
+                Sambung Pelebaran Kabel (Auto Batch)
+              </h3>
+              <button onClick={() => setIsBatchSpliceOpen(false)} className="text-dark-muted hover:text-danger transition-colors cursor-pointer">
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleBatchSpliceSubmit} className="p-5 space-y-4">
+              <p className="text-xs text-dark-muted leading-relaxed">
+                Sambungkan kabel proyek lama dengan kabel pelebaran baru sekaligus. Sistem otomatis mengalokasikan pasangan core dan mencatat deskripsi ke masing-masing kabel.
+              </p>
+
+              <div>
+                <label className="block text-xs font-semibold text-dark-text mb-1">Kabel Asal (Proyek Sebelumnya)</label>
+                <select
+                  required
+                  value={batchForm.cable_a_id}
+                  onChange={(e) => setBatchForm({...batchForm, cable_a_id: e.target.value})}
+                  className="w-full px-3 py-2 border border-dark-border rounded-lg text-sm bg-white text-dark-text focus:outline-none focus:border-primary"
+                >
+                  <option value="">-- Pilih Kabel Asal --</option>
+                  {cables?.map(c => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-dark-text mb-1">Kabel Pelebaran (Proyek Baru)</label>
+                <select
+                  required
+                  value={batchForm.cable_b_id}
+                  onChange={(e) => setBatchForm({...batchForm, cable_b_id: e.target.value})}
+                  className="w-full px-3 py-2 border border-dark-border rounded-lg text-sm bg-white text-dark-text focus:outline-none focus:border-primary"
+                >
+                  <option value="">-- Pilih Kabel Pelebaran / Baru --</option>
+                  {cables?.map(c => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="block text-xs font-semibold text-dark-text mb-1">Start Core A</label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={batchForm.start_core_a}
+                    onChange={(e) => setBatchForm({...batchForm, start_core_a: Math.max(1, Number(e.target.value))})}
+                    className="w-full px-3 py-2 border border-dark-border rounded-lg text-sm bg-white text-dark-text focus:outline-none focus:border-primary"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-dark-text mb-1">Start Core B</label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={batchForm.start_core_b}
+                    onChange={(e) => setBatchForm({...batchForm, start_core_b: Math.max(1, Number(e.target.value))})}
+                    className="w-full px-3 py-2 border border-dark-border rounded-lg text-sm bg-white text-dark-text focus:outline-none focus:border-primary"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-dark-text mb-1">Jumlah Core</label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={batchForm.count}
+                    onChange={(e) => setBatchForm({...batchForm, count: Math.max(1, Number(e.target.value))})}
+                    className="w-full px-3 py-2 border border-dark-border rounded-lg text-sm bg-white text-dark-text focus:outline-none focus:border-primary"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="batch_auto_desc_splicing"
+                  checked={batchForm.auto_update_description}
+                  onChange={(e) => setBatchForm({...batchForm, auto_update_description: e.target.checked})}
+                  className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                />
+                <label htmlFor="batch_auto_desc_splicing" className="text-xs font-medium text-dark-text cursor-pointer">
+                  Otomatis update deskripsi kabel dengan catatan sambungan
+                </label>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-dark-text mb-1">Catatan Tambahan (Opsional)</label>
+                <input
+                  type="text"
+                  value={batchForm.custom_note}
+                  onChange={(e) => setBatchForm({...batchForm, custom_note: e.target.value})}
+                  className="w-full px-3 py-2 border border-dark-border rounded-lg text-sm bg-white text-dark-text focus:outline-none focus:border-primary"
+                  placeholder="Contoh: Pelebaran Cluster Melati"
+                />
+              </div>
+
+              <div className="mt-4 flex justify-end gap-2 pt-3 border-t border-dark-border">
+                <button
+                  type="button"
+                  onClick={() => setIsBatchSpliceOpen(false)}
+                  className="px-4 py-2 border border-dark-border rounded-lg text-dark-text hover:bg-gray-50 text-xs font-semibold transition-colors cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={isBatchSubmitting}
+                  className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-sm"
+                >
+                  {isBatchSubmitting ? <Loader2 size={14} className="animate-spin" /> : <GitMerge size={14} />}
+                  Sambungkan Core & Simpan
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

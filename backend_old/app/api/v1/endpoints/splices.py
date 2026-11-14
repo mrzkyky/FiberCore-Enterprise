@@ -1,12 +1,24 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
+from pydantic import BaseModel
 import uuid
 from app.db.session import SessionLocal
-from app.db.models import Splice, Core
+from app.db.models import Splice, Core, Cable, Device
 from app.schemas.asset import SpliceCreate, SpliceResponse
 
 router = APIRouter()
+
+class BatchSplicePayload(BaseModel):
+    cable_a_id: uuid.UUID
+    cable_b_id: uuid.UUID
+    closure_id: Optional[uuid.UUID] = None
+    start_core_a: int = 1
+    start_core_b: int = 1
+    count: int = 12
+    attenuation: float = 0.05
+    auto_update_description: bool = True
+    custom_note: Optional[str] = None
 
 def get_db():
     db = SessionLocal()
@@ -15,6 +27,103 @@ def get_db():
     finally:
         db.close()
 
+@router.post("/batch-connect")
+@router.post("/batch-connect/")
+def batch_connect_cables(payload: BatchSplicePayload, db: Session = Depends(get_db)):
+    """
+    Slices multiple cores between two cables in batch (e.g., project pelebaran / expansion)
+    and automatically logs/updates cable descriptions with connection details.
+    """
+    cable_a = db.query(Cable).filter(Cable.id == payload.cable_a_id).first()
+    cable_b = db.query(Cable).filter(Cable.id == payload.cable_b_id).first()
+
+    if not cable_a or not cable_b:
+        raise HTTPException(status_code=404, detail="One or both cables not found")
+
+    cores_a = db.query(Core).filter(Core.cable_id == cable_a.id).order_by(Core.core_number).all()
+    cores_b = db.query(Core).filter(Core.cable_id == cable_b.id).order_by(Core.core_number).all()
+
+    closure = None
+    if payload.closure_id:
+        closure = db.query(Device).filter(Device.id == payload.closure_id).first()
+    
+    if not closure:
+        # Check or create default Joint Closure
+        closure = db.query(Device).filter(Device.device_type.in_(["Closure", "Joint Closure"])).first()
+        if not closure:
+            closure = Device(
+                name=f"JC-{cable_a.name[:8]}-{cable_b.name[:8]}",
+                device_type="Joint Closure",
+                region=cable_b.region or cable_a.region,
+                capacity=48,
+                description="Auto-generated joint closure for network expansion"
+            )
+            db.add(closure)
+            db.commit()
+            db.refresh(closure)
+
+    spliced_count = 0
+    splice_details = []
+
+    for i in range(payload.count):
+        idx_a = payload.start_core_a - 1 + i
+        idx_b = payload.start_core_b - 1 + i
+
+        if idx_a >= len(cores_a) or idx_b >= len(cores_b):
+            break
+
+        ca = cores_a[idx_a]
+        cb = cores_b[idx_b]
+
+        # Check existing splice
+        existing = db.query(Splice).filter(
+            ((Splice.core_a_id == ca.id) & (Splice.core_b_id == cb.id)) |
+            ((Splice.core_a_id == cb.id) & (Splice.core_b_id == ca.id))
+        ).first()
+
+        if not existing:
+            sp = Splice(
+                core_a_id=ca.id,
+                core_b_id=cb.id,
+                closure_id=closure.id,
+                attenuation=payload.attenuation
+            )
+            db.add(sp)
+            ca.status = "Spliced"
+            cb.status = "Spliced"
+            spliced_count += 1
+            splice_details.append(f"C{ca.core_number}({ca.color}) <-> C{cb.core_number}({cb.color})")
+
+    if spliced_count == 0:
+        raise HTTPException(status_code=400, detail="No cores were available or eligible to be spliced")
+
+    if payload.auto_update_description:
+        range_a = f"C{payload.start_core_a}-C{payload.start_core_a + spliced_count - 1}"
+        range_b = f"C{payload.start_core_b}-C{payload.start_core_b + spliced_count - 1}"
+        closure_label = closure.name if closure else "Joint"
+        
+        note_for_a = f"[Pelebaran: {range_a} sambung ke {cable_b.name} ({range_b}) via {closure_label}]"
+        note_for_b = f"[Pelebaran: {range_b} sambung dari {cable_a.name} ({range_a}) via {closure_label}]"
+        
+        if payload.custom_note:
+            note_for_a += f" Catatan: {payload.custom_note}"
+            note_for_b += f" Catatan: {payload.custom_note}"
+
+        cable_a.description = f"{cable_a.description} | {note_for_a}" if cable_a.description else note_for_a
+        cable_b.description = f"{cable_b.description} | {note_for_b}" if cable_b.description else note_for_b
+
+    db.commit()
+
+    return {
+        "message": f"Berhasil menyambungkan {spliced_count} core antara '{cable_a.name}' dan '{cable_b.name}'",
+        "spliced_count": spliced_count,
+        "closure_name": closure.name if closure else None,
+        "details": splice_details,
+        "description_a": cable_a.description,
+        "description_b": cable_b.description
+    }
+
+@router.post("", response_model=SpliceResponse)
 @router.post("/", response_model=SpliceResponse)
 def create_splice(splice_in: SpliceCreate, db: Session = Depends(get_db)):
     # Verify cores exist

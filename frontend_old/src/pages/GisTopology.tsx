@@ -22,6 +22,7 @@ export default function GisTopology() {
   const [autoSync, setAutoSync] = useState<boolean>(true);
   const [isFullScreenMap, setIsFullScreenMap] = useState<boolean>(false);
   const mapRef = useRef<MapRef>(null);
+  const mapContainerRef = useRef<HTMLDivElement>(null);
   const [loadedIcons, setLoadedIcons] = useState<string[]>([]);
   
   // --- Web Editor States ---
@@ -35,6 +36,20 @@ export default function GisTopology() {
   const [customRegions, setCustomRegions] = useState<string[]>([]);
   const [newProjectModal, setNewProjectModal] = useState<boolean>(false);
   const [newProjectName, setNewProjectName] = useState<string>('');
+
+  // Batch Splice (Pelebaran) Modal State
+  const [batchSpliceModal, setBatchSpliceModal] = useState<boolean>(false);
+  const [batchSpliceForm, setBatchSpliceForm] = useState({
+    cable_a_id: '',
+    cable_b_id: '',
+    closure_id: '',
+    count: 12,
+    start_core_a: 1,
+    start_core_b: 1,
+    auto_update_description: true,
+    custom_note: ''
+  });
+  const [isBatchSplicing, setIsBatchSplicing] = useState<boolean>(false);
 
   // Modals for Adding New Node & Cable
   const [newNodeModal, setNewNodeModal] = useState<{ lng: number; lat: number } | null>(null);
@@ -51,6 +66,7 @@ export default function GisTopology() {
     name: '',
     type: 'Distribution',
     capacity: 24,
+    line_width: 3.5,
     region: '',
     description: ''
   });
@@ -125,6 +141,31 @@ export default function GisTopology() {
     )) as string[];
     return Array.from(new Set([...fromData, ...customRegions]));
   }, [allGeoData, customRegions]);
+
+  const availableCables = useMemo(() => {
+    if (!allGeoData?.features) return [];
+    return allGeoData.features
+      .filter((f: any) => f.properties?.type === 'cable')
+      .map((f: any) => ({
+        id: f.properties.id,
+        name: f.properties.name,
+        capacity: f.properties.capacity,
+        region: f.properties.region,
+        cable_type: f.properties.cable_type
+      }));
+  }, [allGeoData]);
+
+  const availableClosures = useMemo(() => {
+    if (!allGeoData?.features) return [];
+    return allGeoData.features
+      .filter((f: any) => f.properties?.type === 'device' && ['Closure', 'Joint Closure', 'ODP', 'Joint Box'].some(t => (f.properties?.device_type || '').toLowerCase().includes(t.toLowerCase())))
+      .map((f: any) => ({
+        id: f.properties.id,
+        name: f.properties.name,
+        device_type: f.properties.device_type,
+        region: f.properties.region
+      }));
+  }, [allGeoData]);
 
   // Computed KPI Stats from Map
   const stats = useMemo(() => {
@@ -263,6 +304,7 @@ export default function GisTopology() {
         name: newCableForm.name || `Kabel-${newCableForm.type}`,
         capacity: Number(newCableForm.capacity) || 12,
         type: newCableForm.type,
+        line_width: Number(newCableForm.line_width) || 3.5,
         region: newCableForm.region || (mapRegionFilter !== 'All' ? mapRegionFilter : 'Default_Project'),
         description: newCableForm.description,
         coordinates: cablePoints
@@ -308,6 +350,76 @@ export default function GisTopology() {
     setNewProjectName('');
     setNewProjectModal(false);
   };
+
+  const handleBatchSplice = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!batchSpliceForm.cable_a_id || !batchSpliceForm.cable_b_id) {
+      alert("Harap pilih kabel asal dan kabel tujuan!");
+      return;
+    }
+    if (batchSpliceForm.cable_a_id === batchSpliceForm.cable_b_id) {
+      alert("Kabel asal dan kabel tujuan tidak boleh sama!");
+      return;
+    }
+    setIsBatchSplicing(true);
+    try {
+      const res = await axios.post('/api/v1/splices/batch-connect', {
+        cable_a_id: batchSpliceForm.cable_a_id,
+        cable_b_id: batchSpliceForm.cable_b_id,
+        closure_id: batchSpliceForm.closure_id || null,
+        count: Number(batchSpliceForm.count) || 12,
+        start_core_a: Number(batchSpliceForm.start_core_a) || 1,
+        start_core_b: Number(batchSpliceForm.start_core_b) || 1,
+        auto_update_description: batchSpliceForm.auto_update_description,
+        custom_note: batchSpliceForm.custom_note
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      alert(res.data.message);
+      queryClient.invalidateQueries({ queryKey: ['map-topology'] });
+      setBatchSpliceModal(false);
+    } catch (err: any) {
+      alert('Gagal menyambung kabel: ' + (err.response?.data?.detail || err.message));
+    } finally {
+      setIsBatchSplicing(false);
+    }
+  };
+
+  const toggleFullScreen = () => {
+    const elem = mapContainerRef.current;
+    if (!elem) return;
+
+    if (!document.fullscreenElement && !(document as any).webkitFullscreenElement) {
+      if (elem.requestFullscreen) {
+        elem.requestFullscreen().catch(() => setIsFullScreenMap(true));
+      } else if ((elem as any).webkitRequestFullscreen) {
+        (elem as any).webkitRequestFullscreen();
+      }
+      setIsFullScreenMap(true);
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+      } else if ((document as any).webkitExitFullscreen) {
+        (document as any).webkitExitFullscreen();
+      }
+      setIsFullScreenMap(false);
+    }
+    setTimeout(() => mapRef.current?.resize(), 200);
+  };
+
+  useEffect(() => {
+    const onFsChange = () => {
+      const isFs = !!(document.fullscreenElement || (document as any).webkitFullscreenElement);
+      setIsFullScreenMap(isFs);
+      setTimeout(() => mapRef.current?.resize(), 200);
+    };
+    document.addEventListener('fullscreenchange', onFsChange);
+    document.addEventListener('webkitfullscreenchange', onFsChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', onFsChange);
+      document.removeEventListener('webkitfullscreenchange', onFsChange);
+    };
+  }, []);
 
   const currentDrawnLength = useMemo(() => {
     if (cablePoints.length < 2) return 0;
@@ -396,6 +508,16 @@ export default function GisTopology() {
     };
   }, [cablePoints]);
 
+  // --- Custom GIS Vector Icons ---
+  const CUSTOM_SVGS: Record<string, string> = {
+    'custom-icon-tiang': '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><circle cx="18" cy="18" r="16" fill="#ef4444" stroke="#ffffff" stroke-width="2.5"/><rect x="16.5" y="7" width="3" height="22" rx="1.5" fill="#ffffff"/><rect x="8" y="11" width="20" height="3" rx="1" fill="#ffffff"/><rect x="11" y="16.5" width="14" height="2.2" rx="1" fill="#ffffff"/><circle cx="9.5" cy="10.5" r="1.5" fill="#fef08a"/><circle cx="26.5" cy="10.5" r="1.5" fill="#fef08a"/><circle cx="12.5" cy="15.5" r="1.2" fill="#fef08a"/><circle cx="23.5" cy="15.5" r="1.2" fill="#fef08a"/></svg>',
+    'custom-icon-odp': '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><circle cx="18" cy="18" r="16" fill="#16a34a" stroke="#ffffff" stroke-width="2.5"/><rect x="9" y="9" width="18" height="18" rx="3" fill="#ffffff"/><circle cx="13" cy="13.5" r="1.6" fill="#16a34a"/><circle cx="18" cy="13.5" r="1.6" fill="#16a34a"/><circle cx="23" cy="13.5" r="1.6" fill="#16a34a"/><circle cx="13" cy="18.5" r="1.6" fill="#16a34a"/><circle cx="18" cy="18.5" r="1.6" fill="#16a34a"/><circle cx="23" cy="18.5" r="1.6" fill="#16a34a"/><rect x="11.5" y="22.5" width="13" height="2" rx="1" fill="#15803d"/></svg>',
+    'custom-icon-closure': '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><circle cx="18" cy="18" r="16" fill="#7c3aed" stroke="#ffffff" stroke-width="2.5"/><rect x="8" y="12" width="20" height="12" rx="4" fill="#ffffff"/><line x1="5" y1="18" x2="8" y2="18" stroke="#ffffff" stroke-width="3" stroke-linecap="round"/><line x1="28" y1="18" x2="31" y2="18" stroke="#ffffff" stroke-width="3" stroke-linecap="round"/><rect x="15" y="13" width="6" height="10" rx="1" fill="#7c3aed"/></svg>',
+    'custom-icon-pop': '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><circle cx="18" cy="18" r="16" fill="#2563eb" stroke="#ffffff" stroke-width="2.5"/><rect x="10" y="8" width="16" height="5.5" rx="1.5" fill="#ffffff"/><rect x="10" y="15" width="16" height="5.5" rx="1.5" fill="#ffffff"/><rect x="10" y="22" width="16" height="5.5" rx="1.5" fill="#ffffff"/><circle cx="13" cy="10.8" r="1" fill="#2563eb"/><circle cx="13" cy="17.8" r="1" fill="#2563eb"/><circle cx="13" cy="24.8" r="1" fill="#2563eb"/><line x1="16" y1="10.8" x2="23" y2="10.8" stroke="#2563eb" stroke-width="1.5" stroke-linecap="round"/><line x1="16" y1="17.8" x2="23" y2="17.8" stroke="#2563eb" stroke-width="1.5" stroke-linecap="round"/><line x1="16" y1="24.8" x2="23" y2="24.8" stroke="#2563eb" stroke-width="1.5" stroke-linecap="round"/></svg>',
+    'custom-icon-slack': '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><circle cx="18" cy="18" r="16" fill="#eab308" stroke="#ffffff" stroke-width="2.5"/><circle cx="18" cy="18" r="8" fill="none" stroke="#ffffff" stroke-width="2.5"/><circle cx="18" cy="18" r="4" fill="none" stroke="#ffffff" stroke-width="2"/><circle cx="18" cy="18" r="1.5" fill="#ffffff"/></svg>',
+    'custom-icon-joint_box': '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><circle cx="18" cy="18" r="16" fill="#db2777" stroke="#ffffff" stroke-width="2.5"/><rect x="10" y="10" width="16" height="16" rx="2" fill="#ffffff"/><path d="M14 14l8 8m0-8l-8 8" stroke="#db2777" stroke-width="2" stroke-linecap="round"/></svg>'
+  };
+
   // --- Icon System: Hash-based IDs for MapLibre ---
   const iconMapping = useRef<Record<string, string>>({});
   const iconCounter = useRef(0);
@@ -406,30 +528,57 @@ export default function GisTopology() {
     iconCounter.current = 0;
 
     const features = geoData.features.map((f: any) => {
+      let iconId = null;
       if (f.properties?.icon_url) {
         const url = f.properties.icon_url;
         if (!iconMapping.current[url]) {
           iconMapping.current[url] = `kmz-icon-${iconCounter.current++}`;
         }
-        return {
-          ...f,
-          properties: {
-            ...f.properties,
-            icon_id: iconMapping.current[url]
-          }
-        };
+        iconId = iconMapping.current[url];
+      } else if (f.properties?.type === 'device') {
+        const dtype = (f.properties?.device_type || '').toLowerCase();
+        if (dtype.includes('odp')) iconId = 'custom-icon-odp';
+        else if (dtype.includes('joint closure')) iconId = 'custom-icon-closure';
+        else if (dtype.includes('closure')) iconId = 'custom-icon-closure';
+        else if (dtype.includes('joint box')) iconId = 'custom-icon-joint_box';
+        else if (dtype.includes('slack') || dtype.includes('oloop')) iconId = 'custom-icon-slack';
+        else if (dtype.includes('pop') || dtype.includes('olt')) iconId = 'custom-icon-pop';
+        else iconId = 'custom-icon-tiang';
       }
-      return f;
+      return {
+        ...f,
+        properties: {
+          ...f.properties,
+          icon_id: iconId
+        }
+      };
     });
 
     return { ...geoData, features };
   }, [geoData]);
 
   useEffect(() => {
-    if (!processedGeoData || !mapRef.current || Object.keys(iconMapping.current).length === 0) return;
+    if (!mapRef.current) return;
     const map = mapRef.current.getMap();
     const newlyLoaded: string[] = [];
 
+    // Pre-load custom SVG icons
+    Object.entries(CUSTOM_SVGS).forEach(([id, svg]) => {
+      if (!map.hasImage(id)) {
+        const img = new Image(36, 36);
+        img.onload = () => {
+          if (!map.hasImage(id)) {
+            map.addImage(id, img);
+            setLoadedIcons(prev => prev.includes(id) ? prev : [...prev, id]);
+          }
+        };
+        img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg.trim());
+      } else {
+        newlyLoaded.push(id);
+      }
+    });
+
+    // Load KMZ remote icons if any
     Object.entries(iconMapping.current).forEach(([url, iconId]) => {
       if (map.hasImage(iconId)) {
         newlyLoaded.push(iconId);
@@ -442,22 +591,16 @@ export default function GisTopology() {
         img.onload = () => {
           if (!map.hasImage(iconId)) {
             map.addImage(iconId, img);
-            setLoadedIcons(prev => {
-              if (!prev.includes(iconId)) return [...prev, iconId];
-              return prev;
-            });
+            setLoadedIcons(prev => (!prev.includes(iconId) ? [...prev, iconId] : prev));
           }
         };
         img.onerror = () => console.warn('Failed to load base64 icon:', iconId);
       } else {
         map.loadImage(url, (error: any, imgData: any) => {
-          if (error) { console.warn('Failed to load icon:', iconId, error); return; }
+          if (error) { return; }
           if (imgData && !map.hasImage(iconId)) {
             map.addImage(iconId, imgData);
-            setLoadedIcons(prev => {
-              if (!prev.includes(iconId)) return [...prev, iconId];
-              return prev;
-            });
+            setLoadedIcons(prev => (!prev.includes(iconId) ? [...prev, iconId] : prev));
           }
         });
       }
@@ -477,16 +620,8 @@ export default function GisTopology() {
     filter: ['==', ['get', 'type'], 'cable'],
     paint: {
       'line-color': ['coalesce', ['get', 'color'], '#475569'],
-      'line-width': [
-        'match',
-        ['get', 'cable_type'],
-        'Backbone', 4,
-        'Feeder', 3,
-        'Distribution', 2,
-        'Dropcore', 2,
-        2
-      ],
-      'line-opacity': 0.8
+      'line-width': ['coalesce', ['get', 'line_width'], 3.5],
+      'line-opacity': 0.85
     }
   };
 
@@ -514,7 +649,7 @@ export default function GisTopology() {
     filter: ['all', ['==', ['get', 'type'], 'device'], hasIconExpression],
     layout: {
       'icon-image': ['get', 'icon_id'],
-      'icon-size': 0.8,
+      'icon-size': 0.85,
       'icon-allow-overlap': true
     }
   };
@@ -784,8 +919,16 @@ export default function GisTopology() {
           )}
         </div>
 
-        {/* Right: Project Management, Export & Fullscreen */}
+        {/* Right: Project Management, Splicing, Export & Fullscreen */}
         <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => setBatchSpliceModal(true)}
+            className="px-2.5 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300 border border-purple-200 dark:border-purple-800 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+            title="Sambungkan kabel proyek lama dengan kabel pelebaran baru secara otomatis"
+          >
+            <GitMerge size={13} /> + Sambung Pelebaran
+          </button>
+
           <button
             onClick={() => setNewProjectModal(true)}
             className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
@@ -810,10 +953,7 @@ export default function GisTopology() {
           </button>
 
           <button
-            onClick={() => {
-              setIsFullScreenMap(!isFullScreenMap);
-              setTimeout(() => mapRef.current?.resize(), 150);
-            }}
+            onClick={toggleFullScreen}
             className="px-2.5 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
             title={isFullScreenMap ? "Keluar dari Layar Penuh" : "Tampilkan Peta Layar Penuh"}
           >
@@ -823,21 +963,21 @@ export default function GisTopology() {
         </div>
       </div>
 
-      <div className={`flex flex-col bg-dark-surface border border-dark-border overflow-hidden relative shadow-sm transition-all duration-200 ${
-        isFullScreenMap 
-          ? 'fixed inset-0 z-[1100] w-screen h-screen rounded-none border-none' 
-          : 'flex-1 min-h-0 rounded-xl'
-      }`}>
+      <div 
+        ref={mapContainerRef}
+        className={`flex flex-col bg-dark-surface border border-dark-border overflow-hidden relative shadow-sm transition-all duration-200 ${
+          isFullScreenMap 
+            ? 'fixed inset-0 z-[99999] w-screen h-screen rounded-none border-none bg-white' 
+            : 'flex-1 min-h-0 rounded-xl'
+        }`}
+      >
         {isFullScreenMap && (
           <div className="absolute top-4 left-4 z-[450] bg-dark-surface/95 backdrop-blur-md border border-dark-border px-3 py-2 rounded-xl shadow-2xl flex items-center gap-3">
             <span className="text-xs font-bold text-dark-text flex items-center gap-1.5">
               <Compass size={14} className="text-primary" /> Mode Fullscreen
             </span>
             <button
-              onClick={() => {
-                setIsFullScreenMap(false);
-                setTimeout(() => mapRef.current?.resize(), 150);
-              }}
+              onClick={toggleFullScreen}
               className="px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors shadow-xs"
             >
               <Minimize2 size={12} /> Keluar Fullscreen
@@ -986,7 +1126,17 @@ export default function GisTopology() {
                         </p>
                       </div>
                     )}
-                    <div className="mt-3 flex gap-2">
+                    <div className="mt-3 flex flex-col gap-2">
+                      <button 
+                        onClick={() => {
+                          setBatchSpliceForm(prev => ({ ...prev, cable_a_id: popupInfo.feature.properties.id }));
+                          setBatchSpliceModal(true);
+                        }}
+                        className="w-full bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 py-1.5 px-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                        title="Sambungkan kabel ini dengan kabel pelebaran / proyek lain"
+                      >
+                        <GitMerge size={13} /> Sambung Pelebaran Kabel Ini
+                      </button>
                       <button 
                         onClick={() => handleDeleteFeature(popupInfo.feature.properties.id, 'cable', popupInfo.feature.properties.name)}
                         className="w-full bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 py-1.5 px-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1 transition-colors cursor-pointer"
@@ -1450,17 +1600,33 @@ export default function GisTopology() {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-dark-text mb-1">Project / Region</label>
-                <select
-                  value={newCableForm.region}
-                  onChange={(e) => setNewCableForm({...newCableForm, region: e.target.value})}
-                  className="w-full px-3 py-2 border border-dark-border rounded-lg text-sm bg-white text-dark-text focus:outline-none focus:border-primary"
-                >
-                  {uniqueRegions.map(r => (
-                    <option key={r} value={r}>{r}</option>
-                  ))}
-                </select>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-semibold text-dark-text mb-1">Ketebalan Garis Kabel</label>
+                  <select
+                    value={newCableForm.line_width}
+                    onChange={(e) => setNewCableForm({...newCableForm, line_width: Number(e.target.value)})}
+                    className="w-full px-3 py-2 border border-dark-border rounded-lg text-sm bg-white text-dark-text focus:outline-none focus:border-primary"
+                  >
+                    <option value={2}>Tipis (2 px)</option>
+                    <option value={3.5}>Standar (3.5 px)</option>
+                    <option value={5}>Tebal (5 px)</option>
+                    <option value={7}>Sangat Tebal (7 px)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-dark-text mb-1">Project / Region</label>
+                  <select
+                    value={newCableForm.region}
+                    onChange={(e) => setNewCableForm({...newCableForm, region: e.target.value})}
+                    className="w-full px-3 py-2 border border-dark-border rounded-lg text-sm bg-white text-dark-text focus:outline-none focus:border-primary"
+                  >
+                    {uniqueRegions.map(r => (
+                      <option key={r} value={r}>{r}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               <div>
@@ -1494,6 +1660,156 @@ export default function GisTopology() {
                 >
                   {isSubmitting ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
                   Simpan Jalur Kabel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* --- MODAL: SAMBUNG PELEBARAN KABEL (BATCH SPLICING) --- */}
+      {batchSpliceModal && (
+        <div className="fixed inset-0 bg-dark-text/40 backdrop-blur-sm flex items-center justify-center z-[2000] p-4">
+          <div className="bg-white border border-dark-border w-full max-w-lg rounded-xl shadow-2xl overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b border-dark-border bg-dark-surface">
+              <h3 className="text-base font-bold text-dark-text flex items-center gap-2">
+                <GitMerge className="text-purple-600" size={18} />
+                Sambung Pelebaran Kabel (Auto-Splice)
+              </h3>
+              <button onClick={() => setBatchSpliceModal(false)} className="text-dark-muted hover:text-danger transition-colors cursor-pointer">
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleBatchSplice} className="p-4 space-y-3.5">
+              <p className="text-xs text-dark-muted leading-relaxed">
+                Sambungkan kabel proyek lama dengan kabel proyek baru / pelebaran secara otomatis. Sistem akan mengalokasikan core dan otomatis memperbarui deskripsi kabel.
+              </p>
+
+              <div>
+                <label className="block text-xs font-semibold text-dark-text mb-1">Kabel Asal (Proyek Lama)</label>
+                <select
+                  required
+                  value={batchSpliceForm.cable_a_id}
+                  onChange={(e) => setBatchSpliceForm({...batchSpliceForm, cable_a_id: e.target.value})}
+                  className="w-full px-3 py-2 border border-dark-border rounded-lg text-sm bg-white text-dark-text focus:outline-none focus:border-primary"
+                >
+                  <option value="">-- Pilih Kabel Asal --</option>
+                  {availableCables.map(c => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} ({c.capacity} Core) - [{c.region || 'No Region'}]
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-dark-text mb-1">Kabel Tujuan (Pelebaran / Proyek Baru)</label>
+                <select
+                  required
+                  value={batchSpliceForm.cable_b_id}
+                  onChange={(e) => setBatchSpliceForm({...batchSpliceForm, cable_b_id: e.target.value})}
+                  className="w-full px-3 py-2 border border-dark-border rounded-lg text-sm bg-white text-dark-text focus:outline-none focus:border-primary"
+                >
+                  <option value="">-- Pilih Kabel Pelebaran / Tujuan --</option>
+                  {availableCables.map(c => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} ({c.capacity} Core) - [{c.region || 'No Region'}]
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="block text-xs font-semibold text-dark-text mb-1">Start Core A</label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={batchSpliceForm.start_core_a}
+                    onChange={(e) => setBatchSpliceForm({...batchSpliceForm, start_core_a: Math.max(1, Number(e.target.value))})}
+                    className="w-full px-3 py-2 border border-dark-border rounded-lg text-sm bg-white text-dark-text focus:outline-none focus:border-primary"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-dark-text mb-1">Start Core B</label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={batchSpliceForm.start_core_b}
+                    onChange={(e) => setBatchSpliceForm({...batchSpliceForm, start_core_b: Math.max(1, Number(e.target.value))})}
+                    className="w-full px-3 py-2 border border-dark-border rounded-lg text-sm bg-white text-dark-text focus:outline-none focus:border-primary"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-dark-text mb-1">Jumlah Core</label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={batchSpliceForm.count}
+                    onChange={(e) => setBatchSpliceForm({...batchSpliceForm, count: Math.max(1, Number(e.target.value))})}
+                    className="w-full px-3 py-2 border border-dark-border rounded-lg text-sm bg-white text-dark-text focus:outline-none focus:border-primary"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-dark-text mb-1">Perangkat Sambung (Closure / ODP)</label>
+                <select
+                  value={batchSpliceForm.closure_id}
+                  onChange={(e) => setBatchSpliceForm({...batchSpliceForm, closure_id: e.target.value})}
+                  className="w-full px-3 py-2 border border-dark-border rounded-lg text-sm bg-white text-dark-text focus:outline-none focus:border-primary"
+                >
+                  <option value="">Auto-Detect / Joint Baru</option>
+                  {availableClosures.map(cl => (
+                    <option key={cl.id} value={cl.id}>
+                      {cl.name} ({cl.device_type})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="auto_desc_checkbox"
+                  checked={batchSpliceForm.auto_update_description}
+                  onChange={(e) => setBatchSpliceForm({...batchSpliceForm, auto_update_description: e.target.checked})}
+                  className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                />
+                <label htmlFor="auto_desc_checkbox" className="text-xs font-medium text-dark-text cursor-pointer">
+                  Otomatis update deskripsi kabel dengan catatan sambungan
+                </label>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-dark-text mb-1">Catatan Tambahan (Opsional)</label>
+                <input
+                  type="text"
+                  value={batchSpliceForm.custom_note}
+                  onChange={(e) => setBatchSpliceForm({...batchSpliceForm, custom_note: e.target.value})}
+                  className="w-full px-3 py-2 border border-dark-border rounded-lg text-sm bg-white text-dark-text focus:outline-none focus:border-primary"
+                  placeholder="Contoh: Pelebaran Tahap 2 Cluster Barat"
+                />
+              </div>
+
+              <div className="mt-4 flex justify-end gap-2 pt-2 border-t border-dark-border">
+                <button
+                  type="button"
+                  onClick={() => setBatchSpliceModal(false)}
+                  className="px-4 py-2 border border-dark-border rounded-lg text-dark-text hover:bg-gray-50 text-xs font-semibold transition-colors cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={isBatchSplicing}
+                  className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-sm"
+                >
+                  {isBatchSplicing ? <Loader2 size={14} className="animate-spin" /> : <GitMerge size={14} />}
+                  Sambungkan Core & Update Deskripsi
                 </button>
               </div>
             </form>

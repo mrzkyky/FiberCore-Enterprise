@@ -46,6 +46,7 @@ class Cable(Base):
     description = Column(String, nullable=True) # Store KMZ descriptions or manual notes
     color = Column(String, nullable=True) # KMZ Hex Color
     length = Column(Float, nullable=True) # Length in meters
+    line_width = Column(Float, default=3.0, nullable=True) # Line thickness (2, 3, 5, etc)
     
     cores = relationship("Core", back_populates="cable", cascade="all, delete-orphan")
 

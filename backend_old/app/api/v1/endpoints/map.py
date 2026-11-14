@@ -123,7 +123,8 @@ def get_map_topology(region: Optional[str] = None, db: Session = Depends(get_db)
                 "region": cable.region,
                 "description": cable.description,
                 "color": cable.color,
-                "length": cable_len
+                "length": cable_len,
+                "line_width": getattr(cable, "line_width", 3.0) or 3.0
             }
         })
     
