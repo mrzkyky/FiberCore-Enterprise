@@ -4,7 +4,7 @@ from sqlalchemy import func
 from typing import List, Optional
 from pydantic import BaseModel
 from app.db.session import SessionLocal
-from app.db.models import Cable, Core, Device
+from app.db.models import Cable, Core, Device, Splice
 from app.schemas.asset import CableCreate, CableResponse, CoreResponse
 import uuid
 import math
@@ -204,6 +204,12 @@ def delete_cables_by_batch(batch_id: str, db: Session = Depends(get_db)):
     
     deleted_cables_count = 0
     for c in cables:
+        # Hapus splice terkait dulu
+        core_ids = [core.id for core in c.cores]
+        if core_ids:
+            db.query(Splice).filter(
+                (Splice.core_a_id.in_(core_ids)) | (Splice.core_b_id.in_(core_ids))
+            ).delete(synchronize_session='fetch')
         db.delete(c)
         deleted_cables_count += 1
         
@@ -221,11 +227,22 @@ def delete_cable(cable_id: uuid.UUID, db: Session = Depends(get_db)):
     if not db_cable:
         raise HTTPException(status_code=404, detail="Cable not found")
     
-    # Delete associated cores first
-    db.query(Core).filter(Core.cable_id == cable_id).delete()
+    # 1. Ambil semua core dari kabel ini
+    core_ids = [c.id for c in db.query(Core).filter(Core.cable_id == cable_id).all()]
+    
+    # 2. Hapus semua splice yang menggunakan core dari kabel ini (foreign key constraint)
+    if core_ids:
+        db.query(Splice).filter(
+            (Splice.core_a_id.in_(core_ids)) | (Splice.core_b_id.in_(core_ids))
+        ).delete(synchronize_session='fetch')
+    
+    # 3. Hapus semua core
+    db.query(Core).filter(Core.cable_id == cable_id).delete(synchronize_session='fetch')
+    
+    # 4. Hapus kabel
     db.delete(db_cable)
     db.commit()
-    return {"message": "Cable and its cores deleted successfully"}
+    return {"message": "Cable, cores, and related splices deleted successfully"}
 
 @router.get("/{cable_id}/cores", response_model=List[CoreResponse])
 def get_cable_cores(cable_id: uuid.UUID, db: Session = Depends(get_db)):
