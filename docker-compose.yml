@@ -13,7 +13,15 @@ services:
     ports:
       - "3000:3000"
     environment:
+      - NODE_ENV=development
+      - HOSTNAME=0.0.0.0
+      - PORT=3000
+      - WATCHPACK_POLLING=true
       - NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
     depends_on:
       - backend
     networks:
@@ -37,6 +45,8 @@ services:
       - MINIO_ACCESS_KEY=admin
       - MINIO_SECRET_KEY=admin123
       - JWT_SECRET=super_secret_eoms_key_change_me
+    volumes:
+      - ./backend:/app
     depends_on:
       - db
       - redis
