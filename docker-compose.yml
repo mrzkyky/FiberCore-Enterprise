@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # ----------------------------------------------------
   # FRONTEND: REACT + VITE (FIBERCORE ENTERPRISE)
@@ -60,7 +58,7 @@ services:
   # DATABASE: POSTGIS / POSTGRESQL
   # ----------------------------------------------------
   db:
-    image: postgis/postgis:15-alpine
+    image: postgis/postgis:15-3.4-alpine
     container_name: eoms_db
     restart: unless-stopped
     command: postgres -p 5434
