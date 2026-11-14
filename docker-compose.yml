@@ -11,13 +11,13 @@ services:
     container_name: eoms_frontend
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "3004:3004"
     environment:
       - NODE_ENV=development
       - HOSTNAME=0.0.0.0
-      - PORT=3000
+      - PORT=3004
       - WATCHPACK_POLLING=true
-      - NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
+      - NEXT_PUBLIC_API_URL=http://localhost:8086/api/v1
     volumes:
       - ./frontend:/app
       - /app/node_modules
@@ -36,12 +36,13 @@ services:
       dockerfile: Dockerfile
     container_name: eoms_backend
     restart: unless-stopped
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8086 --reload
     ports:
-      - "8000:8000"
+      - "8086:8086"
     environment:
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/eoms_db
-      - REDIS_URL=redis://redis:6379/0
-      - MINIO_URL=http://minio:9000
+      - DATABASE_URL=postgresql://postgres:postgres@db:5434/eoms_db
+      - REDIS_URL=redis://redis:6377/0
+      - MINIO_URL=http://minio:9004
       - MINIO_ACCESS_KEY=admin
       - MINIO_SECRET_KEY=admin123
       - JWT_SECRET=super_secret_eoms_key_change_me
@@ -61,12 +62,13 @@ services:
     image: postgres:15-alpine
     container_name: eoms_db
     restart: unless-stopped
+    command: postgres -p 5434
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_DB=eoms_db
     ports:
-      - "5432:5432"
+      - "5434:5434"
     volumes:
       - pgdata:/var/lib/postgresql/data
     networks:
@@ -79,8 +81,9 @@ services:
     image: redis:7-alpine
     container_name: eoms_redis
     restart: unless-stopped
+    command: redis-server --port 6377
     ports:
-      - "6379:6379"
+      - "6377:6377"
     volumes:
       - redisdata:/data
     networks:
@@ -94,12 +97,12 @@ services:
     container_name: eoms_minio
     restart: unless-stopped
     ports:
-      - "9000:9000"
+      - "9004:9004"
       - "9001:9001"
     environment:
       - MINIO_ROOT_USER=admin
       - MINIO_ROOT_PASSWORD=admin123
-    command: server /data --console-address ":9001"
+    command: server /data --address ":9004" --console-address ":9001"
     volumes:
       - miniodata:/data
     networks:
