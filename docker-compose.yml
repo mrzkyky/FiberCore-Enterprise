@@ -2,52 +2,53 @@ version: '3.8'
 
 services:
   # ----------------------------------------------------
-  # FRONTEND: NEXT.JS 15
+  # FRONTEND: REACT + VITE (FIBERCORE ENTERPRISE)
   # ----------------------------------------------------
   frontend:
     build:
-      context: ./frontend
+      context: ./frontend_old
       dockerfile: Dockerfile
     container_name: eoms_frontend
     restart: unless-stopped
     ports:
       - "3004:3004"
     environment:
-      - NODE_ENV=development
-      - HOSTNAME=0.0.0.0
-      - PORT=3004
-      - WATCHPACK_POLLING=true
-      - NEXT_PUBLIC_API_URL=http://localhost:8086/api/v1
+      - VITE_API_URL=http://localhost:8086/api/v1
+      - BACKEND_URL=http://backend:8086
     volumes:
-      - ./frontend:/app
+      - ./frontend_old:/app
       - /app/node_modules
-      - /app/.next
     depends_on:
       - backend
     networks:
       - eoms_net
 
   # ----------------------------------------------------
-  # BACKEND: FASTAPI
+  # BACKEND: FASTAPI (FIBERCORE ENTERPRISE)
   # ----------------------------------------------------
   backend:
     build:
-      context: ./backend
+      context: ./backend_old
       dockerfile: Dockerfile
     container_name: eoms_backend
     restart: unless-stopped
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8086 --reload
+    command: uvicorn main:app --host 0.0.0.0 --port 8086 --reload
     ports:
       - "8086:8086"
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@db:5434/eoms_db
+      - POSTGRES_SERVER=db
+      - POSTGRES_PORT=5434
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=eoms_db
       - REDIS_URL=redis://redis:6377/0
       - MINIO_URL=http://minio:9004
       - MINIO_ACCESS_KEY=admin
       - MINIO_SECRET_KEY=admin123
       - JWT_SECRET=super_secret_eoms_key_change_me
     volumes:
-      - ./backend:/app
+      - ./backend_old:/app
     depends_on:
       - db
       - redis
@@ -56,10 +57,10 @@ services:
       - eoms_net
 
   # ----------------------------------------------------
-  # DATABASE: POSTGRESQL
+  # DATABASE: POSTGIS / POSTGRESQL
   # ----------------------------------------------------
   db:
-    image: postgres:15-alpine
+    image: postgis/postgis:15-alpine
     container_name: eoms_db
     restart: unless-stopped
     command: postgres -p 5434
