@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 
 from app.db.session import SessionLocal
-from app.db.models import Device
+from app.db.models import Device, Port
 
 router = APIRouter()
 
@@ -65,6 +65,7 @@ def get_db():
         db.close()
 
 # --- ROUTES ---
+@router.post("")
 @router.post("/")
 def create_device(device_in: DeviceCreate, db: Session = Depends(get_db)):
     loc = None
@@ -87,6 +88,14 @@ def create_device(device_in: DeviceCreate, db: Session = Depends(get_db)):
     db.add(db_device)
     db.commit()
     db.refresh(db_device)
+    
+    if device_in.capacity and device_in.capacity > 0:
+        dtype_upper = (device_in.device_type or "").upper()
+        if any(t in dtype_upper for t in ["ODP", "OLT", "OTB", "CLOSURE", "POP"]):
+            ports = [Port(device_id=db_device.id, port_number=i+1, status="Free") for i in range(device_in.capacity)]
+            db.add_all(ports)
+            db.commit()
+
     return {
         "id": str(db_device.id),
         "name": db_device.name,
@@ -95,6 +104,7 @@ def create_device(device_in: DeviceCreate, db: Session = Depends(get_db)):
         "message": "Device created successfully"
     }
 
+@router.get("", response_model=List[DeviceResponse])
 @router.get("/", response_model=List[DeviceResponse])
 def get_devices(device_type: Optional[str] = None, skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     query = db.query(Device)
@@ -120,6 +130,14 @@ def update_device(device_id: uuid.UUID, device_in: DeviceUpdate, db: Session = D
         
     db.commit()
     db.refresh(db_device)
+    
+    if device_in.capacity and device_in.capacity > 0:
+        dtype_upper = (device_in.device_type or "").upper()
+        if any(t in dtype_upper for t in ["ODP", "OLT", "OTB", "CLOSURE", "POP"]):
+            ports = [Port(device_id=db_device.id, port_number=i+1, status="Free") for i in range(device_in.capacity)]
+            db.add_all(ports)
+            db.commit()
+
     return {"message": "Device updated successfully"}
 
 @router.delete("/{device_id}")

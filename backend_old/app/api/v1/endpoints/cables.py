@@ -51,6 +51,7 @@ def get_all_regions(db: Session = Depends(get_db)):
     return sorted(list(all_regions))
 
 @router.post("/draw")
+@router.post("/draw/")
 def create_drawn_cable(payload: CableDrawPayload, db: Session = Depends(get_db)):
     if len(payload.coordinates) < 2:
         raise HTTPException(status_code=400, detail="Cable must contain at least 2 coordinate points")
@@ -108,6 +109,7 @@ def create_drawn_cable(payload: CableDrawPayload, db: Session = Depends(get_db))
         "message": "Cable drawn and saved successfully"
     }
 
+@router.post("", response_model=CableResponse)
 @router.post("/", response_model=CableResponse)
 def create_cable(cable_in: CableCreate, db: Session = Depends(get_db)):
     db_cable = Cable(**cable_in.model_dump())

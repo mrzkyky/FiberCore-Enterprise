@@ -6,7 +6,7 @@ from app.db.models import Base
 from app.scripts.init_admin import init_admin
 from sqlalchemy import text
 
-app = FastAPI(title="FiberCore Enterprise API")
+app = FastAPI(title="FiberCore Enterprise API", redirect_slashes=False)
 
 @app.on_event("startup")
 def on_startup():

@@ -232,7 +232,7 @@ export default function GisTopology() {
     if (!newNodeModal) return;
     setIsSubmitting(true);
     try {
-      await axios.post('/api/v1/devices', {
+      await axios.post('/api/v1/devices/', {
         name: newNodeForm.name,
         device_type: newNodeForm.device_type,
         capacity: newNodeForm.capacity ? parseInt(newNodeForm.capacity) : null,

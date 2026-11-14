@@ -22,6 +22,7 @@ def get_db():
 from typing import Optional
 
 @router.get("/topology")
+@router.get("/topology/")
 def get_map_topology(region: Optional[str] = None, db: Session = Depends(get_db)):
     """
     Returns GeoJSON FeatureCollection of all PoPs (Points) and Cables (LineStrings)
@@ -114,6 +115,7 @@ def get_map_topology(region: Optional[str] = None, db: Session = Depends(get_db)
     }
 
 @router.get("/export-kmz")
+@router.get("/export-kmz/")
 def export_map_kmz(region: Optional[str] = None, db: Session = Depends(get_db)):
     """
     Exports all devices, cables, and PoPs for a given region (or all)
