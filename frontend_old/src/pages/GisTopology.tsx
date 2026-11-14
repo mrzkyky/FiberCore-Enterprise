@@ -530,7 +530,11 @@ export default function GisTopology() {
         start_core_a: Number(batchSpliceForm.start_core_a) || 1,
         start_core_b: Number(batchSpliceForm.start_core_b) || 1,
         auto_update_description: batchSpliceForm.auto_update_description,
-        custom_note: note
+        custom_note: note,
+        splice_type: batchSpliceForm.splice_type,
+        petik_tube: batchSpliceForm.petik_tube,
+        petik_core: batchSpliceForm.petik_core,
+        petik_target: batchSpliceForm.petik_target
       }, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -2442,40 +2446,42 @@ export default function GisTopology() {
                 </div>
               )}
 
-              <div className="grid grid-cols-3 gap-2">
-                <div>
-                  <label className="block text-xs font-semibold text-dark-text mb-1">Start Core A</label>
-                  <input
-                    type="number"
-                    min={1}
-                    value={batchSpliceForm.start_core_a}
-                    onChange={(e) => setBatchSpliceForm({...batchSpliceForm, start_core_a: Math.max(1, Number(e.target.value))})}
-                    className="w-full px-3 py-2 border border-dark-border rounded-lg text-sm bg-white text-dark-text focus:outline-none focus:border-primary"
-                  />
-                </div>
+              {batchSpliceForm.splice_type === 'straight' && (
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <label className="block text-xs font-semibold text-dark-text mb-1">Start Core A</label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={batchSpliceForm.start_core_a}
+                      onChange={(e) => setBatchSpliceForm({...batchSpliceForm, start_core_a: Math.max(1, Number(e.target.value))})}
+                      className="w-full px-3 py-2 border border-dark-border rounded-lg text-sm bg-white text-dark-text focus:outline-none focus:border-primary"
+                    />
+                  </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-dark-text mb-1">Start Core B</label>
-                  <input
-                    type="number"
-                    min={1}
-                    value={batchSpliceForm.start_core_b}
-                    onChange={(e) => setBatchSpliceForm({...batchSpliceForm, start_core_b: Math.max(1, Number(e.target.value))})}
-                    className="w-full px-3 py-2 border border-dark-border rounded-lg text-sm bg-white text-dark-text focus:outline-none focus:border-primary"
-                  />
-                </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-dark-text mb-1">Start Core B</label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={batchSpliceForm.start_core_b}
+                      onChange={(e) => setBatchSpliceForm({...batchSpliceForm, start_core_b: Math.max(1, Number(e.target.value))})}
+                      className="w-full px-3 py-2 border border-dark-border rounded-lg text-sm bg-white text-dark-text focus:outline-none focus:border-primary"
+                    />
+                  </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-dark-text mb-1">Jumlah Core</label>
-                  <input
-                    type="number"
-                    min={1}
-                    value={batchSpliceForm.count}
-                    onChange={(e) => setBatchSpliceForm({...batchSpliceForm, count: Math.max(1, Number(e.target.value))})}
-                    className="w-full px-3 py-2 border border-dark-border rounded-lg text-sm bg-white text-dark-text focus:outline-none focus:border-primary"
-                  />
+                  <div>
+                    <label className="block text-xs font-semibold text-dark-text mb-1">Jumlah Core</label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={batchSpliceForm.count}
+                      onChange={(e) => setBatchSpliceForm({...batchSpliceForm, count: Math.max(1, Number(e.target.value))})}
+                      className="w-full px-3 py-2 border border-dark-border rounded-lg text-sm bg-white text-dark-text focus:outline-none focus:border-primary"
+                    />
+                  </div>
                 </div>
-              </div>
+              )}
 
               <div>
                 <label className="block text-xs font-semibold text-dark-text mb-1">

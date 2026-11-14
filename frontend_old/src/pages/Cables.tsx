@@ -616,10 +616,11 @@ export default function Cables() {
                           <div className="flex items-center gap-1.5 bg-white px-2 py-1 rounded border border-dark-border">
                             <div className="w-3 h-3 rounded-full shadow-inner border border-black/10" style={{ backgroundColor: (node.color || 'gray').toLowerCase() }}></div>
                             <span className="font-mono font-medium text-dark-text text-xs">
-                              Tube {node.tube ?? '?'} / Core {node.core_number ?? '?'}
+                              Tube {node.tube ?? '?'} / Core {node.core_in_tube || (((node.core_number || 1) - 1) % 12) + 1}
+                              {node.cable_capacity > 12 ? ` · Core Global #${node.core_number}` : ''}
                             </span>
                           </div>
-                          <span className="text-xs text-dark-muted bg-white px-2 py-1 rounded border border-dark-border font-mono">
+                          <span className="text-xs text-dark-muted bg-white px-2 py-1 rounded border border-dark-border font-mono font-semibold">
                             {node.color || 'Unknown Color'}
                           </span>
                         </div>

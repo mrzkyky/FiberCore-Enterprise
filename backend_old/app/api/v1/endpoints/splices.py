@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from pydantic import BaseModel
 import uuid
+import re
 from app.db.session import SessionLocal
 from app.db.models import Splice, Core, Cable, Device
 from app.schemas.asset import SpliceCreate, SpliceResponse
@@ -19,6 +20,10 @@ class BatchSplicePayload(BaseModel):
     attenuation: float = 0.05
     auto_update_description: bool = True
     custom_note: Optional[str] = None
+    splice_type: Optional[str] = 'straight' # 'straight' | 'petik'
+    petik_tube: Optional[str] = None # e.g. "Tube 2 (Oranye)"
+    petik_core: Optional[str] = None # e.g. "Core 3 (Hijau)"
+    petik_target: Optional[str] = None
 
 def get_db():
     db = SessionLocal()
@@ -83,6 +88,20 @@ def batch_connect_cables(payload: BatchSplicePayload, db: Session = Depends(get_
     spliced_count = 0
     splice_details = []
 
+    # Auto-calculate core index jika mode Petik
+    if payload.splice_type == 'petik' or (payload.petik_tube and payload.petik_core):
+        tube_match = re.search(r'\d+', payload.petik_tube or '')
+        core_match = re.search(r'\d+', payload.petik_core or '')
+        t_num = int(tube_match.group()) if tube_match else 1
+        c_num = int(core_match.group()) if core_match else 1
+        # Nomor core absolut di kabel feeder (kabel B):
+        payload.start_core_b = (t_num - 1) * 12 + c_num
+        payload.start_core_a = 1
+        payload.count = 1
+        if not payload.custom_note:
+            target_str = f" - {payload.petik_target}" if payload.petik_target else ""
+            payload.custom_note = f"{payload.petik_tube} / {payload.petik_core}{target_str}"
+
     # Validate start core indices
     if payload.start_core_a > len(cores_a):
         raise HTTPException(
@@ -105,7 +124,19 @@ def batch_connect_cables(payload: BatchSplicePayload, db: Session = Depends(get_
         ca = cores_a[idx_a]
         cb = cores_b[idx_b]
 
-        # Check existing splice
+        # Bersihkan splice lama jika core ca sudah pernah tersambung ke tempat lain (misal koreksi splice)
+        old_splices_a = db.query(Splice).filter(
+            (Splice.core_a_id == ca.id) | (Splice.core_b_id == ca.id)
+        ).all()
+        for old_sp in old_splices_a:
+            other_id = old_sp.core_b_id if old_sp.core_a_id == ca.id else old_sp.core_a_id
+            if other_id != cb.id:
+                other_core = db.query(Core).filter(Core.id == other_id).first()
+                if other_core:
+                    other_core.status = "Free"
+                db.delete(old_sp)
+
+        # Check existing splice between ca and cb
         existing = db.query(Splice).filter(
             ((Splice.core_a_id == ca.id) & (Splice.core_b_id == cb.id)) |
             ((Splice.core_a_id == cb.id) & (Splice.core_b_id == ca.id))
@@ -347,6 +378,7 @@ def trace_core(core_id: uuid.UUID, db: Session = Depends(get_db)):
         if not core:
             raise HTTPException(status_code=404, detail="Core not found")
         cable = core.cable
+        core_in_tube = ((core.core_number - 1) % 12) + 1
         return {
             "path": [{
                 "type": "core",
@@ -357,6 +389,7 @@ def trace_core(core_id: uuid.UUID, db: Session = Depends(get_db)):
                 "color": core.color,
                 "tube": core.tube_number,
                 "core_number": core.core_number,
+                "core_in_tube": core_in_tube,
                 "status": core.status
             }],
             "total_attenuation": 0
@@ -386,6 +419,7 @@ def trace_core(core_id: uuid.UUID, db: Session = Depends(get_db)):
         core = db.query(Core).filter(Core.id == current_node).first()
         cable = core.cable
         
+        core_in_tube = ((core.core_number - 1) % 12) + 1
         ordered_path.append({
             "type": "core",
             "core_id": str(core.id),
@@ -395,6 +429,7 @@ def trace_core(core_id: uuid.UUID, db: Session = Depends(get_db)):
             "color": core.color,
             "tube": core.tube_number,
             "core_number": core.core_number,
+            "core_in_tube": core_in_tube,
             "status": core.status
         })
         
