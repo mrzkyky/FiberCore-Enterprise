@@ -6,7 +6,7 @@ import Map, { Source, Layer, Popup as MapPopup, NavigationControl, FullscreenCon
 import type { CircleLayer, LineLayer, SymbolLayer, MapRef } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { useAuthStore } from '../store/useAuthStore';
-import { Loader2, Layers, MapPin, Server, Activity, X, Edit, Box, GitMerge, List, Route, Database, ChevronDown, ChevronUp, Map as MapIcon } from 'lucide-react';
+import { Loader2, Layers, MapPin, Server, Activity, X, Edit, Box, GitMerge, List, Route, Database, ChevronDown, ChevronUp, Map as MapIcon, RotateCw } from 'lucide-react';
 
 export default function GisTopology() {
   const token = useAuthStore(state => state.token);
@@ -14,6 +14,7 @@ export default function GisTopology() {
   const [selectedClosure, setSelectedClosure] = useState<string | null>(null);
   const [mapRegionFilter, setMapRegionFilter] = useState<string>('All');
   const [mapType, setMapType] = useState<'streets' | 'satellite'>('streets');
+  const [autoSync, setAutoSync] = useState<boolean>(true);
   const mapRef = useRef<MapRef>(null);
   const [loadedIcons, setLoadedIcons] = useState<string[]>([]);
   
@@ -37,7 +38,8 @@ export default function GisTopology() {
         headers: { Authorization: `Bearer ${token}` }
       });
       return response.data; // GeoJSON FeatureCollection
-    }
+    },
+    refetchInterval: autoSync ? 5000 : false, // Auto-sync with Google Earth Pro every 5s
   });
 
   const { data: matrixData, isLoading: matrixLoading } = useQuery({
@@ -345,6 +347,32 @@ export default function GisTopology() {
           <p className="text-dark-muted text-sm mt-1">Interactive Map & Asset Dashboard</p>
         </div>
         <div className="flex items-center gap-3">
+          {/* Live Auto-Sync Indicator & Toggle */}
+          <button
+            onClick={() => setAutoSync(!autoSync)}
+            className={`flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-lg border transition-all cursor-pointer ${
+              autoSync 
+                ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800' 
+                : 'bg-zinc-100 text-zinc-500 border-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:border-zinc-700'
+            }`}
+            title="Auto-refresh map topology every 5 seconds when Google Earth saves changes"
+          >
+            <span className={`h-2 w-2 rounded-full ${autoSync ? 'bg-emerald-500 animate-pulse' : 'bg-zinc-400'}`} />
+            {autoSync ? 'Live Sync (5s)' : 'Live Sync: Off'}
+          </button>
+
+          {/* Manual Refresh Button */}
+          <button
+            onClick={() => {
+              queryClient.invalidateQueries({ queryKey: ['map-topology'] });
+            }}
+            disabled={isLoading}
+            className="p-2 bg-dark-surface border border-dark-border rounded-lg text-dark-text hover:bg-dark-border transition-all flex items-center justify-center disabled:opacity-50 cursor-pointer"
+            title="Refresh Map Now"
+          >
+            <RotateCw size={16} className={isLoading ? 'animate-spin text-primary' : ''} />
+          </button>
+
           <select 
             value={mapRegionFilter}
             onChange={(e) => {

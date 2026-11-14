@@ -1,0 +1,9 @@
+{
+    "server_url": "http://100.93.168.56:8086",
+    "watch_folder": "./kmz_files",
+    "default_region": "Surabaya",
+    "use_filename_as_region": true,
+    "auto_replace": true,
+    "debounce_seconds": 1.5,
+    "check_interval_seconds": 1.0
+}
