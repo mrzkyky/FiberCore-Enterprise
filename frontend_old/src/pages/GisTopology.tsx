@@ -37,7 +37,7 @@ export default function GisTopology() {
   const [newProjectModal, setNewProjectModal] = useState<boolean>(false);
   const [newProjectName, setNewProjectName] = useState<string>('');
 
-  // Batch Splice (Pelebaran) Modal State
+  // Batch Splice (Pelebaran & Petik) Modal State
   const [batchSpliceModal, setBatchSpliceModal] = useState<boolean>(false);
   const [batchSpliceForm, setBatchSpliceForm] = useState({
     cable_a_id: '',
@@ -47,7 +47,11 @@ export default function GisTopology() {
     start_core_a: 1,
     start_core_b: 1,
     auto_update_description: true,
-    custom_note: ''
+    custom_note: '',
+    splice_type: 'straight', // 'straight' | 'petik'
+    petik_tube: 'Tube 1 (Biru)',
+    petik_core: 'Core 1 (Biru)',
+    petik_target: ''
   });
   const [isBatchSplicing, setIsBatchSplicing] = useState<boolean>(false);
 
@@ -90,6 +94,15 @@ export default function GisTopology() {
     description: '',
     slack_meters: '',
     odp_source: ''
+  });
+
+  const [editingCable, setEditingCable] = useState<any | null>(null);
+  const [editCableFormData, setEditCableFormData] = useState({
+    name: '',
+    type: 'Distribution',
+    capacity: '12',
+    region: '',
+    description: ''
   });
   
   const [popupInfo, setPopupInfo] = useState<{
@@ -138,6 +151,48 @@ export default function GisTopology() {
     }
   });
 
+  const editCableMutation = useMutation({
+    mutationFn: async (data: { id: string, payload: any }) => {
+      const response = await axios.put(`/api/v1/cables/${data.id}`, data.payload, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['map-topology'] });
+      setEditingCable(null);
+      setPopupInfo(null);
+    }
+  });
+
+  const handleEditCableSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingCable) return;
+    editCableMutation.mutate({
+      id: editingCable.id,
+      payload: {
+        name: editCableFormData.name,
+        type: editCableFormData.type,
+        capacity: editCableFormData.capacity ? parseInt(editCableFormData.capacity) : 12,
+        region: editCableFormData.region,
+        description: editCableFormData.description
+      }
+    });
+  };
+
+  const getDistanceMeters = (coord1?: [number, number], coord2?: [number, number]) => {
+    if (!coord1 || !coord2) return 999999999;
+    const [lon1, lat1] = coord1;
+    const [lon2, lat2] = coord2;
+    const R = 6371e3;
+    const phi1 = (lat1 * Math.PI) / 180;
+    const phi2 = (lat2 * Math.PI) / 180;
+    const dPhi = ((lat2 - lat1) * Math.PI) / 180;
+    const dLam = ((lon2 - lon1) * Math.PI) / 180;
+    const a = Math.sin(dPhi / 2) ** 2 + Math.cos(phi1) * Math.cos(phi2) * Math.sin(dLam / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  };
+
   // Extract unique regions for dropdown (we fallback to fetching 'All' initially to get them)
   const { data: allGeoData } = useQuery({
     queryKey: ['map-topology', 'All'],
@@ -180,9 +235,41 @@ export default function GisTopology() {
         id: f.properties.id,
         name: f.properties.name,
         device_type: f.properties.device_type,
-        region: f.properties.region
+        region: f.properties.region,
+        coordinates: f.geometry?.coordinates as [number, number] | undefined
       }));
   }, [allGeoData]);
+
+  const selectedCableA = useMemo(() => {
+    if (!allGeoData?.features || !batchSpliceForm.cable_a_id) return null;
+    return allGeoData.features.find((f: any) => f.properties?.id === batchSpliceForm.cable_a_id);
+  }, [allGeoData, batchSpliceForm.cable_a_id]);
+
+  const sortedClosures = useMemo(() => {
+    if (!availableClosures.length) return [];
+    
+    let refCoord: [number, number] | null = popupInfo?.lngLat || null;
+    if (!refCoord && selectedCableA?.geometry?.coordinates) {
+      const coords = selectedCableA.geometry.coordinates;
+      refCoord = Array.isArray(coords[0]) ? coords[0] : coords;
+    }
+    
+    const cableRegion = selectedCableA?.properties?.region;
+
+    return [...availableClosures].map(cl => {
+      let dist = Infinity;
+      if (refCoord && cl.coordinates) {
+        dist = getDistanceMeters(refCoord, cl.coordinates);
+      }
+      const isSameRegion = !cableRegion || !cl.region || cl.region === cableRegion;
+      return {
+        ...cl,
+        dist,
+        isSameRegion,
+        sortScore: (isSameRegion ? 0 : 50000) + dist
+      };
+    }).sort((a, b) => a.sortScore - b.sortScore);
+  }, [availableClosures, popupInfo, selectedCableA]);
 
   // Computed KPI Stats from Map
   const stats = useMemo(() => {
@@ -427,16 +514,23 @@ export default function GisTopology() {
       return;
     }
     setIsBatchSplicing(true);
+
+    let note = batchSpliceForm.custom_note.trim();
+    if (batchSpliceForm.splice_type === 'petik') {
+      const petikDesc = `${batchSpliceForm.petik_tube} / ${batchSpliceForm.petik_core}${batchSpliceForm.petik_target ? ' to ' + batchSpliceForm.petik_target : ''}`;
+      note = note ? `${petikDesc} | ${note}` : petikDesc;
+    }
+
     try {
       const res = await axios.post('/api/v1/splices/batch-connect', {
         cable_a_id: batchSpliceForm.cable_a_id,
         cable_b_id: batchSpliceForm.cable_b_id,
         closure_id: batchSpliceForm.closure_id || null,
-        count: Number(batchSpliceForm.count) || 12,
+        count: batchSpliceForm.splice_type === 'petik' ? 1 : (Number(batchSpliceForm.count) || 12),
         start_core_a: Number(batchSpliceForm.start_core_a) || 1,
         start_core_b: Number(batchSpliceForm.start_core_b) || 1,
         auto_update_description: batchSpliceForm.auto_update_description,
-        custom_note: batchSpliceForm.custom_note
+        custom_note: note
       }, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -1194,20 +1288,60 @@ export default function GisTopology() {
                     <div className="mt-3 flex flex-col gap-2">
                       <button 
                         onClick={() => {
-                          setBatchSpliceForm(prev => ({ ...prev, cable_a_id: popupInfo.feature.properties.id }));
+                          const cableId = popupInfo.feature.properties.id;
+                          const cableRegion = popupInfo.feature.properties.region;
+                          const clickCoords: [number, number] = popupInfo.lngLat;
+                          
+                          let bestClosureId = '';
+                          let bestDist = Infinity;
+                          availableClosures.forEach(cl => {
+                            const isSame = !cableRegion || !cl.region || cl.region === cableRegion;
+                            if (cl.coordinates) {
+                              const d = getDistanceMeters(clickCoords, cl.coordinates);
+                              const score = (isSame ? 0 : 50000) + d;
+                              if (score < bestDist) {
+                                bestDist = score;
+                                bestClosureId = cl.id;
+                              }
+                            }
+                          });
+
+                          setBatchSpliceForm(prev => ({ 
+                            ...prev, 
+                            cable_a_id: cableId,
+                            closure_id: bestClosureId || prev.closure_id
+                          }));
                           setBatchSpliceModal(true);
                         }}
                         className="w-full bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 py-1.5 px-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1 transition-colors cursor-pointer"
-                        title="Sambungkan kabel ini dengan kabel pelebaran / proyek lain"
+                        title="Sambungkan kabel ini dengan kabel pelebaran atau petik ke ODP"
                       >
-                        <GitMerge size={13} /> Sambung Pelebaran Kabel Ini
+                        <GitMerge size={13} /> Sambung Pelebaran / Petik Kabel Ini
                       </button>
-                      <button 
-                        onClick={() => handleDeleteFeature(popupInfo.feature.properties.id, 'cable', popupInfo.feature.properties.name)}
-                        className="w-full bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 py-1.5 px-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1 transition-colors cursor-pointer"
-                      >
-                        <Trash2 size={13} /> Hapus Jalur Kabel
-                      </button>
+                      <div className="flex gap-2">
+                        <button 
+                          onClick={() => {
+                            setEditingCable(popupInfo.feature.properties);
+                            setEditCableFormData({
+                              name: popupInfo.feature.properties.name || '',
+                              type: popupInfo.feature.properties.cable_type || 'Distribution',
+                              capacity: popupInfo.feature.properties.capacity?.toString() || '12',
+                              region: popupInfo.feature.properties.region || '',
+                              description: popupInfo.feature.properties.description || ''
+                            });
+                          }}
+                          className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-800 py-1.5 px-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                        >
+                          <Edit size={13} /> Edit Kabel
+                        </button>
+                        <button 
+                          onClick={() => handleDeleteFeature(popupInfo.feature.properties.id, 'cable', popupInfo.feature.properties.name)}
+                          className="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 py-1.5 px-2.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                          title="Hapus Jalur Kabel"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ) : (
@@ -2185,6 +2319,26 @@ export default function GisTopology() {
               </div>
 
               <div>
+                <label className="block text-xs font-semibold text-dark-text mb-1">Mode Sambungan</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setBatchSpliceForm(prev => ({ ...prev, splice_type: 'straight' }))}
+                    className={`py-2 px-3 rounded-lg text-xs font-bold border transition-all cursor-pointer flex items-center justify-center gap-1.5 ${batchSpliceForm.splice_type === 'straight' ? 'bg-purple-600 text-white border-purple-600 shadow-xs' : 'bg-white text-dark-text border-dark-border hover:bg-gray-50'}`}
+                  >
+                    ⚡ Pelebaran Lurus (Trunk)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBatchSpliceForm(prev => ({ ...prev, splice_type: 'petik', count: 1 }))}
+                    className={`py-2 px-3 rounded-lg text-xs font-bold border transition-all cursor-pointer flex items-center justify-center gap-1.5 ${batchSpliceForm.splice_type === 'petik' ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs' : 'bg-white text-dark-text border-dark-border hover:bg-gray-50'}`}
+                  >
+                    🌿 Sambung Petik ke ODP/Drop
+                  </button>
+                </div>
+              </div>
+
+              <div>
                 <label className="block text-xs font-semibold text-dark-text mb-1">Kabel Tujuan (Pelebaran / Proyek Baru)</label>
                 <select
                   required
@@ -2200,6 +2354,66 @@ export default function GisTopology() {
                   ))}
                 </select>
               </div>
+
+              {batchSpliceForm.splice_type === 'petik' && (
+                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg space-y-2">
+                  <span className="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
+                    🌿 Konfigurasi Petik Core Feeder
+                  </span>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-emerald-900 mb-1">Warna Tube Feeder</label>
+                      <select
+                        value={batchSpliceForm.petik_tube}
+                        onChange={(e) => setBatchSpliceForm({...batchSpliceForm, petik_tube: e.target.value})}
+                        className="w-full px-2 py-1.5 border border-emerald-300 rounded text-xs bg-white text-gray-800"
+                      >
+                        <option value="Tube 1 (Biru)">Tube 1 (Biru)</option>
+                        <option value="Tube 2 (Oranye)">Tube 2 (Oranye)</option>
+                        <option value="Tube 3 (Hijau)">Tube 3 (Hijau)</option>
+                        <option value="Tube 4 (Cokelat)">Tube 4 (Cokelat)</option>
+                        <option value="Tube 5 (Abu-abu)">Tube 5 (Abu-abu)</option>
+                        <option value="Tube 6 (Putih)">Tube 6 (Putih)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold text-emerald-900 mb-1">Warna Core Feeder</label>
+                      <select
+                        value={batchSpliceForm.petik_core}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          const coreNum = parseInt(val.match(/\d+/)?.[0] || '1');
+                          setBatchSpliceForm({...batchSpliceForm, petik_core: val, start_core_a: coreNum});
+                        }}
+                        className="w-full px-2 py-1.5 border border-emerald-300 rounded text-xs bg-white text-gray-800"
+                      >
+                        <option value="Core 1 (Biru)">Core 1 (Biru)</option>
+                        <option value="Core 2 (Oranye)">Core 2 (Oranye)</option>
+                        <option value="Core 3 (Hijau)">Core 3 (Hijau)</option>
+                        <option value="Core 4 (Cokelat)">Core 4 (Cokelat)</option>
+                        <option value="Core 5 (Abu-abu)">Core 5 (Abu-abu)</option>
+                        <option value="Core 6 (Putih)">Core 6 (Putih)</option>
+                        <option value="Core 7 (Merah)">Core 7 (Merah)</option>
+                        <option value="Core 8 (Hitam)">Core 8 (Hitam)</option>
+                        <option value="Core 9 (Kuning)">Core 9 (Kuning)</option>
+                        <option value="Core 10 (Ungu)">Core 10 (Ungu)</option>
+                        <option value="Core 11 (Pink)">Core 11 (Pink)</option>
+                        <option value="Core 12 (Toska)">Core 12 (Toska)</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-emerald-900 mb-1">Tujuan Sambungan Petik</label>
+                    <input
+                      type="text"
+                      value={batchSpliceForm.petik_target}
+                      onChange={(e) => setBatchSpliceForm({...batchSpliceForm, petik_target: e.target.value})}
+                      className="w-full px-2 py-1.5 border border-emerald-300 rounded text-xs bg-white text-gray-800"
+                      placeholder="Contoh: Jalur ODP 36, DC Jalur ODP 29"
+                    />
+                  </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-3 gap-2">
                 <div>
@@ -2237,18 +2451,20 @@ export default function GisTopology() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-dark-text mb-1">Perangkat Sambung (Closure / ODP)</label>
+                <label className="block text-xs font-semibold text-dark-text mb-1">
+                  Titik Temu / Perangkat Sambung (Joint Closure)
+                </label>
                 <select
-                  value={batchSpliceForm.closure_id}
+                  value={batchSpliceForm.closure_id || (sortedClosures[0]?.id || '')}
                   onChange={(e) => setBatchSpliceForm({...batchSpliceForm, closure_id: e.target.value})}
                   className="w-full px-3 py-2 border border-dark-border rounded-lg text-sm bg-white text-dark-text focus:outline-none focus:border-primary"
                 >
-                  <option value="">Auto-Detect / Joint Baru</option>
-                  {availableClosures.map(cl => (
+                  {sortedClosures.map((cl, idx) => (
                     <option key={cl.id} value={cl.id}>
-                      {cl.name} ({cl.device_type})
+                      {cl.name} ({cl.device_type}) {cl.dist < 50000 ? `[${cl.dist < 1000 ? Math.round(cl.dist) + 'm' : (cl.dist/1000).toFixed(1) + 'km'}${idx === 0 ? ' - ⭐ Terdekat' : ''}]` : ''}
                     </option>
                   ))}
+                  <option value="">Auto-Detect Terdekat / Buat Joint Baru</option>
                 </select>
               </div>
 
@@ -2258,10 +2474,10 @@ export default function GisTopology() {
                   id="auto_desc_checkbox"
                   checked={batchSpliceForm.auto_update_description}
                   onChange={(e) => setBatchSpliceForm({...batchSpliceForm, auto_update_description: e.target.checked})}
-                  className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                  className="rounded border-gray-300 text-purple-600 focus:ring-purple-500 cursor-pointer"
                 />
                 <label htmlFor="auto_desc_checkbox" className="text-xs font-medium text-dark-text cursor-pointer">
-                  Otomatis update deskripsi kabel dengan catatan sambungan
+                  Otomatis catat hasil sambungan ke Titik Joint Closure (JC) &amp; Kabel (Sebagai Acuan Lapangan)
                 </label>
               </div>
 
@@ -2272,8 +2488,26 @@ export default function GisTopology() {
                   value={batchSpliceForm.custom_note}
                   onChange={(e) => setBatchSpliceForm({...batchSpliceForm, custom_note: e.target.value})}
                   className="w-full px-3 py-2 border border-dark-border rounded-lg text-sm bg-white text-dark-text focus:outline-none focus:border-primary"
-                  placeholder="Contoh: Pelebaran Tahap 2 Cluster Barat"
+                  placeholder="Contoh: Sambung Pelebaran Tahap 2"
                 />
+              </div>
+
+              {/* Live Preview Deskripsi Sambungan */}
+              <div className="p-2.5 bg-gray-50 rounded-lg border border-gray-200 text-xs">
+                <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider block mb-1">
+                  ✨ Format Catatan yang Akan Tersimpan ke JC &amp; Kabel:
+                </span>
+                <div className="space-y-1 font-mono text-[11px]">
+                  <div className="text-purple-700 bg-white p-1.5 rounded border border-gray-100">
+                    <strong className="text-purple-900">Di Joint Closure:</strong>{' '}
+                    {(availableCables.find(c => c.id === batchSpliceForm.cable_a_id)?.name || 'Kabel-A')} (C{batchSpliceForm.start_core_a}-C{batchSpliceForm.start_core_a + batchSpliceForm.count - 1}) &lt;-&gt; {(availableCables.find(c => c.id === batchSpliceForm.cable_b_id)?.name || 'Kabel-B')} (C{batchSpliceForm.start_core_b}-C{batchSpliceForm.start_core_b + batchSpliceForm.count - 1})
+                    {batchSpliceForm.splice_type === 'petik' ? ` [${batchSpliceForm.petik_tube} / ${batchSpliceForm.petik_core}${batchSpliceForm.petik_target ? ' to ' + batchSpliceForm.petik_target : ''}]` : (batchSpliceForm.custom_note ? ` [${batchSpliceForm.custom_note}]` : '')}
+                  </div>
+                  <div className="text-emerald-700 bg-white p-1.5 rounded border border-gray-100">
+                    <strong className="text-emerald-900">Di Kabel Asal:</strong>{' '}
+                    [Pelebaran: C{batchSpliceForm.start_core_a}-C{batchSpliceForm.start_core_a + batchSpliceForm.count - 1} sambung ke {(availableCables.find(c => c.id === batchSpliceForm.cable_b_id)?.name || 'Kabel-B')} via {(sortedClosures.find(c => c.id === (batchSpliceForm.closure_id || sortedClosures[0]?.id))?.name || 'JC Terdekat')}]
+                  </div>
+                </div>
               </div>
 
               <div className="mt-4 flex justify-end gap-2 pt-2 border-t border-dark-border">
@@ -2290,7 +2524,101 @@ export default function GisTopology() {
                   className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-sm"
                 >
                   {isBatchSplicing ? <Loader2 size={14} className="animate-spin" /> : <GitMerge size={14} />}
-                  Sambungkan Core & Update Deskripsi
+                  Sambungkan Core &amp; Update Deskripsi
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Cable Modal */}
+      {editingCable && (
+        <div className="fixed inset-0 bg-dark-text/40 backdrop-blur-sm flex items-center justify-center z-[2000] p-4">
+          <div className="bg-white border border-dark-border w-full max-w-md rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="flex items-center justify-between p-4 border-b border-dark-border bg-dark-surface">
+              <h3 className="text-base font-bold text-dark-text flex items-center gap-2">
+                <Edit className="text-primary" size={18} />
+                Edit Jalur Kabel: {editingCable.name}
+              </h3>
+              <button onClick={() => setEditingCable(null)} className="text-dark-muted hover:text-danger transition-colors cursor-pointer">
+                <X size={20} />
+              </button>
+            </div>
+            
+            <form onSubmit={handleEditCableSubmit} className="p-4 space-y-3 overflow-y-auto">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-semibold text-dark-text mb-1">Nama Kabel</label>
+                  <input 
+                    type="text"
+                    value={editCableFormData.name}
+                    onChange={(e) => setEditCableFormData({...editCableFormData, name: e.target.value})}
+                    className="w-full px-3 py-2 border border-dark-border rounded-lg text-sm bg-white text-dark-text focus:outline-none focus:border-primary"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-dark-text mb-1">Tipe Kabel</label>
+                  <select
+                    value={editCableFormData.type}
+                    onChange={(e) => setEditCableFormData({...editCableFormData, type: e.target.value})}
+                    className="w-full px-3 py-2 border border-dark-border rounded-lg text-sm bg-white text-dark-text focus:outline-none focus:border-primary"
+                  >
+                    <option value="Backbone">🔴 Backbone</option>
+                    <option value="Feeder">🟠 Feeder</option>
+                    <option value="Distribution">🔵 Distribution</option>
+                    <option value="Dropcore">🟢 Dropcore</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-semibold text-dark-text mb-1">Kapasitas (Core)</label>
+                  <input 
+                    type="number"
+                    value={editCableFormData.capacity}
+                    onChange={(e) => setEditCableFormData({...editCableFormData, capacity: e.target.value})}
+                    className="w-full px-3 py-2 border border-dark-border rounded-lg text-sm bg-white text-dark-text focus:outline-none focus:border-primary"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-dark-text mb-1">Project / Region</label>
+                  <input 
+                    type="text"
+                    value={editCableFormData.region}
+                    onChange={(e) => setEditCableFormData({...editCableFormData, region: e.target.value})}
+                    className="w-full px-3 py-2 border border-dark-border rounded-lg text-sm bg-white text-dark-text focus:outline-none focus:border-primary"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-dark-text mb-1">Deskripsi / Catatan Sambungan</label>
+                <textarea 
+                  value={editCableFormData.description}
+                  onChange={(e) => setEditCableFormData({...editCableFormData, description: e.target.value})}
+                  className="w-full px-3 py-2 border border-dark-border rounded-lg focus:outline-none focus:border-primary text-xs bg-white text-dark-text font-mono"
+                  rows={4}
+                  placeholder="Catatan sambungan atau pelebaran..."
+                />
+              </div>
+              
+              <div className="mt-4 flex justify-end gap-2 pt-2 border-t border-dark-border">
+                <button 
+                  type="button" 
+                  onClick={() => setEditingCable(null)}
+                  className="px-4 py-2 border border-dark-border rounded-lg text-dark-text hover:bg-gray-50 text-xs font-semibold transition-colors cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button 
+                  type="submit" 
+                  disabled={editCableMutation.isPending}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  {editCableMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+                  Simpan Perubahan Kabel
                 </button>
               </div>
             </form>

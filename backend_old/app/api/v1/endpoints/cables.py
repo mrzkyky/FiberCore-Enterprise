@@ -148,18 +148,36 @@ def create_cable(cable_in: CableCreate, db: Session = Depends(get_db)):
 def get_cables(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     return db.query(Cable).offset(skip).limit(limit).all()
 
-@router.put("/{cable_id}", response_model=CableResponse)
-def update_cable(cable_id: uuid.UUID, cable_in: CableCreate, db: Session = Depends(get_db)):
+class CableUpdate(BaseModel):
+    name: Optional[str] = None
+    capacity: Optional[int] = None
+    type: Optional[str] = None
+    region: Optional[str] = None
+    color: Optional[str] = None
+    line_width: Optional[float] = None
+    length: Optional[float] = None
+    description: Optional[str] = None
+
+@router.put("/{cable_id}")
+def update_cable(cable_id: uuid.UUID, cable_in: CableUpdate, db: Session = Depends(get_db)):
     db_cable = db.query(Cable).filter(Cable.id == cable_id).first()
     if not db_cable:
         raise HTTPException(status_code=404, detail="Cable not found")
     
-    for key, value in cable_in.model_dump().items():
-        setattr(db_cable, key, value)
+    for key, value in cable_in.model_dump(exclude_unset=True).items():
+        if value is not None:
+            setattr(db_cable, key, value)
         
     db.commit()
     db.refresh(db_cable)
-    return db_cable
+    return {
+        "id": str(db_cable.id),
+        "name": db_cable.name,
+        "type": db_cable.type,
+        "region": db_cable.region,
+        "description": db_cable.description,
+        "message": "Cable updated successfully"
+    }
 
 @router.delete("/region/{region_name}")
 def delete_cables_by_region(region_name: str, db: Session = Depends(get_db)):

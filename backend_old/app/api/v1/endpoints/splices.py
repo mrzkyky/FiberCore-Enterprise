@@ -48,15 +48,33 @@ def batch_connect_cables(payload: BatchSplicePayload, db: Session = Depends(get_
         closure = db.query(Device).filter(Device.id == payload.closure_id).first()
     
     if not closure:
-        # Check or create default Joint Closure
-        closure = db.query(Device).filter(Device.device_type.in_(["Closure", "Joint Closure"])).first()
+        # Intelligently find the closest Joint Closure / Closure / ODP
+        target_region = cable_b.region or cable_a.region
+        cand_query = db.query(Device).filter(
+            func.lower(Device.device_type).in_(["closure", "joint closure", "joint box", "odp"])
+        )
+        if target_region:
+            cand_region = cand_query.filter(Device.region == target_region)
+            if cand_region.count() > 0:
+                cand_query = cand_region
+        
+        # Order by spatial distance to cable_a or cable_b
+        try:
+            if cable_a.route is not None:
+                cand_query = cand_query.order_by(func.ST_Distance(Device.location, cable_a.route))
+            elif cable_b.route is not None:
+                cand_query = cand_query.order_by(func.ST_Distance(Device.location, cable_b.route))
+        except Exception:
+            pass
+            
+        closure = cand_query.first()
         if not closure:
             closure = Device(
                 name=f"JC-{cable_a.name[:8]}-{cable_b.name[:8]}",
                 device_type="Joint Closure",
-                region=cable_b.region or cable_a.region,
+                region=target_region,
                 capacity=48,
-                description="Auto-generated joint closure for network expansion"
+                description="Titik Sambungan / Joint Closure"
             )
             db.add(closure)
             db.commit()
@@ -102,6 +120,18 @@ def batch_connect_cables(payload: BatchSplicePayload, db: Session = Depends(get_
         range_b = f"C{payload.start_core_b}-C{payload.start_core_b + spliced_count - 1}"
         closure_label = closure.name if closure else "Joint"
         
+        # 1. Update Joint Closure description as the central meeting / splice reference point
+        if closure:
+            jc_entry = f"{cable_a.name} ({range_a}) <-> {cable_b.name} ({range_b})"
+            if payload.custom_note:
+                jc_entry += f" [{payload.custom_note}]"
+            
+            if not closure.description:
+                closure.description = jc_entry
+            elif jc_entry not in closure.description:
+                closure.description = f"{closure.description} | {jc_entry}"
+
+        # 2. Update Cable Descriptions
         note_for_a = f"[Pelebaran: {range_a} sambung ke {cable_b.name} ({range_b}) via {closure_label}]"
         note_for_b = f"[Pelebaran: {range_b} sambung dari {cable_a.name} ({range_a}) via {closure_label}]"
         
