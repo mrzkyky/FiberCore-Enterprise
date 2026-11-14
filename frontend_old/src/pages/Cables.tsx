@@ -513,12 +513,17 @@ export default function Cables() {
                 <div>
                   <h4 className="font-bold text-dark-text">End-to-End Tracing Complete</h4>
                   <p className="text-sm text-dark-muted mt-1">
-                    Traced a continuous physical connection spanning <strong>{traceData.path.length}</strong> nodes across the network.
+                    Jalur fisik tersambung melewati <strong>{Math.ceil(traceData.path.length / 2)}</strong> kabel
+                    {traceData.total_attenuation > 0 && (
+                      <span className="ml-2 text-danger font-semibold">
+                        | Total Loss: {traceData.total_attenuation.toFixed(2)} dB
+                      </span>
+                    )}
                   </p>
                 </div>
               </div>
               
-              <div className="relative border-l-2 border-primary/30 ml-6 space-y-8 py-2">
+              <div className="relative border-l-2 border-primary/30 ml-6 space-y-6 py-2">
                 {traceData.path.map((node: any, idx: number) => (
                   <div key={idx} className="relative pl-8 group">
                     <div className="absolute -left-[11px] top-1.5 h-5 w-5 rounded-full bg-white border-4 border-primary group-hover:scale-125 transition-transform shadow-sm"></div>
@@ -526,26 +531,39 @@ export default function Cables() {
                     {node.type === 'core' ? (
                       <div className="bg-dark-surface p-4 rounded-xl border border-dark-border shadow-sm group-hover:border-primary/50 transition-colors">
                         <div className="flex justify-between items-start mb-2">
-                          <p className="text-dark-text font-bold">{node.cable_name}</p>
-                          <span className="px-2 py-1 bg-success/10 text-success text-xs font-bold rounded">Active</span>
-                        </div>
-                        <div className="flex items-center gap-3 mt-3 text-sm">
-                          <div className="flex items-center gap-2 bg-white px-2 py-1 rounded border border-dark-border">
-                            <div className="w-3 h-3 rounded-full shadow-inner border border-black/10" style={{ backgroundColor: node.color.toLowerCase() }}></div>
-                            <span className="font-mono font-medium text-dark-text">Tube {node.tube} / Core {node.core_number}</span>
+                          <div>
+                            <p className="text-dark-text font-bold">{node.cable_name}</p>
+                            {node.cable_type && (
+                              <span className="text-[11px] text-dark-muted font-medium">{node.cable_type} · {node.cable_capacity}C</span>
+                            )}
                           </div>
+                          <span className={`px-2 py-1 text-xs font-bold rounded ${node.status === 'Spliced' ? 'bg-blue-50 text-blue-700' : 'bg-success/10 text-success'}`}>
+                            {node.status || 'Active'}
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 mt-2 text-sm">
+                          <div className="flex items-center gap-1.5 bg-white px-2 py-1 rounded border border-dark-border">
+                            <div className="w-3 h-3 rounded-full shadow-inner border border-black/10" style={{ backgroundColor: (node.color || 'gray').toLowerCase() }}></div>
+                            <span className="font-mono font-medium text-dark-text text-xs">
+                              Tube {node.tube ?? '?'} / Core {node.core_number ?? '?'}
+                            </span>
+                          </div>
+                          <span className="text-xs text-dark-muted bg-white px-2 py-1 rounded border border-dark-border font-mono">
+                            {node.color || 'Unknown Color'}
+                          </span>
                         </div>
                       </div>
                     ) : (
-                      <div className="bg-accent/10 p-3 rounded-lg border border-accent">
-                        <p className="text-primary font-bold flex items-center gap-2">
-                          <Box size={16} />
-                          Splice Joint @ {node.closure_name}
+                      <div className="bg-purple-50 p-3 rounded-lg border border-purple-200">
+                        <p className="text-purple-700 font-bold flex items-center gap-2 text-sm">
+                          <Box size={14} />
+                          Titik Sambungan (Joint): {node.closure_name}
                         </p>
+                        <p className="text-xs text-purple-500 mt-1">Core dari kabel di atas → disambung ke kabel di bawah</p>
                         {node.attenuation > 0 && (
                           <p className="text-xs font-medium text-danger mt-1.5 flex items-center gap-1">
                             <AlertTriangle size={12} />
-                            Optical Loss: {node.attenuation} dB
+                            Redaman: {node.attenuation} dB
                           </p>
                         )}
                       </div>

@@ -345,10 +345,14 @@ def trace_core(core_id: uuid.UUID, db: Session = Depends(get_db)):
         cable = core.cable
         return {
             "path": [{
+                "type": "core",
                 "core_id": str(core.id),
                 "cable_name": cable.name,
+                "cable_type": cable.type,
+                "cable_capacity": cable.capacity,
                 "color": core.color,
                 "tube": core.tube_number,
+                "core_number": core.core_number,
                 "status": core.status
             }],
             "total_attenuation": 0
@@ -382,8 +386,11 @@ def trace_core(core_id: uuid.UUID, db: Session = Depends(get_db)):
             "type": "core",
             "core_id": str(core.id),
             "cable_name": cable.name,
+            "cable_type": cable.type,
+            "cable_capacity": cable.capacity,
             "color": core.color,
             "tube": core.tube_number,
+            "core_number": core.core_number,
             "status": core.status
         })
         
