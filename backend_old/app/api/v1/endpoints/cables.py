@@ -1,12 +1,34 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import List
+from sqlalchemy import func
+from typing import List, Optional
+from pydantic import BaseModel
 from app.db.session import SessionLocal
 from app.db.models import Cable, Core, Device
 from app.schemas.asset import CableCreate, CableResponse, CoreResponse
 import uuid
+import math
 
 router = APIRouter()
+
+def haversine(lat1, lon1, lat2, lon2):
+    R = 6371000  # meters
+    phi1 = math.radians(lat1)
+    phi2 = math.radians(lat2)
+    delta_phi = math.radians(lat2 - lat1)
+    delta_lambda = math.radians(lon2 - lon1)
+    a = math.sin(delta_phi / 2)**2 + math.cos(phi1) * math.cos(phi2) * math.sin(delta_lambda / 2)**2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    return R * c
+
+class CableDrawPayload(BaseModel):
+    name: str
+    capacity: int = 12
+    type: str = "Distribution" # Backbone, Feeder, Distribution, Dropcore
+    region: Optional[str] = None
+    color: Optional[str] = None
+    description: Optional[str] = None
+    coordinates: List[List[float]] # [[lng, lat], [lng, lat], ...]
 
 def get_db():
     db = SessionLocal()
@@ -27,6 +49,64 @@ def get_all_regions(db: Session = Depends(get_db)):
     for (r,) in device_regions:
         all_regions.add(r)
     return sorted(list(all_regions))
+
+@router.post("/draw")
+def create_drawn_cable(payload: CableDrawPayload, db: Session = Depends(get_db)):
+    if len(payload.coordinates) < 2:
+        raise HTTPException(status_code=400, detail="Cable must contain at least 2 coordinate points")
+        
+    wkt_coords = ", ".join([f"{pt[0]} {pt[1]}" for pt in payload.coordinates])
+    wkt = f"LINESTRING({wkt_coords})"
+    
+    total_len = 0.0
+    for i in range(len(payload.coordinates) - 1):
+        p1 = payload.coordinates[i]
+        p2 = payload.coordinates[i+1]
+        total_len += haversine(p1[1], p1[0], p2[1], p2[0])
+        
+    color_map = {
+        "Backbone": "#e11d48",
+        "Feeder": "#ea580c",
+        "Distribution": "#0284c7",
+        "Dropcore": "#10b981"
+    }
+    cable_color = payload.color or color_map.get(payload.type, "#475569")
+    
+    db_cable = Cable(
+        name=payload.name,
+        capacity=payload.capacity,
+        type=payload.type,
+        route=func.ST_GeomFromText(wkt, 4326),
+        region=payload.region,
+        color=cable_color,
+        length=round(total_len, 2),
+        description=payload.description
+    )
+    db.add(db_cable)
+    db.commit()
+    db.refresh(db_cable)
+    
+    # Standard 12 TIA Fiber Colors
+    colors = ["Blue", "Orange", "Green", "Brown", "Slate", "White", "Red", "Black", "Yellow", "Violet", "Rose", "Aqua"]
+    cores = []
+    for i in range(1, payload.capacity + 1):
+        cores.append(Core(
+            cable_id=db_cable.id,
+            core_number=i,
+            tube_number=((i - 1) // 12) + 1,
+            color=colors[(i - 1) % 12],
+            status="Free"
+        ))
+    db.add_all(cores)
+    db.commit()
+    
+    return {
+        "id": str(db_cable.id),
+        "name": db_cable.name,
+        "length": db_cable.length,
+        "region": db_cable.region,
+        "message": "Cable drawn and saved successfully"
+    }
 
 @router.post("/", response_model=CableResponse)
 def create_cable(cable_in: CableCreate, db: Session = Depends(get_db)):

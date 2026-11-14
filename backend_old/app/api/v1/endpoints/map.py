@@ -1,8 +1,14 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Response
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from app.db.session import SessionLocal
 from app.db.models import POP, Cable, Device
+from typing import Optional
+import json
+import io
+import zipfile
+import re
+from xml.sax.saxutils import escape
 
 router = APIRouter()
 
@@ -106,3 +112,151 @@ def get_map_topology(region: Optional[str] = None, db: Session = Depends(get_db)
         "type": "FeatureCollection",
         "features": features
     }
+
+@router.get("/export-kmz")
+def export_map_kmz(region: Optional[str] = None, db: Session = Depends(get_db)):
+    """
+    Exports all devices, cables, and PoPs for a given region (or all)
+    as a Google Earth .kmz archive containing styled KML placemarks.
+    """
+    safe_region = region if region and region != "All" else "All_Regions"
+    safe_region_clean = re.sub(r'[^a-zA-Z0-9_\-]', '_', safe_region)
+    
+    # 1. Fetch devices
+    dev_query = db.query(Device, func.ST_AsGeoJSON(Device.location).label("geojson")).filter(Device.location.is_not(None))
+    if region and region != "All":
+        dev_query = dev_query.filter(Device.region == region)
+    devices = dev_query.all()
+    
+    # 2. Fetch cables
+    cable_query = db.query(Cable, func.ST_AsGeoJSON(Cable.route).label("geojson")).filter(Cable.route.is_not(None))
+    if region and region != "All":
+        cable_query = cable_query.filter(Cable.region == region)
+    cables = cable_query.all()
+    
+    # 3. Build KML
+    kml_lines = [
+        '<?xml version="1.0" encoding="UTF-8"?>',
+        '<kml xmlns="http://www.opengis.net/kml/2.2">',
+        '  <Document>',
+        f'    <name>FiberCore - {escape(safe_region)}</name>',
+        f'    <description>Exported from FiberCore Enterprise FTTH System for {escape(safe_region)}</description>',
+        '',
+        '    <!-- Cable Styles -->',
+        '    <Style id="style_backbone"><LineStyle><color>ffea3393</color><width>4</width></LineStyle></Style>',
+        '    <Style id="style_feeder"><LineStyle><color>ffe07020</color><width>3</width></LineStyle></Style>',
+        '    <Style id="style_distribution"><LineStyle><color>ff0284c7</color><width>2</width></LineStyle></Style>',
+        '    <Style id="style_dropcore"><LineStyle><color>ff10b981</color><width>2</width></LineStyle></Style>',
+        '    <Style id="style_cable_default"><LineStyle><color>ff64748b</color><width>2</width></LineStyle></Style>',
+        '',
+        '    <!-- Node / Device Styles -->',
+        '    <Style id="style_tiang"><IconStyle><color>ff0000ff</color><scale>0.8</scale><Icon><href>http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png</href></Icon></IconStyle></Style>',
+        '    <Style id="style_odp"><IconStyle><color>ff00ff00</color><scale>1.0</scale><Icon><href>http://maps.google.com/mapfiles/kml/shapes/square.png</href></Icon></IconStyle></Style>',
+        '    <Style id="style_closure"><IconStyle><color>ffff9900</color><scale>1.0</scale><Icon><href>http://maps.google.com/mapfiles/kml/shapes/triangle.png</href></Icon></IconStyle></Style>',
+        '    <Style id="style_joint_closure"><IconStyle><color>ffff00aa</color><scale>1.0</scale><Icon><href>http://maps.google.com/mapfiles/kml/shapes/triangle.png</href></Icon></IconStyle></Style>',
+        '    <Style id="style_joint_box"><IconStyle><color>ffea00ff</color><scale>1.0</scale><Icon><href>http://maps.google.com/mapfiles/kml/shapes/donut.png</href></Icon></IconStyle></Style>',
+        '    <Style id="style_slack"><IconStyle><color>ff00ffff</color><scale>0.9</scale><Icon><href>http://maps.google.com/mapfiles/kml/shapes/caution.png</href></Icon></IconStyle></Style>',
+        '    <Style id="style_pop"><IconStyle><color>ffaa00ff</color><scale>1.2</scale><Icon><href>http://maps.google.com/mapfiles/kml/pushpin/purple-pushpin.png</href></Icon></IconStyle></Style>',
+        '    <Style id="style_default_node"><IconStyle><color>ffffffff</color><scale>0.8</scale><Icon><href>http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png</href></Icon></IconStyle></Style>',
+        '',
+        '    <Folder>',
+        '      <name>Perangkat &amp; Tiang</name>'
+    ]
+    
+    # Add devices
+    for dev, geojson_str in devices:
+        if not geojson_str: continue
+        geo = json.loads(geojson_str)
+        coords = geo.get("coordinates", [])
+        if len(coords) < 2: continue
+        lng, lat = coords[0], coords[1]
+        
+        dtype = (dev.device_type or "Tiang").lower()
+        if "odp" in dtype:
+            s_url = "#style_odp"
+        elif "joint closure" in dtype:
+            s_url = "#style_joint_closure"
+        elif "closure" in dtype:
+            s_url = "#style_closure"
+        elif "joint box" in dtype:
+            s_url = "#style_joint_box"
+        elif "slack" in dtype:
+            s_url = "#style_slack"
+        elif "pop" in dtype or "olt" in dtype:
+            s_url = "#style_pop"
+        elif "tiang" in dtype or "pole" in dtype:
+            s_url = "#style_tiang"
+        else:
+            s_url = "#style_default_node"
+            
+        desc = f"Tipe: {dev.device_type or 'Node'}\nRegion: {dev.region or '-'}\nKapasitas: {dev.used_capacity or 0}/{dev.capacity or '-'}\nCatatan: {dev.description or '-'}"
+        
+        kml_lines.append('      <Placemark>')
+        kml_lines.append(f'        <name>{escape(dev.name or "Device")}</name>')
+        kml_lines.append(f'        <description>{escape(desc)}</description>')
+        kml_lines.append(f'        <styleUrl>{s_url}</styleUrl>')
+        kml_lines.append('        <Point>')
+        kml_lines.append(f'          <coordinates>{lng},{lat},0</coordinates>')
+        kml_lines.append('        </Point>')
+        kml_lines.append('      </Placemark>')
+        
+    kml_lines.append('    </Folder>')
+    kml_lines.append('')
+    kml_lines.append('    <Folder>')
+    kml_lines.append('      <name>Jalur Kabel Fiber Optic</name>')
+    
+    # Add cables
+    for cable, geojson_str in cables:
+        if not geojson_str: continue
+        geo = json.loads(geojson_str)
+        coords = geo.get("coordinates", [])
+        if len(coords) < 2: continue
+        
+        coord_strs = [f"{pt[0]},{pt[1]},0" for pt in coords]
+        coord_block = " ".join(coord_strs)
+        
+        ctype = (cable.type or "").lower()
+        if "backbone" in ctype:
+            s_url = "#style_backbone"
+        elif "feeder" in ctype:
+            s_url = "#style_feeder"
+        elif "drop" in ctype:
+            s_url = "#style_dropcore"
+        elif "distribution" in ctype:
+            s_url = "#style_distribution"
+        else:
+            s_url = "#style_cable_default"
+            
+        desc = f"Tipe: {cable.type or 'Kabel'}\nKapasitas: {cable.capacity or 0} Core\nPanjang: {round(cable.length or 0, 1)} m\nRegion: {cable.region or '-'}\nCatatan: {cable.description or '-'}"
+        
+        kml_lines.append('      <Placemark>')
+        kml_lines.append(f'        <name>{escape(cable.name or "Kabel")}</name>')
+        kml_lines.append(f'        <description>{escape(desc)}</description>')
+        kml_lines.append(f'        <styleUrl>{s_url}</styleUrl>')
+        kml_lines.append('        <LineString>')
+        kml_lines.append('          <tessellate>1</tessellate>')
+        kml_lines.append(f'          <coordinates>{coord_block}</coordinates>')
+        kml_lines.append('        </LineString>')
+        kml_lines.append('      </Placemark>')
+        
+    kml_lines.append('    </Folder>')
+    kml_lines.append('  </Document>')
+    kml_lines.append('</kml>')
+    
+    kml_content = "\n".join(kml_lines)
+    
+    # Create KMZ zip archive in memory
+    kmz_buffer = io.BytesIO()
+    with zipfile.ZipFile(kmz_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+        zip_file.writestr("doc.kml", kml_content)
+        
+    kmz_bytes = kmz_buffer.getvalue()
+    filename = f"FiberCore_{safe_region_clean}.kmz"
+    
+    return Response(
+        content=kmz_bytes,
+        media_type="application/vnd.google-earth.kmz",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"'
+        }
+    )

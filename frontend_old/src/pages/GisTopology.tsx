@@ -6,7 +6,12 @@ import Map, { Source, Layer, Popup as MapPopup, NavigationControl, FullscreenCon
 import type { CircleLayer, LineLayer, SymbolLayer, MapRef } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { useAuthStore } from '../store/useAuthStore';
-import { Loader2, Layers, MapPin, Server, Activity, X, Edit, Box, GitMerge, List, Route, Database, ChevronDown, ChevronUp, Map as MapIcon, RotateCw } from 'lucide-react';
+import { 
+  Loader2, Layers, MapPin, Server, Activity, X, Edit, Box, GitMerge, List, 
+  Route, Database, ChevronDown, ChevronUp, Map as MapIcon, RotateCw, 
+  Plus, Download, Trash2, MousePointer, FolderPlus, Route as RouteIcon, 
+  Check, Undo2, Compass, AlertCircle 
+} from 'lucide-react';
 
 export default function GisTopology() {
   const token = useAuthStore(state => state.token);
@@ -17,6 +22,37 @@ export default function GisTopology() {
   const [autoSync, setAutoSync] = useState<boolean>(true);
   const mapRef = useRef<MapRef>(null);
   const [loadedIcons, setLoadedIcons] = useState<string[]>([]);
+  
+  // --- Web Editor States ---
+  const [editorMode, setEditorMode] = useState<'select' | 'add-node' | 'draw-cable'>('select');
+  const [selectedNodeType, setSelectedNodeType] = useState<string>('Tiang');
+  const [selectedCableType, setSelectedCableType] = useState<string>('Distribution');
+  const [cablePoints, setCablePoints] = useState<[number, number][]>([]);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  
+  // Custom Created Projects / Regions
+  const [customRegions, setCustomRegions] = useState<string[]>([]);
+  const [newProjectModal, setNewProjectModal] = useState<boolean>(false);
+  const [newProjectName, setNewProjectName] = useState<string>('');
+
+  // Modals for Adding New Node & Cable
+  const [newNodeModal, setNewNodeModal] = useState<{ lng: number; lat: number } | null>(null);
+  const [newNodeForm, setNewNodeForm] = useState({
+    name: '',
+    device_type: 'Tiang',
+    capacity: '8',
+    region: '',
+    description: ''
+  });
+
+  const [newCableModal, setNewCableModal] = useState<boolean>(false);
+  const [newCableForm, setNewCableForm] = useState({
+    name: '',
+    type: 'Distribution',
+    capacity: 24,
+    region: '',
+    description: ''
+  });
   
   // Edit State & Popup State
   const [editingDevice, setEditingDevice] = useState<any | null>(null);
@@ -81,12 +117,13 @@ export default function GisTopology() {
   });
 
   const uniqueRegions = useMemo(() => {
-    return Array.from(new Set(
+    const fromData = Array.from(new Set(
       allGeoData?.features
         ?.map((f: any) => f.properties.region)
         .filter(Boolean)
     )) as string[];
-  }, [allGeoData]);
+    return Array.from(new Set([...fromData, ...customRegions]));
+  }, [allGeoData, customRegions]);
 
   // Computed KPI Stats from Map
   const stats = useMemo(() => {
@@ -155,8 +192,30 @@ export default function GisTopology() {
     });
   };
 
+  // --- Handlers for Web Editing ---
   const onMapClick = (event: any) => {
     const { features, lngLat } = event;
+    
+    if (editorMode === 'add-node') {
+      const reg = mapRegionFilter !== 'All' ? mapRegionFilter : (uniqueRegions[0] || 'Default_Project');
+      const prefix = selectedNodeType === 'Tiang' ? 'T-' : selectedNodeType === 'ODP' ? 'ODP-' : selectedNodeType === 'Closure' ? 'CLS-' : 'NODE-';
+      const randomSuffix = Math.floor(100 + Math.random() * 900);
+      setNewNodeForm({
+        name: `${prefix}${randomSuffix}`,
+        device_type: selectedNodeType,
+        capacity: selectedNodeType === 'ODP' ? '8' : selectedNodeType === 'POP' ? '16' : '24',
+        region: reg,
+        description: ''
+      });
+      setNewNodeModal({ lng: lngLat.lng, lat: lngLat.lat });
+      return;
+    }
+    
+    if (editorMode === 'draw-cable') {
+      setCablePoints(prev => [...prev, [lngLat.lng, lngLat.lat]]);
+      return;
+    }
+
     if (features && features.length > 0) {
       const clickedFeature = features[0];
       setPopupInfo({
@@ -167,6 +226,134 @@ export default function GisTopology() {
       setPopupInfo(null);
     }
   };
+
+  const handleSaveNewNode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newNodeModal) return;
+    setIsSubmitting(true);
+    try {
+      await axios.post('/api/v1/devices', {
+        name: newNodeForm.name,
+        device_type: newNodeForm.device_type,
+        capacity: newNodeForm.capacity ? parseInt(newNodeForm.capacity) : null,
+        used_capacity: 0,
+        region: newNodeForm.region || (mapRegionFilter !== 'All' ? mapRegionFilter : 'Default_Project'),
+        description: newNodeForm.description,
+        latitude: newNodeModal.lat,
+        longitude: newNodeModal.lng
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      queryClient.invalidateQueries({ queryKey: ['map-topology'] });
+      setNewNodeModal(null);
+    } catch (err: any) {
+      alert('Gagal menambah node: ' + (err.response?.data?.detail || err.message));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleSaveDrawnCable = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (cablePoints.length < 2) return;
+    setIsSubmitting(true);
+    try {
+      await axios.post('/api/v1/cables/draw', {
+        name: newCableForm.name || `Kabel-${newCableForm.type}`,
+        capacity: Number(newCableForm.capacity) || 12,
+        type: newCableForm.type,
+        region: newCableForm.region || (mapRegionFilter !== 'All' ? mapRegionFilter : 'Default_Project'),
+        description: newCableForm.description,
+        coordinates: cablePoints
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      queryClient.invalidateQueries({ queryKey: ['map-topology'] });
+      setCablePoints([]);
+      setNewCableModal(false);
+      setEditorMode('select');
+    } catch (err: any) {
+      alert('Gagal menyimpan kabel: ' + (err.response?.data?.detail || err.message));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteFeature = async (id: string, type: 'device' | 'cable', name: string) => {
+    if (!confirm(`Hapus ${type === 'device' ? 'perangkat' : 'jalur kabel'} "${name}" dari database?`)) return;
+    try {
+      if (type === 'device') {
+        await axios.delete(`/api/v1/devices/${id}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+      } else {
+        await axios.delete(`/api/v1/cables/${id}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+      }
+      queryClient.invalidateQueries({ queryKey: ['map-topology'] });
+      setPopupInfo(null);
+    } catch (err: any) {
+      alert('Gagal menghapus: ' + (err.response?.data?.detail || err.message));
+    }
+  };
+
+  const handleCreateProject = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newProjectName.trim()) return;
+    const cleanName = newProjectName.trim().replace(/\s+/g, '_');
+    setCustomRegions(prev => Array.from(new Set([...prev, cleanName])));
+    setMapRegionFilter(cleanName);
+    setNewProjectName('');
+    setNewProjectModal(false);
+  };
+
+  const handleExportKmz = async () => {
+    try {
+      const regParam = mapRegionFilter !== 'All' ? `?region=${encodeURIComponent(mapRegionFilter)}` : '';
+      const response = await axios.get(`/api/v1/map/export-kmz${regParam}`, {
+        responseType: 'blob',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `FiberCore_${mapRegionFilter}.kmz`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err: any) {
+      alert('Gagal mengekspor file KMZ: ' + (err.message || err));
+    }
+  };
+
+  const drawingLineGeoJSON = useMemo(() => {
+    if (cablePoints.length < 2) return null;
+    return {
+      type: 'Feature',
+      geometry: {
+        type: 'LineString',
+        coordinates: cablePoints
+      },
+      properties: {}
+    };
+  }, [cablePoints]);
+
+  const drawingPointsGeoJSON = useMemo(() => {
+    if (cablePoints.length === 0) return null;
+    return {
+      type: 'FeatureCollection',
+      features: cablePoints.map((pt, idx) => ({
+        type: 'Feature',
+        geometry: {
+          type: 'Point',
+          coordinates: pt
+        },
+        properties: { index: idx }
+      }))
+    };
+  }, [cablePoints]);
 
   // --- Icon System: Hash-based IDs for MapLibre ---
   const iconMapping = useRef<Record<string, string>>({});
@@ -430,7 +617,154 @@ export default function GisTopology() {
         </div>
       )}
 
+      {/* --- WEB GIS EDITOR & ACTIONS TOOLBAR --- */}
+      <div className="bg-dark-surface border border-dark-border rounded-xl p-2.5 flex flex-wrap items-center justify-between gap-3 shadow-sm shrink-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs font-bold text-dark-muted mr-1 uppercase tracking-wider flex items-center gap-1">
+            <Compass size={14} className="text-primary" /> Mode Editor:
+          </span>
+
+          <button
+            onClick={() => { setEditorMode('select'); setCablePoints([]); }}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+              editorMode === 'select'
+                ? 'bg-primary text-white shadow-xs'
+                : 'bg-dark-border/40 text-dark-text hover:bg-dark-border'
+            }`}
+          >
+            <MousePointer size={14} /> 🖱️ Jelajah / Info
+          </button>
+
+          <button
+            onClick={() => { setEditorMode('add-node'); setCablePoints([]); }}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+              editorMode === 'add-node'
+                ? 'bg-emerald-600 text-white shadow-xs ring-2 ring-emerald-300'
+                : 'bg-dark-border/40 text-dark-text hover:bg-dark-border'
+            }`}
+          >
+            <MapPin size={14} /> 📍 + Pasang Node
+          </button>
+
+          {editorMode === 'add-node' && (
+            <select
+              value={selectedNodeType}
+              onChange={(e) => setSelectedNodeType(e.target.value)}
+              className="bg-emerald-50 border border-emerald-300 text-emerald-800 dark:bg-emerald-950 dark:border-emerald-800 dark:text-emerald-200 rounded-lg px-2.5 py-1 text-xs font-bold focus:outline-none"
+            >
+              <option value="Tiang">📍 Tiang (Pole)</option>
+              <option value="ODP">🟩 ODP (Distribution Point)</option>
+              <option value="Closure">🔶 Closure</option>
+              <option value="Joint Closure">🟣 Joint Closure</option>
+              <option value="Joint Box">🔴 Joint Box</option>
+              <option value="POP">🏢 POP / OLT</option>
+              <option value="Slack">🟡 Slack Kabel</option>
+            </select>
+          )}
+
+          <button
+            onClick={() => { setEditorMode('draw-cable'); setCablePoints([]); }}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+              editorMode === 'draw-cable'
+                ? 'bg-amber-600 text-white shadow-xs ring-2 ring-amber-300'
+                : 'bg-dark-border/40 text-dark-text hover:bg-dark-border'
+            }`}
+          >
+            <RouteIcon size={14} /> 〰️ + Tarik Kabel
+          </button>
+
+          {editorMode === 'draw-cable' && (
+            <div className="flex items-center gap-2 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 rounded-lg px-2.5 py-1">
+              <select
+                value={selectedCableType}
+                onChange={(e) => setSelectedCableType(e.target.value)}
+                className="bg-transparent text-amber-900 dark:text-amber-200 text-xs font-bold focus:outline-none"
+              >
+                <option value="Distribution">🟦 Distribution</option>
+                <option value="Feeder">🟧 Feeder</option>
+                <option value="Backbone">🟥 Backbone</option>
+                <option value="Dropcore">🟩 Dropcore</option>
+              </select>
+
+              <span className="text-[11px] font-bold text-amber-800 dark:text-amber-300 bg-amber-200/60 dark:bg-amber-900/60 px-1.5 py-0.5 rounded">
+                Titik: {cablePoints.length}
+              </span>
+
+              {cablePoints.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setCablePoints(prev => prev.slice(0, -1))}
+                  className="text-xs text-amber-800 hover:text-amber-950 font-bold px-1 cursor-pointer"
+                  title="Undo titik terakhir"
+                >
+                  ↩️ Undo
+                </button>
+              )}
+
+              {cablePoints.length >= 2 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const reg = mapRegionFilter !== 'All' ? mapRegionFilter : (uniqueRegions[0] || 'Default_Project');
+                    setNewCableForm({
+                      name: `Kabel-${selectedCableType}-${Math.floor(100 + Math.random()*900)}`,
+                      type: selectedCableType,
+                      capacity: selectedCableType === 'Backbone' ? 96 : selectedCableType === 'Feeder' ? 48 : 24,
+                      region: reg,
+                      description: ''
+                    });
+                    setNewCableModal(true);
+                  }}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white px-2 py-0.5 rounded text-xs font-bold cursor-pointer transition-colors shadow-xs"
+                >
+                  ✅ Selesai & Simpan
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() => { setCablePoints([]); setEditorMode('select'); }}
+                className="text-xs text-red-600 hover:text-red-800 font-bold px-1 cursor-pointer"
+              >
+                ❌ Batal
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Right: Project Management & Export */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setNewProjectModal(true)}
+            className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+          >
+            <FolderPlus size={14} /> + Buat Project Baru
+          </button>
+
+          <button
+            onClick={handleExportKmz}
+            className="px-3 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+            title="Download file KMZ untuk dibuka di Google Earth Pro"
+          >
+            <Download size={14} /> Export KMZ (Google Earth)
+          </button>
+        </div>
+      </div>
+
       <div className="flex-1 flex flex-col min-h-0 bg-dark-surface border border-dark-border rounded-xl overflow-hidden relative shadow-sm">
+        {/* Floating Active Tool Banner */}
+        {editorMode !== 'select' && (
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[450] bg-dark-surface/95 backdrop-blur-md border border-dark-border px-4 py-2 rounded-full shadow-xl flex items-center gap-2 text-xs font-bold text-dark-text animate-pulse">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping" />
+            {editorMode === 'add-node' && (
+              <span>📍 Mode Pasang Node: Klik di peta untuk menaruh <strong>{selectedNodeType}</strong></span>
+            )}
+            {editorMode === 'draw-cable' && (
+              <span>〰️ Mode Tarik Kabel: Klik titik demi titik untuk kabel <strong>{selectedCableType}</strong> ({cablePoints.length} titik)</span>
+            )}
+          </div>
+        )}
+
         {isLoading ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 z-50">
             <Loader2 className="animate-spin text-primary mb-4" size={40} />
@@ -468,13 +802,42 @@ export default function GisTopology() {
                   ]
                 }
           }
-          interactiveLayerIds={['cables', 'pops', 'devices', 'devices-symbol']}
+          interactiveLayerIds={editorMode === 'select' ? ['cables', 'pops', 'devices', 'devices-symbol'] : []}
           onClick={onMapClick}
-          cursor="pointer"
+          cursor={editorMode === 'select' ? 'pointer' : 'crosshair'}
         >
           <NavigationControl position="top-right" />
           <FullscreenControl position="top-right" />
-          
+
+          {/* Active Drawing Layers */}
+          {drawingLineGeoJSON && (
+            <Source id="drawing-cable-source" type="geojson" data={drawingLineGeoJSON}>
+              <Layer
+                id="drawing-cable-layer"
+                type="line"
+                paint={{
+                  'line-color': '#f59e0b',
+                  'line-width': 4,
+                  'line-dasharray': [2, 1]
+                }}
+              />
+            </Source>
+          )}
+          {drawingPointsGeoJSON && (
+            <Source id="drawing-points-source" type="geojson" data={drawingPointsGeoJSON}>
+              <Layer
+                id="drawing-points-layer"
+                type="circle"
+                paint={{
+                  'circle-radius': 6,
+                  'circle-color': '#f59e0b',
+                  'circle-stroke-width': 2,
+                  'circle-stroke-color': '#ffffff'
+                }}
+              />
+            </Source>
+          )}
+
           {/* Map Style Toggle */}
           <div className="absolute top-28 right-2.5 z-10 bg-white rounded-md shadow-sm border border-gray-200 overflow-hidden flex flex-col">
             <button 
@@ -530,6 +893,14 @@ export default function GisTopology() {
                         </p>
                       </div>
                     )}
+                    <div className="mt-3 flex gap-2">
+                      <button 
+                        onClick={() => handleDeleteFeature(popupInfo.feature.properties.id, 'cable', popupInfo.feature.properties.name)}
+                        className="w-full bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 py-1.5 px-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                      >
+                        <Trash2 size={13} /> Hapus Jalur Kabel
+                      </button>
+                    </div>
                   </div>
                 ) : (
                   <>
@@ -571,11 +942,19 @@ export default function GisTopology() {
                         {(popupInfo.feature.properties.device_type === 'Closure' || popupInfo.feature.properties.device_type === 'ODP') && (
                           <button 
                             onClick={() => setSelectedClosure(popupInfo.feature.properties.id)}
-                            className="flex-1 btn-primary py-1.5 px-2 text-sm flex items-center justify-center gap-1"
+                            className="flex-1 btn-primary py-1.5 px-2 text-sm flex items-center justify-center gap-1 cursor-pointer"
                           >
                             <Activity size={14} /> Matrix
                           </button>
                         )}
+
+                        <button 
+                          onClick={() => handleDeleteFeature(popupInfo.feature.properties.id, 'device', popupInfo.feature.properties.name)}
+                          className="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 px-2 py-1.5 rounded-lg flex items-center justify-center transition-colors cursor-pointer"
+                          title="Hapus Perangkat"
+                        >
+                          <Trash2 size={14} />
+                        </button>
                       </div>
                     )}
                   </>
@@ -808,6 +1187,273 @@ export default function GisTopology() {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- MODAL: TAMBAH NODE / TIANG / ODP BARU --- */}
+      {newNodeModal && (
+        <div className="fixed inset-0 bg-dark-text/40 backdrop-blur-sm flex items-center justify-center z-[2000] p-4">
+          <div className="bg-white border border-dark-border w-full max-w-md rounded-xl shadow-2xl overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b border-dark-border bg-dark-surface">
+              <h3 className="text-base font-bold text-dark-text flex items-center gap-2">
+                <MapPin className="text-emerald-500" size={18} />
+                Pasang {newNodeForm.device_type} Baru
+              </h3>
+              <button onClick={() => setNewNodeModal(null)} className="text-dark-muted hover:text-danger transition-colors cursor-pointer">
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveNewNode} className="p-4 space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-dark-text mb-1">Nama Perangkat / Kode</label>
+                <input
+                  type="text"
+                  required
+                  value={newNodeForm.name}
+                  onChange={(e) => setNewNodeForm({...newNodeForm, name: e.target.value})}
+                  className="w-full px-3 py-2 border border-dark-border rounded-lg text-sm bg-white text-dark-text focus:outline-none focus:border-primary"
+                  placeholder="Contoh: ODP-12/05, T-102"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-semibold text-dark-text mb-1">Tipe Node</label>
+                  <select
+                    value={newNodeForm.device_type}
+                    onChange={(e) => setNewNodeForm({...newNodeForm, device_type: e.target.value})}
+                    className="w-full px-3 py-2 border border-dark-border rounded-lg text-sm bg-white text-dark-text focus:outline-none focus:border-primary"
+                  >
+                    <option value="Tiang">📍 Tiang (Pole)</option>
+                    <option value="ODP">🟩 ODP (Distribution)</option>
+                    <option value="Closure">🔶 Closure</option>
+                    <option value="Joint Closure">🟣 Joint Closure</option>
+                    <option value="Joint Box">🔴 Joint Box</option>
+                    <option value="POP">🏢 POP / OLT</option>
+                    <option value="Slack">🟡 Slack Kabel</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-dark-text mb-1">Kapasitas (Port/Tray)</label>
+                  <input
+                    type="number"
+                    value={newNodeForm.capacity}
+                    onChange={(e) => setNewNodeForm({...newNodeForm, capacity: e.target.value})}
+                    className="w-full px-3 py-2 border border-dark-border rounded-lg text-sm bg-white text-dark-text focus:outline-none focus:border-primary"
+                    placeholder="8, 16, 24"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-dark-text mb-1">Project / Region</label>
+                <select
+                  value={newNodeForm.region}
+                  onChange={(e) => setNewNodeForm({...newNodeForm, region: e.target.value})}
+                  className="w-full px-3 py-2 border border-dark-border rounded-lg text-sm bg-white text-dark-text focus:outline-none focus:border-primary"
+                >
+                  {uniqueRegions.map(r => (
+                    <option key={r} value={r}>{r}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-dark-text mb-1">Catatan / Deskripsi</label>
+                <textarea
+                  value={newNodeForm.description}
+                  onChange={(e) => setNewNodeForm({...newNodeForm, description: e.target.value})}
+                  className="w-full px-3 py-2 border border-dark-border rounded-lg text-sm bg-white text-dark-text focus:outline-none focus:border-primary"
+                  rows={2}
+                  placeholder="Catatan lapangan atau spesifikasi..."
+                />
+              </div>
+
+              <div className="bg-gray-50 dark:bg-gray-800 p-2 rounded text-[11px] text-gray-500 font-mono">
+                Koordinat: {newNodeModal.lat.toFixed(6)}, {newNodeModal.lng.toFixed(6)}
+              </div>
+
+              <div className="mt-4 flex justify-end gap-2 pt-2 border-t border-dark-border">
+                <button
+                  type="button"
+                  onClick={() => setNewNodeModal(null)}
+                  className="px-4 py-2 border border-dark-border rounded-lg text-dark-text hover:bg-gray-50 text-xs font-semibold transition-colors cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  {isSubmitting ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+                  Simpan Node ke Peta
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* --- MODAL: SIMPAN JALUR KABEL YANG DITARIK --- */}
+      {newCableModal && (
+        <div className="fixed inset-0 bg-dark-text/40 backdrop-blur-sm flex items-center justify-center z-[2000] p-4">
+          <div className="bg-white border border-dark-border w-full max-w-md rounded-xl shadow-2xl overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b border-dark-border bg-dark-surface">
+              <h3 className="text-base font-bold text-dark-text flex items-center gap-2">
+                <RouteIcon className="text-amber-500" size={18} />
+                Simpan Jalur Kabel Baru
+              </h3>
+              <button onClick={() => setNewCableModal(false)} className="text-dark-muted hover:text-danger transition-colors cursor-pointer">
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveDrawnCable} className="p-4 space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-dark-text mb-1">Nama Jalur Kabel</label>
+                <input
+                  type="text"
+                  required
+                  value={newCableForm.name}
+                  onChange={(e) => setNewCableForm({...newCableForm, name: e.target.value})}
+                  className="w-full px-3 py-2 border border-dark-border rounded-lg text-sm bg-white text-dark-text focus:outline-none focus:border-primary"
+                  placeholder="Contoh: Kabel Feeder OLT ke ODP-01"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-semibold text-dark-text mb-1">Tipe Kabel</label>
+                  <select
+                    value={newCableForm.type}
+                    onChange={(e) => setNewCableForm({...newCableForm, type: e.target.value})}
+                    className="w-full px-3 py-2 border border-dark-border rounded-lg text-sm bg-white text-dark-text focus:outline-none focus:border-primary"
+                  >
+                    <option value="Distribution">🟦 Distribution</option>
+                    <option value="Feeder">🟧 Feeder</option>
+                    <option value="Backbone">🟥 Backbone</option>
+                    <option value="Dropcore">🟩 Dropcore</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-dark-text mb-1">Kapasitas Core</label>
+                  <select
+                    value={newCableForm.capacity}
+                    onChange={(e) => setNewCableForm({...newCableForm, capacity: Number(e.target.value)})}
+                    className="w-full px-3 py-2 border border-dark-border rounded-lg text-sm bg-white text-dark-text focus:outline-none focus:border-primary"
+                  >
+                    <option value={12}>12 Core</option>
+                    <option value={24}>24 Core</option>
+                    <option value={48}>48 Core</option>
+                    <option value={96}>96 Core</option>
+                    <option value={144}>144 Core</option>
+                    <option value={288}>288 Core</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-dark-text mb-1">Project / Region</label>
+                <select
+                  value={newCableForm.region}
+                  onChange={(e) => setNewCableForm({...newCableForm, region: e.target.value})}
+                  className="w-full px-3 py-2 border border-dark-border rounded-lg text-sm bg-white text-dark-text focus:outline-none focus:border-primary"
+                >
+                  {uniqueRegions.map(r => (
+                    <option key={r} value={r}>{r}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-dark-text mb-1">Catatan / Deskripsi</label>
+                <textarea
+                  value={newCableForm.description}
+                  onChange={(e) => setNewCableForm({...newCableForm, description: e.target.value})}
+                  className="w-full px-3 py-2 border border-dark-border rounded-lg text-sm bg-white text-dark-text focus:outline-none focus:border-primary"
+                  rows={2}
+                  placeholder="Keterangan rute atau kontraktor..."
+                />
+              </div>
+
+              <div className="bg-amber-50 dark:bg-amber-950/40 p-2 rounded text-[11px] text-amber-800 dark:text-amber-300 font-medium">
+                📍 Total {cablePoints.length} titik koordinat rute tersambung.
+              </div>
+
+              <div className="mt-4 flex justify-end gap-2 pt-2 border-t border-dark-border">
+                <button
+                  type="button"
+                  onClick={() => setNewCableModal(false)}
+                  className="px-4 py-2 border border-dark-border rounded-lg text-dark-text hover:bg-gray-50 text-xs font-semibold transition-colors cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  {isSubmitting ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+                  Simpan Jalur Kabel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* --- MODAL: BUAT PROJECT / REGION BARU --- */}
+      {newProjectModal && (
+        <div className="fixed inset-0 bg-dark-text/40 backdrop-blur-sm flex items-center justify-center z-[2000] p-4">
+          <div className="bg-white border border-dark-border w-full max-w-sm rounded-xl shadow-2xl overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b border-dark-border bg-dark-surface">
+              <h3 className="text-base font-bold text-dark-text flex items-center gap-2">
+                <FolderPlus className="text-blue-500" size={18} />
+                Buat Project / Region Baru
+              </h3>
+              <button onClick={() => setNewProjectModal(false)} className="text-dark-muted hover:text-danger transition-colors cursor-pointer">
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateProject} className="p-4 space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-dark-text mb-1">Nama Project / Region</label>
+                <input
+                  type="text"
+                  required
+                  value={newProjectName}
+                  onChange={(e) => setNewProjectName(e.target.value)}
+                  className="w-full px-3 py-2 border border-dark-border rounded-lg text-sm bg-white text-dark-text focus:outline-none focus:border-primary"
+                  placeholder="Contoh: Cluster_Banyuwangi, Area_A"
+                  autoFocus
+                />
+                <p className="text-[11px] text-dark-muted mt-1">
+                  Nama project akan digunakan sebagai pengelompokan data dan penamaan file KMZ.
+                </p>
+              </div>
+
+              <div className="mt-4 flex justify-end gap-2 pt-2 border-t border-dark-border">
+                <button
+                  type="button"
+                  onClick={() => setNewProjectModal(false)}
+                  className="px-4 py-2 border border-dark-border rounded-lg text-dark-text hover:bg-gray-50 text-xs font-semibold transition-colors cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
+                >
+                  <Plus size={14} /> Mulai Project Ini
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
