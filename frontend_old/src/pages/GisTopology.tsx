@@ -2330,7 +2330,7 @@ export default function GisTopology() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setBatchSpliceForm(prev => ({ ...prev, splice_type: 'petik', count: 1 }))}
+                    onClick={() => setBatchSpliceForm(prev => ({ ...prev, splice_type: 'petik', count: 1, start_core_a: 1, start_core_b: 1 }))}
                     className={`py-2 px-3 rounded-lg text-xs font-bold border transition-all cursor-pointer flex items-center justify-center gap-1.5 ${batchSpliceForm.splice_type === 'petik' ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs' : 'bg-white text-dark-text border-dark-border hover:bg-gray-50'}`}
                   >
                     🌿 Sambung Petik ke ODP/Drop
@@ -2365,7 +2365,13 @@ export default function GisTopology() {
                       <label className="block text-[11px] font-semibold text-emerald-900 mb-1">Warna Tube Feeder</label>
                       <select
                         value={batchSpliceForm.petik_tube}
-                        onChange={(e) => setBatchSpliceForm({...batchSpliceForm, petik_tube: e.target.value})}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          const tubeNum = parseInt(val.match(/\d+/)?.[0] || '1');
+                          const coreInTube = parseInt(batchSpliceForm.petik_core.match(/\d+/)?.[0] || '1');
+                          const absCore = (tubeNum - 1) * 12 + coreInTube;
+                          setBatchSpliceForm({...batchSpliceForm, petik_tube: val, start_core_b: absCore, start_core_a: 1});
+                        }}
                         className="w-full px-2 py-1.5 border border-emerald-300 rounded text-xs bg-white text-gray-800"
                       >
                         <option value="Tube 1 (Biru)">Tube 1 (Biru)</option>
@@ -2382,8 +2388,10 @@ export default function GisTopology() {
                         value={batchSpliceForm.petik_core}
                         onChange={(e) => {
                           const val = e.target.value;
-                          const coreNum = parseInt(val.match(/\d+/)?.[0] || '1');
-                          setBatchSpliceForm({...batchSpliceForm, petik_core: val, start_core_a: coreNum});
+                          const coreInTube = parseInt(val.match(/\d+/)?.[0] || '1');
+                          const tubeNum = parseInt(batchSpliceForm.petik_tube.match(/\d+/)?.[0] || '1');
+                          const absCore = (tubeNum - 1) * 12 + coreInTube;
+                          setBatchSpliceForm({...batchSpliceForm, petik_core: val, start_core_b: absCore, start_core_a: 1});
                         }}
                         className="w-full px-2 py-1.5 border border-emerald-300 rounded text-xs bg-white text-gray-800"
                       >
@@ -2500,12 +2508,17 @@ export default function GisTopology() {
                 <div className="space-y-1 font-mono text-[11px]">
                   <div className="text-purple-700 bg-white p-1.5 rounded border border-gray-100">
                     <strong className="text-purple-900">Di Joint Closure:</strong>{' '}
-                    {(availableCables.find(c => c.id === batchSpliceForm.cable_a_id)?.name || 'Kabel-A')} (C{batchSpliceForm.start_core_a}-C{batchSpliceForm.start_core_a + batchSpliceForm.count - 1}) &lt;-&gt; {(availableCables.find(c => c.id === batchSpliceForm.cable_b_id)?.name || 'Kabel-B')} (C{batchSpliceForm.start_core_b}-C{batchSpliceForm.start_core_b + batchSpliceForm.count - 1})
-                    {batchSpliceForm.splice_type === 'petik' ? ` [${batchSpliceForm.petik_tube} / ${batchSpliceForm.petik_core}${batchSpliceForm.petik_target ? ' to ' + batchSpliceForm.petik_target : ''}]` : (batchSpliceForm.custom_note ? ` [${batchSpliceForm.custom_note}]` : '')}
+                    {batchSpliceForm.splice_type === 'petik'
+                      ? `${(availableCables.find(c => c.id === batchSpliceForm.cable_a_id)?.name || 'Kabel-A')} (C1) <-> ${(availableCables.find(c => c.id === batchSpliceForm.cable_b_id)?.name || 'Kabel-B')} (C${batchSpliceForm.start_core_b}) [${batchSpliceForm.petik_tube} / ${batchSpliceForm.petik_core}${batchSpliceForm.petik_target ? ' to ' + batchSpliceForm.petik_target : ''}]`
+                      : `${(availableCables.find(c => c.id === batchSpliceForm.cable_a_id)?.name || 'Kabel-A')} (C${batchSpliceForm.start_core_a}-C${Number(batchSpliceForm.start_core_a)+Number(batchSpliceForm.count)-1}) <-> ${(availableCables.find(c => c.id === batchSpliceForm.cable_b_id)?.name || 'Kabel-B')} (C${batchSpliceForm.start_core_b}-C${Number(batchSpliceForm.start_core_b)+Number(batchSpliceForm.count)-1})${batchSpliceForm.custom_note ? ` [${batchSpliceForm.custom_note}]` : ''}`
+                    }
                   </div>
                   <div className="text-emerald-700 bg-white p-1.5 rounded border border-gray-100">
                     <strong className="text-emerald-900">Di Kabel Asal:</strong>{' '}
-                    [Pelebaran: C{batchSpliceForm.start_core_a}-C{batchSpliceForm.start_core_a + batchSpliceForm.count - 1} sambung ke {(availableCables.find(c => c.id === batchSpliceForm.cable_b_id)?.name || 'Kabel-B')} via {(sortedClosures.find(c => c.id === (batchSpliceForm.closure_id || sortedClosures[0]?.id))?.name || 'JC Terdekat')}]
+                    {batchSpliceForm.splice_type === 'petik'
+                      ? `[Petik: C1 ke ${(availableCables.find(c => c.id === batchSpliceForm.cable_b_id)?.name || 'Kabel-B')} Core#${batchSpliceForm.start_core_b} (${batchSpliceForm.petik_tube}/${batchSpliceForm.petik_core}) via ${(sortedClosures.find(c => c.id === (batchSpliceForm.closure_id || sortedClosures[0]?.id))?.name || 'JC Terdekat')}]`
+                      : `[Pelebaran: C${batchSpliceForm.start_core_a}-C${Number(batchSpliceForm.start_core_a)+Number(batchSpliceForm.count)-1} sambung ke ${(availableCables.find(c => c.id === batchSpliceForm.cable_b_id)?.name || 'Kabel-B')} via ${(sortedClosures.find(c => c.id === (batchSpliceForm.closure_id || sortedClosures[0]?.id))?.name || 'JC Terdekat')}]`
+                    }
                   </div>
                 </div>
               </div>
