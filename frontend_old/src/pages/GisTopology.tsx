@@ -58,7 +58,16 @@ export default function GisTopology() {
     device_type: 'Tiang',
     capacity: '8',
     region: '',
-    description: ''
+    description: '',
+    // Smart FTTH parameters:
+    has_slack: false,
+    slack_meters: '15',
+    pole_spec: 'Tiang Besi 7m',
+    odp_source_cable: '',
+    odp_tube: 'Tube 1 (Biru)',
+    odp_core: 'Core 1 (Biru)',
+    odp_splitter: '1:8 PLC',
+    closure_joint_type: 'Percabangan Feeder ke Distribusi'
   });
 
   const [newCableModal, setNewCableModal] = useState<boolean>(false);
@@ -73,7 +82,15 @@ export default function GisTopology() {
   
   // Edit State & Popup State
   const [editingDevice, setEditingDevice] = useState<any | null>(null);
-  const [editFormData, setEditFormData] = useState({ used_capacity: '', description: '' });
+  const [editFormData, setEditFormData] = useState({
+    name: '',
+    device_type: '',
+    capacity: '',
+    used_capacity: '',
+    description: '',
+    slack_meters: '',
+    odp_source: ''
+  });
   
   const [popupInfo, setPopupInfo] = useState<{
     feature: any;
@@ -225,11 +242,19 @@ export default function GisTopology() {
     e.preventDefault();
     if (!editingDevice) return;
     
+    let desc = editFormData.description.trim();
+    if (editFormData.slack_meters && !desc.toLowerCase().includes('slack')) {
+      desc = desc ? `${desc} | Slack: ${editFormData.slack_meters}m` : `Slack: ${editFormData.slack_meters}m`;
+    }
+    
     editDeviceMutation.mutate({
       id: editingDevice.id,
       payload: {
-        used_capacity: editFormData.used_capacity ? parseInt(editFormData.used_capacity) : null,
-        description: editFormData.description
+        name: editFormData.name || editingDevice.name,
+        device_type: editFormData.device_type || editingDevice.device_type,
+        capacity: editFormData.capacity ? parseInt(editFormData.capacity) : null,
+        used_capacity: editFormData.used_capacity ? parseInt(editFormData.used_capacity) : 0,
+        description: desc
       }
     });
   };
@@ -240,14 +265,22 @@ export default function GisTopology() {
     
     if (editorMode === 'add-node') {
       const reg = mapRegionFilter !== 'All' ? mapRegionFilter : (uniqueRegions[0] || 'Default_Project');
-      const prefix = selectedNodeType === 'Tiang' ? 'T-' : selectedNodeType === 'ODP' ? 'ODP-' : selectedNodeType === 'Closure' ? 'CLS-' : 'NODE-';
+      const prefix = selectedNodeType === 'Tiang' ? 'T-' : selectedNodeType === 'ODP' ? 'ODP-' : selectedNodeType === 'Closure' ? 'CLS-' : selectedNodeType === 'Joint Closure' ? 'JC-' : selectedNodeType === 'Slack' ? 'SLK-' : 'NODE-';
       const randomSuffix = Math.floor(100 + Math.random() * 900);
       setNewNodeForm({
         name: `${prefix}${randomSuffix}`,
         device_type: selectedNodeType,
-        capacity: selectedNodeType === 'ODP' ? '8' : selectedNodeType === 'POP' ? '16' : '24',
+        capacity: selectedNodeType === 'ODP' ? '8' : selectedNodeType === 'POP' ? '16' : selectedNodeType.includes('Closure') ? '24' : '0',
         region: reg,
-        description: ''
+        description: '',
+        has_slack: selectedNodeType === 'Slack',
+        slack_meters: '15',
+        pole_spec: 'Tiang Besi 7m',
+        odp_source_cable: availableCables[0]?.name || '',
+        odp_tube: 'Tube 1 (Biru)',
+        odp_core: 'Core 1 (Biru)',
+        odp_splitter: '1:8 PLC',
+        closure_joint_type: 'Percabangan Feeder ke Distribusi'
       });
       setNewNodeModal({ lng: lngLat.lng, lat: lngLat.lat });
       return;
@@ -273,6 +306,38 @@ export default function GisTopology() {
     e.preventDefault();
     if (!newNodeModal) return;
     setIsSubmitting(true);
+
+    let finalDesc = newNodeForm.description.trim();
+    const parts = [];
+
+    if (newNodeForm.device_type === 'Tiang') {
+      if (newNodeForm.pole_spec) parts.push(`[${newNodeForm.pole_spec}]`);
+      if (newNodeForm.has_slack && newNodeForm.slack_meters) {
+        parts.push(`[Slack: ${newNodeForm.slack_meters}m${newNodeForm.odp_source_cable ? ' ' + newNodeForm.odp_source_cable : ''}]`);
+      }
+    } else if (newNodeForm.device_type === 'ODP') {
+      if (newNodeForm.odp_splitter) parts.push(`[ODP ${newNodeForm.odp_splitter}]`);
+      if (newNodeForm.odp_source_cable) {
+        parts.push(`Sumber: ${newNodeForm.odp_source_cable} (${newNodeForm.odp_tube}, ${newNodeForm.odp_core})`);
+      }
+      if (newNodeForm.has_slack && newNodeForm.slack_meters) {
+        parts.push(`[Slack: ${newNodeForm.slack_meters}m]`);
+      }
+    } else if (newNodeForm.device_type === 'Slack') {
+      parts.push(`[Slack: ${newNodeForm.slack_meters || '20'}m]`);
+      if (newNodeForm.odp_source_cable) {
+        parts.push(`Kabel: ${newNodeForm.odp_source_cable}`);
+      }
+    } else if (newNodeForm.device_type === 'Closure' || newNodeForm.device_type === 'Joint Closure') {
+      if (newNodeForm.closure_joint_type) parts.push(`[${newNodeForm.closure_joint_type}]`);
+      if (newNodeForm.has_slack && newNodeForm.slack_meters) parts.push(`[Slack: ${newNodeForm.slack_meters}m]`);
+    }
+
+    if (parts.length > 0) {
+      const autoText = parts.join(' | ');
+      finalDesc = finalDesc ? `${autoText} | Catatan: ${finalDesc}` : autoText;
+    }
+
     try {
       await axios.post('/api/v1/devices/', {
         name: newNodeForm.name,
@@ -280,7 +345,7 @@ export default function GisTopology() {
         capacity: newNodeForm.capacity ? parseInt(newNodeForm.capacity) : null,
         used_capacity: 0,
         region: newNodeForm.region || (mapRegionFilter !== 'All' ? mapRegionFilter : 'Default_Project'),
-        description: newNodeForm.description,
+        description: finalDesc,
         latitude: newNodeModal.lat,
         longitude: newNodeModal.lng
       }, {
@@ -1147,23 +1212,70 @@ export default function GisTopology() {
                   </div>
                 ) : (
                   <>
-                    <p className="text-sm text-gray-600 flex items-center gap-1 mb-2">
-                      {popupInfo.feature.properties.type === 'device' ? <Server size={14} /> : <MapPin size={14} />} 
-                      {popupInfo.feature.properties.type === 'device' ? popupInfo.feature.properties.device_type : 'PoP Site'}
-                    </p>
-                    
-                    {popupInfo.feature.properties.used_capacity !== undefined && popupInfo.feature.properties.used_capacity !== null && (
-                      <p className="text-sm text-gray-700 mb-2 font-medium">
-                          Capacity: <span className="text-primary">{popupInfo.feature.properties.used_capacity}</span> Ports Used
+                    <div className="flex items-center justify-between gap-1 mb-2">
+                      <p className="text-sm text-gray-700 flex items-center gap-1.5 font-bold">
+                        {popupInfo.feature.properties.type === 'device' ? <Server size={14} className="text-primary" /> : <MapPin size={14} />} 
+                        {popupInfo.feature.properties.type === 'device' ? popupInfo.feature.properties.device_type : 'PoP Site'}
                       </p>
+                      <span className="text-[11px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 font-semibold">
+                        {popupInfo.feature.properties.region || 'No Region'}
+                      </span>
+                    </div>
+                    
+                    {/* Capacity for ODP / OLT / POP */}
+                    {['ODP', 'OLT', 'POP'].includes(popupInfo.feature.properties.device_type) && (
+                      <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-2 mb-2 text-xs text-emerald-800 flex items-center justify-between">
+                        <span className="font-medium">Port Terpakai:</span>
+                        <span className="font-bold font-mono">
+                          {popupInfo.feature.properties.used_capacity || 0} / {popupInfo.feature.properties.capacity || 8} Port
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Slack Badge if present */}
+                    {popupInfo.feature.properties.description && (popupInfo.feature.properties.description.toLowerCase().includes('slack') || popupInfo.feature.properties.device_type === 'Slack') && (
+                      <div className="bg-amber-50 border border-amber-300 rounded-lg p-1.5 px-2 mb-2 text-xs text-amber-900 font-bold flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+                        <span>🟡 Ada Gulungan Slack Kabel</span>
+                      </div>
                     )}
                     
+                    {/* Detailed Specifications / Description */}
                     {popupInfo.feature.properties.description && popupInfo.feature.properties.description.trim() !== '' && (
-                      <div className="bg-gray-50 p-2 rounded border border-gray-200 mt-2 mb-3">
-                        <p className="text-sm text-gray-800 font-medium mb-1">Description:</p>
-                        <p className="text-xs text-gray-600">
-                          {popupInfo.feature.properties.description}
-                        </p>
+                      <div className="bg-gray-50 p-2.5 rounded-lg border border-gray-200 mt-2 mb-3">
+                        <p className="text-[11px] text-gray-500 font-bold uppercase tracking-wider mb-1.5">Spesifikasi &amp; Detail Teknis:</p>
+                        <div className="space-y-1.5">
+                          {popupInfo.feature.properties.description.split(' | ').map((part: string, idx: number) => {
+                            const trimmed = part.trim();
+                            if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+                              return (
+                                <span key={idx} className="inline-block bg-blue-100 text-blue-800 text-[11px] font-semibold px-2 py-0.5 rounded border border-blue-200 mr-1.5 mb-1">
+                                  {trimmed.slice(1, -1)}
+                                </span>
+                              );
+                            }
+                            if (trimmed.startsWith('Sumber:')) {
+                              return (
+                                <div key={idx} className="text-xs text-emerald-900 bg-emerald-50 p-1.5 rounded border border-emerald-200 font-mono font-medium flex items-center gap-1.5">
+                                  <span>⚡</span>
+                                  <span>{trimmed}</span>
+                                </div>
+                              );
+                            }
+                            if (trimmed.startsWith('Catatan:')) {
+                              return (
+                                <div key={idx} className="text-xs text-gray-700 bg-white p-1.5 rounded border border-gray-200 italic">
+                                  📝 {trimmed}
+                                </div>
+                              );
+                            }
+                            return (
+                              <div key={idx} className="text-xs text-gray-800 font-mono leading-relaxed bg-white p-1.5 rounded border border-gray-100">
+                                {trimmed}
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
                     )}
                     
@@ -1173,11 +1285,16 @@ export default function GisTopology() {
                           onClick={() => {
                             setEditingDevice(popupInfo.feature.properties);
                             setEditFormData({
-                              used_capacity: popupInfo.feature.properties.used_capacity?.toString() || '',
-                              description: popupInfo.feature.properties.description || ''
+                              name: popupInfo.feature.properties.name || '',
+                              device_type: popupInfo.feature.properties.device_type || 'Tiang',
+                              capacity: popupInfo.feature.properties.capacity?.toString() || '',
+                              used_capacity: popupInfo.feature.properties.used_capacity?.toString() || '0',
+                              description: popupInfo.feature.properties.description || '',
+                              slack_meters: '',
+                              odp_source: ''
                             });
                           }}
-                          className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-800 py-1.5 px-2 rounded-lg text-sm flex items-center justify-center gap-1 transition-colors"
+                          className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-800 py-1.5 px-2 rounded-lg text-sm flex items-center justify-center gap-1 transition-colors font-medium"
                         >
                           <Edit size={14} /> Edit
                         </button>
@@ -1297,56 +1414,125 @@ export default function GisTopology() {
 
       {/* Edit Device Modal */}
       {editingDevice && (
-        <div className="fixed inset-0 bg-dark-text/30 backdrop-blur-sm flex items-center justify-center z-[2000] p-4">
-          <div className="bg-white border border-dark-border w-full max-w-md rounded-xl shadow-2xl overflow-hidden flex flex-col">
+        <div className="fixed inset-0 bg-dark-text/40 backdrop-blur-sm flex items-center justify-center z-[2000] p-4">
+          <div className="bg-white border border-dark-border w-full max-w-md rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
             <div className="flex items-center justify-between p-4 border-b border-dark-border bg-dark-surface">
-              <h3 className="text-lg font-bold text-dark-text flex items-center gap-2">
+              <h3 className="text-base font-bold text-dark-text flex items-center gap-2">
                 <Edit className="text-primary" size={18} />
                 Edit {editingDevice.name}
               </h3>
-              <button onClick={() => setEditingDevice(null)} className="text-dark-muted hover:text-danger transition-colors">
+              <button onClick={() => setEditingDevice(null)} className="text-dark-muted hover:text-danger transition-colors cursor-pointer">
                 <X size={20} />
               </button>
             </div>
             
-            <form onSubmit={handleEditSubmit} className="p-4">
-              <div className="space-y-4">
+            <form onSubmit={handleEditSubmit} className="p-4 space-y-3 overflow-y-auto">
+              <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-sm font-medium text-dark-text mb-1">Used Ports / Capacity</label>
+                  <label className="block text-xs font-semibold text-dark-text mb-1">Nama Perangkat</label>
+                  <input 
+                    type="text"
+                    value={editFormData.name}
+                    onChange={(e) => setEditFormData({...editFormData, name: e.target.value})}
+                    className="w-full px-3 py-2 border border-dark-border rounded-lg text-sm bg-white text-dark-text focus:outline-none focus:border-primary"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-dark-text mb-1">Tipe Node</label>
+                  <select
+                    value={editFormData.device_type}
+                    onChange={(e) => setEditFormData({...editFormData, device_type: e.target.value})}
+                    className="w-full px-3 py-2 border border-dark-border rounded-lg text-sm bg-white text-dark-text focus:outline-none focus:border-primary"
+                  >
+                    <option value="Tiang">📍 Tiang (Pole)</option>
+                    <option value="ODP">🟩 ODP (Distribution)</option>
+                    <option value="Closure">🔶 Closure</option>
+                    <option value="Joint Closure">🟣 Joint Closure</option>
+                    <option value="Joint Box">🔴 Joint Box</option>
+                    <option value="POP">🏢 POP / OLT</option>
+                    <option value="Slack">🟡 Slack Kabel</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-semibold text-dark-text mb-1">Kapasitas (Port)</label>
+                  <input 
+                    type="number"
+                    value={editFormData.capacity}
+                    onChange={(e) => setEditFormData({...editFormData, capacity: e.target.value})}
+                    className="w-full px-3 py-2 border border-dark-border rounded-lg text-sm bg-white text-dark-text focus:outline-none focus:border-primary"
+                    placeholder="8, 16, 24"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-dark-text mb-1">Port Terpakai</label>
                   <input 
                     type="number"
                     value={editFormData.used_capacity}
                     onChange={(e) => setEditFormData({...editFormData, used_capacity: e.target.value})}
-                    className="w-full px-3 py-2 border border-dark-border rounded-lg focus:outline-none focus:border-primary text-sm bg-white text-dark-text"
-                    placeholder="e.g. 12"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-dark-text mb-1">Description / Notes</label>
-                  <textarea 
-                    value={editFormData.description}
-                    onChange={(e) => setEditFormData({...editFormData, description: e.target.value})}
-                    className="w-full px-3 py-2 border border-dark-border rounded-lg focus:outline-none focus:border-primary text-sm bg-white text-dark-text"
-                    placeholder="e.g. Spare 5 meter, Joint Box ODP..."
-                    rows={3}
+                    className="w-full px-3 py-2 border border-dark-border rounded-lg text-sm bg-white text-dark-text focus:outline-none focus:border-primary"
+                    placeholder="0"
                   />
                 </div>
               </div>
+
+              {/* Quick Helper for Slack & Source */}
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg space-y-2">
+                <span className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
+                  ⚡ Helper Cepat Spesifikasi &amp; Slack
+                </span>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-amber-900 mb-1">Tambah/Set Slack (m)</label>
+                    <input 
+                      type="number"
+                      value={editFormData.slack_meters}
+                      onChange={(e) => setEditFormData({...editFormData, slack_meters: e.target.value})}
+                      className="w-full px-2 py-1.5 border border-amber-300 rounded text-xs bg-white text-gray-800"
+                      placeholder="e.g. 15"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-amber-900 mb-1">Sumber Kabel/Core</label>
+                    <input 
+                      type="text"
+                      value={editFormData.odp_source}
+                      onChange={(e) => setEditFormData({...editFormData, odp_source: e.target.value})}
+                      className="w-full px-2 py-1.5 border border-amber-300 rounded text-xs bg-white text-gray-800"
+                      placeholder="e.g. Feeder-01 Tube 1 Core 2"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-dark-text mb-1">Deskripsi Lengkap / Spesifikasi</label>
+                <textarea 
+                  value={editFormData.description}
+                  onChange={(e) => setEditFormData({...editFormData, description: e.target.value})}
+                  className="w-full px-3 py-2 border border-dark-border rounded-lg focus:outline-none focus:border-primary text-xs bg-white text-dark-text font-mono"
+                  placeholder="[Tiang Besi 7m] | [Slack: 15m] | Catatan..."
+                  rows={3}
+                />
+              </div>
               
-              <div className="mt-6 flex justify-end gap-3">
+              <div className="mt-4 flex justify-end gap-2 pt-2 border-t border-dark-border">
                 <button 
                   type="button" 
                   onClick={() => setEditingDevice(null)}
-                  className="px-4 py-2 border border-dark-border rounded-lg text-dark-text hover:bg-gray-50 text-sm font-medium transition-colors"
+                  className="px-4 py-2 border border-dark-border rounded-lg text-dark-text hover:bg-gray-50 text-xs font-semibold transition-colors cursor-pointer"
                 >
-                  Cancel
+                  Batal
                 </button>
                 <button 
                   type="submit" 
                   disabled={editDeviceMutation.isPending}
-                  className="px-4 py-2 btn-primary rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                 >
-                  {editDeviceMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : 'Save Changes'}
+                  {editDeviceMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+                  Simpan Perubahan
                 </button>
               </div>
             </form>
@@ -1437,7 +1623,7 @@ export default function GisTopology() {
       {/* --- MODAL: TAMBAH NODE / TIANG / ODP BARU --- */}
       {newNodeModal && (
         <div className="fixed inset-0 bg-dark-text/40 backdrop-blur-sm flex items-center justify-center z-[2000] p-4">
-          <div className="bg-white border border-dark-border w-full max-w-md rounded-xl shadow-2xl overflow-hidden flex flex-col">
+          <div className="bg-white border border-dark-border w-full max-w-lg rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
             <div className="flex items-center justify-between p-4 border-b border-dark-border bg-dark-surface">
               <h3 className="text-base font-bold text-dark-text flex items-center gap-2">
                 <MapPin className="text-emerald-500" size={18} />
@@ -1448,7 +1634,7 @@ export default function GisTopology() {
               </button>
             </div>
 
-            <form onSubmit={handleSaveNewNode} className="p-4 space-y-3">
+            <form onSubmit={handleSaveNewNode} className="p-4 space-y-3 overflow-y-auto">
               <div>
                 <label className="block text-xs font-semibold text-dark-text mb-1">Nama Perangkat / Kode</label>
                 <input
@@ -1466,7 +1652,18 @@ export default function GisTopology() {
                   <label className="block text-xs font-semibold text-dark-text mb-1">Tipe Node</label>
                   <select
                     value={newNodeForm.device_type}
-                    onChange={(e) => setNewNodeForm({...newNodeForm, device_type: e.target.value})}
+                    onChange={(e) => {
+                      const dt = e.target.value;
+                      const prefix = dt === 'Tiang' ? 'T-' : dt === 'ODP' ? 'ODP-' : dt === 'Closure' ? 'CLS-' : dt === 'Joint Closure' ? 'JC-' : dt === 'Slack' ? 'SLK-' : 'NODE-';
+                      const randomSuffix = Math.floor(100 + Math.random() * 900);
+                      setNewNodeForm(prev => ({
+                        ...prev,
+                        device_type: dt,
+                        name: `${prefix}${randomSuffix}`,
+                        capacity: dt === 'ODP' ? '8' : dt === 'POP' ? '16' : dt.includes('Closure') ? '24' : '0',
+                        has_slack: dt === 'Slack'
+                      }));
+                    }}
                     className="w-full px-3 py-2 border border-dark-border rounded-lg text-sm bg-white text-dark-text focus:outline-none focus:border-primary"
                   >
                     <option value="Tiang">📍 Tiang (Pole)</option>
@@ -1491,6 +1688,256 @@ export default function GisTopology() {
                 </div>
               </div>
 
+              {/* --- SMART FTTH DYNAMIC ASSISTANT --- */}
+              {newNodeForm.device_type === 'Tiang' && (
+                <div className="p-3 bg-blue-50/70 border border-blue-200 rounded-lg space-y-2.5">
+                  <span className="text-xs font-bold text-blue-900 flex items-center gap-1.5">
+                    📍 Spesifikasi Tiang &amp; Slack
+                  </span>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-blue-900 mb-1">Jenis / Tinggi Tiang</label>
+                      <select
+                        value={newNodeForm.pole_spec}
+                        onChange={(e) => setNewNodeForm({...newNodeForm, pole_spec: e.target.value})}
+                        className="w-full px-2 py-1.5 border border-blue-300 rounded text-xs bg-white text-gray-800"
+                      >
+                        <option value="Tiang Besi 7m">Tiang Besi 7m</option>
+                        <option value="Tiang Besi 9m">Tiang Besi 9m</option>
+                        <option value="Tiang Beton 9m">Tiang Beton 9m</option>
+                        <option value="Tiang PLN">Tiang PLN (Numpang)</option>
+                        <option value="Tiang Telkom">Tiang Telkom</option>
+                        <option value="Tiang Khusus / Tower">Tiang Khusus / Tower</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold text-blue-900 mb-1">Ada Slack / Gulungan?</label>
+                      <div className="flex items-center h-[34px]">
+                        <label className="inline-flex items-center gap-2 text-xs text-blue-900 font-medium cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={newNodeForm.has_slack}
+                            onChange={(e) => setNewNodeForm({...newNodeForm, has_slack: e.target.checked})}
+                            className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
+                          />
+                          <span>Ada Slack Kabel</span>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+
+                  {newNodeForm.has_slack && (
+                    <div className="pt-2 border-t border-blue-200 grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-[11px] font-semibold text-blue-900 mb-1">Panjang Slack (Meter)</label>
+                        <input
+                          type="number"
+                          value={newNodeForm.slack_meters}
+                          onChange={(e) => setNewNodeForm({...newNodeForm, slack_meters: e.target.value})}
+                          className="w-full px-2 py-1.5 border border-blue-300 rounded text-xs bg-white text-gray-800"
+                          placeholder="Contoh: 15"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-blue-900 mb-1">Kabel Slack</label>
+                        <input
+                          type="text"
+                          value={newNodeForm.odp_source_cable}
+                          onChange={(e) => setNewNodeForm({...newNodeForm, odp_source_cable: e.target.value})}
+                          className="w-full px-2 py-1.5 border border-blue-300 rounded text-xs bg-white text-gray-800"
+                          placeholder="e.g. Feeder 24C"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {newNodeForm.device_type === 'ODP' && (
+                <div className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-lg space-y-2.5">
+                  <span className="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
+                    🟩 Konfigurasi ODP &amp; Core Feeder
+                  </span>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-emerald-900 mb-1">Splitter Ratio</label>
+                      <select
+                        value={newNodeForm.odp_splitter}
+                        onChange={(e) => {
+                          const ratio = e.target.value;
+                          const cap = ratio.includes('1:16') ? '16' : ratio.includes('1:8') ? '8' : ratio.includes('1:4') ? '4' : '8';
+                          setNewNodeForm({...newNodeForm, odp_splitter: ratio, capacity: cap});
+                        }}
+                        className="w-full px-2 py-1.5 border border-emerald-300 rounded text-xs bg-white text-gray-800"
+                      >
+                        <option value="1:8 PLC">1:8 PLC (8 Port)</option>
+                        <option value="1:16 PLC">1:16 PLC (16 Port)</option>
+                        <option value="1:4 PLC">1:4 PLC (4 Port)</option>
+                        <option value="1:2 FBT">1:2 FBT (2 Port)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold text-emerald-900 mb-1">Kabel Sumber Feeder</label>
+                      <input
+                        type="text"
+                        list="modal-cable-list"
+                        value={newNodeForm.odp_source_cable}
+                        onChange={(e) => setNewNodeForm({...newNodeForm, odp_source_cable: e.target.value})}
+                        className="w-full px-2 py-1.5 border border-emerald-300 rounded text-xs bg-white text-gray-800"
+                        placeholder="Pilih/ketik kabel..."
+                      />
+                      <datalist id="modal-cable-list">
+                        {availableCables.map(c => (
+                          <option key={c.id} value={c.name}>{c.name} ({c.cable_type || 'Kabel'}, {c.capacity || 12}C)</option>
+                        ))}
+                      </datalist>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-emerald-900 mb-1">Warna Tube</label>
+                      <select
+                        value={newNodeForm.odp_tube}
+                        onChange={(e) => setNewNodeForm({...newNodeForm, odp_tube: e.target.value})}
+                        className="w-full px-2 py-1.5 border border-emerald-300 rounded text-xs bg-white text-gray-800"
+                      >
+                        <option value="Tube 1 (Biru)">Tube 1 (Biru)</option>
+                        <option value="Tube 2 (Oranye)">Tube 2 (Oranye)</option>
+                        <option value="Tube 3 (Hijau)">Tube 3 (Hijau)</option>
+                        <option value="Tube 4 (Cokelat)">Tube 4 (Cokelat)</option>
+                        <option value="Tube 5 (Abu-abu)">Tube 5 (Abu-abu)</option>
+                        <option value="Tube 6 (Putih)">Tube 6 (Putih)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold text-emerald-900 mb-1">Warna Core</label>
+                      <select
+                        value={newNodeForm.odp_core}
+                        onChange={(e) => setNewNodeForm({...newNodeForm, odp_core: e.target.value})}
+                        className="w-full px-2 py-1.5 border border-emerald-300 rounded text-xs bg-white text-gray-800"
+                      >
+                        <option value="Core 1 (Biru)">Core 1 (Biru)</option>
+                        <option value="Core 2 (Oranye)">Core 2 (Oranye)</option>
+                        <option value="Core 3 (Hijau)">Core 3 (Hijau)</option>
+                        <option value="Core 4 (Cokelat)">Core 4 (Cokelat)</option>
+                        <option value="Core 5 (Abu-abu)">Core 5 (Abu-abu)</option>
+                        <option value="Core 6 (Putih)">Core 6 (Putih)</option>
+                        <option value="Core 7 (Merah)">Core 7 (Merah)</option>
+                        <option value="Core 8 (Hitam)">Core 8 (Hitam)</option>
+                        <option value="Core 9 (Kuning)">Core 9 (Kuning)</option>
+                        <option value="Core 10 (Ungu)">Core 10 (Ungu)</option>
+                        <option value="Core 11 (Pink)">Core 11 (Pink)</option>
+                        <option value="Core 12 (Toska)">Core 12 (Toska)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1 border-t border-emerald-200">
+                    <label className="inline-flex items-center gap-2 text-xs text-emerald-900 font-medium cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={newNodeForm.has_slack}
+                        onChange={(e) => setNewNodeForm({...newNodeForm, has_slack: e.target.checked})}
+                        className="rounded text-emerald-600 focus:ring-emerald-500 w-4 h-4 cursor-pointer"
+                      />
+                      <span>Ada Slack di ODP</span>
+                    </label>
+                    {newNodeForm.has_slack && (
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[11px] text-emerald-900 font-medium">Panjang:</span>
+                        <input
+                          type="number"
+                          value={newNodeForm.slack_meters}
+                          onChange={(e) => setNewNodeForm({...newNodeForm, slack_meters: e.target.value})}
+                          className="w-16 px-2 py-1 border border-emerald-300 rounded text-xs bg-white text-gray-800"
+                          placeholder="10"
+                        />
+                        <span className="text-xs text-emerald-900">meter</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {(newNodeForm.device_type === 'Closure' || newNodeForm.device_type === 'Joint Closure') && (
+                <div className="p-3 bg-purple-50/70 border border-purple-200 rounded-lg space-y-2.5">
+                  <span className="text-xs font-bold text-purple-900 flex items-center gap-1.5">
+                    🟣 Sambungan Closure / JC
+                  </span>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-purple-900 mb-1">Fungsi / Tipe Sambungan</label>
+                    <select
+                      value={newNodeForm.closure_joint_type}
+                      onChange={(e) => setNewNodeForm({...newNodeForm, closure_joint_type: e.target.value})}
+                      className="w-full px-2 py-1.5 border border-purple-300 rounded text-xs bg-white text-gray-800"
+                    >
+                      <option value="Percabangan Feeder ke Distribusi">Percabangan Feeder ke Distribusi</option>
+                      <option value="Sambungan Pelebaran Lurus (Straight Joint)">Sambungan Pelebaran Lurus (Straight Joint)</option>
+                      <option value="Distribusi ke Cabang Drop">Distribusi ke Cabang Drop</option>
+                      <option value="Splice Backbone / Main Trunk">Splice Backbone / Main Trunk</option>
+                    </select>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1 border-t border-purple-200">
+                    <label className="inline-flex items-center gap-2 text-xs text-purple-900 font-medium cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={newNodeForm.has_slack}
+                        onChange={(e) => setNewNodeForm({...newNodeForm, has_slack: e.target.checked})}
+                        className="rounded text-purple-600 focus:ring-purple-500 w-4 h-4 cursor-pointer"
+                      />
+                      <span>Ada Slack / Gulungan Kabel</span>
+                    </label>
+                    {newNodeForm.has_slack && (
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[11px] text-purple-900 font-medium">Panjang:</span>
+                        <input
+                          type="number"
+                          value={newNodeForm.slack_meters}
+                          onChange={(e) => setNewNodeForm({...newNodeForm, slack_meters: e.target.value})}
+                          className="w-16 px-2 py-1 border border-purple-300 rounded text-xs bg-white text-gray-800"
+                          placeholder="20"
+                        />
+                        <span className="text-xs text-purple-900">meter</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {newNodeForm.device_type === 'Slack' && (
+                <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-lg space-y-2.5">
+                  <span className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
+                    🟡 Titik Gulungan Slack Kabel
+                  </span>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-amber-900 mb-1">Panjang Slack (Meter)</label>
+                      <input
+                        type="number"
+                        value={newNodeForm.slack_meters}
+                        onChange={(e) => setNewNodeForm({...newNodeForm, slack_meters: e.target.value})}
+                        className="w-full px-2 py-1.5 border border-amber-300 rounded text-xs bg-white text-gray-800"
+                        placeholder="Contoh: 20"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold text-amber-900 mb-1">Kabel yang Di-slack</label>
+                      <input
+                        type="text"
+                        list="modal-cable-list"
+                        value={newNodeForm.odp_source_cable}
+                        onChange={(e) => setNewNodeForm({...newNodeForm, odp_source_cable: e.target.value})}
+                        className="w-full px-2 py-1.5 border border-amber-300 rounded text-xs bg-white text-gray-800"
+                        placeholder="Pilih/ketik kabel..."
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Project / Region */}
               <div>
                 <label className="block text-xs font-semibold text-dark-text mb-1">Project / Region</label>
                 <select
@@ -1505,14 +1952,48 @@ export default function GisTopology() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-dark-text mb-1">Catatan / Deskripsi</label>
+                <label className="block text-xs font-semibold text-dark-text mb-1">Catatan Tambahan (Opsional)</label>
                 <textarea
                   value={newNodeForm.description}
                   onChange={(e) => setNewNodeForm({...newNodeForm, description: e.target.value})}
-                  className="w-full px-3 py-2 border border-dark-border rounded-lg text-sm bg-white text-dark-text focus:outline-none focus:border-primary"
+                  className="w-full px-3 py-2 border border-dark-border rounded-lg text-xs bg-white text-dark-text focus:outline-none focus:border-primary"
                   rows={2}
-                  placeholder="Catatan lapangan atau spesifikasi..."
+                  placeholder="Catatan lapangan atau rute..."
                 />
+              </div>
+
+              {/* Live Auto-Compiled Preview */}
+              <div className="p-2.5 bg-gray-50 rounded-lg border border-gray-200">
+                <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider block mb-1">
+                  ✨ Preview Deskripsi Otomatis (Masuk ke Peta &amp; Google Earth):
+                </span>
+                <div className="text-xs font-mono text-emerald-700 bg-white p-2 rounded border border-gray-100 break-words">
+                  {(() => {
+                    const parts = [];
+                    if (newNodeForm.device_type === 'Tiang') {
+                      if (newNodeForm.pole_spec) parts.push(`[${newNodeForm.pole_spec}]`);
+                      if (newNodeForm.has_slack && newNodeForm.slack_meters) {
+                        parts.push(`[Slack: ${newNodeForm.slack_meters}m${newNodeForm.odp_source_cable ? ' ' + newNodeForm.odp_source_cable : ''}]`);
+                      }
+                    } else if (newNodeForm.device_type === 'ODP') {
+                      if (newNodeForm.odp_splitter) parts.push(`[ODP ${newNodeForm.odp_splitter}]`);
+                      if (newNodeForm.odp_source_cable) {
+                        parts.push(`Sumber: ${newNodeForm.odp_source_cable} (${newNodeForm.odp_tube}, ${newNodeForm.odp_core})`);
+                      }
+                      if (newNodeForm.has_slack && newNodeForm.slack_meters) {
+                        parts.push(`[Slack: ${newNodeForm.slack_meters}m]`);
+                      }
+                    } else if (newNodeForm.device_type === 'Slack') {
+                      parts.push(`[Slack: ${newNodeForm.slack_meters || '20'}m]`);
+                      if (newNodeForm.odp_source_cable) parts.push(`Kabel: ${newNodeForm.odp_source_cable}`);
+                    } else if (newNodeForm.device_type === 'Closure' || newNodeForm.device_type === 'Joint Closure') {
+                      if (newNodeForm.closure_joint_type) parts.push(`[${newNodeForm.closure_joint_type}]`);
+                      if (newNodeForm.has_slack && newNodeForm.slack_meters) parts.push(`[Slack: ${newNodeForm.slack_meters}m]`);
+                    }
+                    if (newNodeForm.description?.trim()) parts.push(`Catatan: ${newNodeForm.description.trim()}`);
+                    return parts.length > 0 ? parts.join(' | ') : '(Belum ada konfigurasi khusus)';
+                  })()}
+                </div>
               </div>
 
               <div className="bg-gray-50 dark:bg-gray-800 p-2 rounded text-[11px] text-gray-500 font-mono">
