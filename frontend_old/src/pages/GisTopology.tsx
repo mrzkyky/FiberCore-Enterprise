@@ -1156,7 +1156,7 @@ export default function GisTopology() {
         <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={() => setBatchSpliceModal(true)}
-            className="px-2.5 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300 border border-purple-200 dark:border-purple-800 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+            className="px-2.5 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
             title="Sambungkan kabel proyek lama dengan kabel pelebaran baru secara otomatis"
           >
             <GitMerge size={13} /> + Sambung Pelebaran
@@ -1164,14 +1164,14 @@ export default function GisTopology() {
 
           <button
             onClick={() => setNewProjectModal(true)}
-            className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+            className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
           >
             <FolderPlus size={13} /> + Project Baru
           </button>
 
           <button
             onClick={handleExportKml}
-            className="px-2.5 py-1.5 bg-sky-50 hover:bg-sky-100 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300 border border-sky-200 dark:border-sky-800 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+            className="px-2.5 py-1.5 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
             title="Download file KML standar Google Earth (langsung tanpa blokir browser)"
           >
             <FileText size={13} /> Export KML
