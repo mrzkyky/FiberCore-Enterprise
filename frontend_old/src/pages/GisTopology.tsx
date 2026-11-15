@@ -13,6 +13,35 @@ import {
   Check, Undo2, Compass, AlertCircle, Maximize2, Minimize2, FileText
 } from 'lucide-react';
 
+const FIBER_COLOR_CLASSES: Record<string, string> = {
+  Blue: 'bg-blue-600 text-white',
+  Orange: 'bg-orange-500 text-white',
+  Green: 'bg-green-600 text-white',
+  Brown: 'bg-amber-800 text-white',
+  Slate: 'bg-slate-400 text-white',
+  White: 'bg-white text-gray-900 border border-gray-300',
+  Red: 'bg-red-600 text-white',
+  Black: 'bg-gray-900 text-white',
+  Yellow: 'bg-yellow-400 text-gray-900',
+  Violet: 'bg-purple-600 text-white',
+  Rose: 'bg-pink-400 text-white',
+  Aqua: 'bg-teal-400 text-gray-900',
+  Biru: 'bg-blue-600 text-white',
+  Oranye: 'bg-orange-500 text-white',
+  Hijau: 'bg-green-600 text-white',
+  Cokelat: 'bg-amber-800 text-white',
+  'Abu-abu': 'bg-slate-400 text-white',
+  Putih: 'bg-white text-gray-900 border border-gray-300',
+  Merah: 'bg-red-600 text-white',
+  Hitam: 'bg-gray-900 text-white',
+  Kuning: 'bg-yellow-400 text-gray-900',
+  Ungu: 'bg-purple-600 text-white',
+  Pink: 'bg-pink-400 text-white',
+  Toska: 'bg-teal-400 text-gray-900'
+};
+
+const getFiberBadge = (color: string) => FIBER_COLOR_CLASSES[color] || 'bg-gray-500 text-white';
+
 export default function GisTopology() {
   const token = useAuthStore(state => state.token);
   const queryClient = useQueryClient();
@@ -51,7 +80,10 @@ export default function GisTopology() {
     splice_type: 'straight', // 'straight' | 'petik'
     petik_tube: 'Tube 1 (Biru)',
     petik_core: 'Core 1 (Biru)',
-    petik_target: ''
+    petik_target: '',
+    skip_spliced: true, // Default true: otomatis lewati core yang sudah dipetik/tersambung
+    selection_mode: 'range', // 'range' | 'custom'
+    selected_cores_a: [] as number[],
   });
   const [isBatchSplicing, setIsBatchSplicing] = useState<boolean>(false);
 
@@ -244,6 +276,19 @@ export default function GisTopology() {
     if (!allGeoData?.features || !batchSpliceForm.cable_a_id) return null;
     return allGeoData.features.find((f: any) => f.properties?.id === batchSpliceForm.cable_a_id);
   }, [allGeoData, batchSpliceForm.cable_a_id]);
+
+  // Query status core kabel A untuk modal sambungan
+  const { data: batchCoresA } = useQuery<any[]>({
+    queryKey: ['cable-cores', batchSpliceForm.cable_a_id],
+    queryFn: async () => {
+      if (!batchSpliceForm.cable_a_id) return [];
+      const res = await axios.get(`/api/v1/cables/${batchSpliceForm.cable_a_id}/cores`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      return res.data;
+    },
+    enabled: !!batchSpliceForm.cable_a_id && batchSpliceModal
+  });
 
   const sortedClosures = useMemo(() => {
     if (!availableClosures.length) return [];
@@ -513,6 +558,13 @@ export default function GisTopology() {
       alert("Kabel asal dan kabel tujuan tidak boleh sama!");
       return;
     }
+
+    const isCustom = batchSpliceForm.splice_type === 'straight' && batchSpliceForm.selection_mode === 'custom';
+    if (isCustom && (!batchSpliceForm.selected_cores_a || batchSpliceForm.selected_cores_a.length === 0)) {
+      alert("Harap centang minimal 1 core untuk disambung!");
+      return;
+    }
+
     setIsBatchSplicing(true);
 
     let note = batchSpliceForm.custom_note.trim();
@@ -522,7 +574,7 @@ export default function GisTopology() {
     }
 
     try {
-      const res = await axios.post('/api/v1/splices/batch-connect', {
+      const payload: any = {
         cable_a_id: batchSpliceForm.cable_a_id,
         cable_b_id: batchSpliceForm.cable_b_id,
         closure_id: batchSpliceForm.closure_id || null,
@@ -534,12 +586,23 @@ export default function GisTopology() {
         splice_type: batchSpliceForm.splice_type,
         petik_tube: batchSpliceForm.petik_tube,
         petik_core: batchSpliceForm.petik_core,
-        petik_target: batchSpliceForm.petik_target
-      }, {
+        petik_target: batchSpliceForm.petik_target,
+        skip_spliced: batchSpliceForm.skip_spliced
+      };
+
+      if (isCustom) {
+        payload.selected_cores_a = batchSpliceForm.selected_cores_a;
+        // Mapping ke nomor core kabel B dengan offset start_core_b
+        const offset = (Number(batchSpliceForm.start_core_b) || 1) - (Number(batchSpliceForm.start_core_a) || 1);
+        payload.selected_cores_b = batchSpliceForm.selected_cores_a.map(num => Math.max(1, num + offset));
+      }
+
+      const res = await axios.post('/api/v1/splices/batch-connect', payload, {
         headers: { Authorization: `Bearer ${token}` }
       });
       alert(res.data.message);
       queryClient.invalidateQueries({ queryKey: ['map-topology'] });
+      queryClient.invalidateQueries({ queryKey: ['cable-cores'] });
       setBatchSpliceModal(false);
     } catch (err: any) {
       alert('Gagal menyambung kabel: ' + (err.response?.data?.detail || err.message));
@@ -2452,39 +2515,191 @@ export default function GisTopology() {
               )}
 
               {batchSpliceForm.splice_type === 'straight' && (
-                <div className="grid grid-cols-3 gap-2">
-                  <div>
-                    <label className="block text-xs font-semibold text-dark-text mb-1">Start Core A</label>
-                    <input
-                      type="number"
-                      min={1}
-                      value={batchSpliceForm.start_core_a}
-                      onChange={(e) => setBatchSpliceForm({...batchSpliceForm, start_core_a: Math.max(1, Number(e.target.value))})}
-                      className="w-full px-3 py-2 border border-dark-border rounded-lg text-sm bg-white text-dark-text focus:outline-none focus:border-primary"
-                    />
+                <div className="space-y-2.5 bg-gray-50 p-3 rounded-lg border border-gray-200">
+                  {/* Pilihan Metode Input: Berurutan vs Checklist */}
+                  <div className="flex items-center justify-between pb-1 border-b border-gray-200">
+                    <span className="text-xs font-bold text-gray-700">Metode Pemilihan Core:</span>
+                    <div className="flex gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setBatchSpliceForm(prev => ({ ...prev, selection_mode: 'range' }))}
+                        className={`px-2.5 py-1 rounded text-xs font-semibold transition-all cursor-pointer ${
+                          batchSpliceForm.selection_mode !== 'custom' 
+                            ? 'bg-purple-600 text-white shadow-xs' 
+                            : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
+                        }`}
+                      >
+                        ⚡ Berurutan
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const freeCores = batchCoresA?.filter(c => c.status === 'Free').map(c => c.core_number) || [];
+                          const allCores = batchCoresA?.map(c => c.core_number) || Array.from({length: 12}, (_, i) => i + 1);
+                          setBatchSpliceForm(prev => ({ 
+                            ...prev, 
+                            selection_mode: 'custom',
+                            selected_cores_a: prev.selected_cores_a.length > 0 ? prev.selected_cores_a : (freeCores.length > 0 ? freeCores : allCores)
+                          }));
+                        }}
+                        className={`px-2.5 py-1 rounded text-xs font-semibold transition-all cursor-pointer ${
+                          batchSpliceForm.selection_mode === 'custom' 
+                            ? 'bg-purple-600 text-white shadow-xs' 
+                            : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
+                        }`}
+                      >
+                        🎯 Checklist / Lewati Core
+                      </button>
+                    </div>
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-semibold text-dark-text mb-1">Start Core B</label>
-                    <input
-                      type="number"
-                      min={1}
-                      value={batchSpliceForm.start_core_b}
-                      onChange={(e) => setBatchSpliceForm({...batchSpliceForm, start_core_b: Math.max(1, Number(e.target.value))})}
-                      className="w-full px-3 py-2 border border-dark-border rounded-lg text-sm bg-white text-dark-text focus:outline-none focus:border-primary"
-                    />
-                  </div>
+                  {batchSpliceForm.selection_mode !== 'custom' ? (
+                    <>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div>
+                          <label className="block text-[11px] font-semibold text-dark-text mb-1">Start Core A</label>
+                          <input
+                            type="number"
+                            min={1}
+                            value={batchSpliceForm.start_core_a}
+                            onChange={(e) => setBatchSpliceForm({...batchSpliceForm, start_core_a: Math.max(1, Number(e.target.value))})}
+                            className="w-full px-2.5 py-1.5 border border-dark-border rounded-lg text-xs bg-white text-dark-text focus:outline-none focus:border-primary"
+                          />
+                        </div>
 
-                  <div>
-                    <label className="block text-xs font-semibold text-dark-text mb-1">Jumlah Core</label>
-                    <input
-                      type="number"
-                      min={1}
-                      value={batchSpliceForm.count}
-                      onChange={(e) => setBatchSpliceForm({...batchSpliceForm, count: Math.max(1, Number(e.target.value))})}
-                      className="w-full px-3 py-2 border border-dark-border rounded-lg text-sm bg-white text-dark-text focus:outline-none focus:border-primary"
-                    />
-                  </div>
+                        <div>
+                          <label className="block text-[11px] font-semibold text-dark-text mb-1">Start Core B</label>
+                          <input
+                            type="number"
+                            min={1}
+                            value={batchSpliceForm.start_core_b}
+                            onChange={(e) => setBatchSpliceForm({...batchSpliceForm, start_core_b: Math.max(1, Number(e.target.value))})}
+                            className="w-full px-2.5 py-1.5 border border-dark-border rounded-lg text-xs bg-white text-dark-text focus:outline-none focus:border-primary"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-semibold text-dark-text mb-1">Jumlah Core</label>
+                          <input
+                            type="number"
+                            min={1}
+                            value={batchSpliceForm.count}
+                            onChange={(e) => setBatchSpliceForm({...batchSpliceForm, count: Math.max(1, Number(e.target.value))})}
+                            className="w-full px-2.5 py-1.5 border border-dark-border rounded-lg text-xs bg-white text-dark-text focus:outline-none focus:border-primary"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Checkbox Otomatis Lewati Core Terpakai */}
+                      <div className="flex items-center gap-2 p-2 bg-purple-50/80 rounded-lg border border-purple-200">
+                        <input
+                          type="checkbox"
+                          id="skip_spliced_cb"
+                          checked={batchSpliceForm.skip_spliced}
+                          onChange={(e) => setBatchSpliceForm({...batchSpliceForm, skip_spliced: e.target.checked})}
+                          className="rounded border-purple-300 text-purple-600 focus:ring-purple-500 cursor-pointer"
+                        />
+                        <label htmlFor="skip_spliced_cb" className="text-[11px] font-semibold text-purple-900 cursor-pointer">
+                          ⚡ Otomatis lewati (skip) core yang sudah dipetik/tersambung ke ODP
+                        </label>
+                      </div>
+                    </>
+                  ) : (
+                    /* Tampilan Checklist Interaktif */
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="text-gray-600 font-medium">
+                          Pilih core yang akan disambung ({batchSpliceForm.selected_cores_a.length} terpilih):
+                        </span>
+                        <div className="flex gap-1.5 text-[10px]">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const allNums = batchCoresA?.map(c => c.core_number) || Array.from({length: 12}, (_, i) => i + 1);
+                              setBatchSpliceForm(prev => ({ ...prev, selected_cores_a: allNums }));
+                            }}
+                            className="text-purple-700 hover:underline font-bold cursor-pointer"
+                          >
+                            Pilih Semua
+                          </button>
+                          <span>•</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const freeNums = batchCoresA?.filter(c => c.status === 'Free').map(c => c.core_number) || [];
+                              setBatchSpliceForm(prev => ({ ...prev, selected_cores_a: freeNums }));
+                            }}
+                            className="text-emerald-700 hover:underline font-bold cursor-pointer"
+                          >
+                            Hanya Core Bebas
+                          </button>
+                          <span>•</span>
+                          <button
+                            type="button"
+                            onClick={() => setBatchSpliceForm(prev => ({ ...prev, selected_cores_a: [] }))}
+                            className="text-red-600 hover:underline font-bold cursor-pointer"
+                          >
+                            Kosongkan
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-4 sm:grid-cols-6 gap-1.5 max-h-48 overflow-y-auto p-1.5 bg-white rounded-lg border border-gray-200">
+                        {(batchCoresA && batchCoresA.length > 0 ? batchCoresA : Array.from({length: 12}, (_, i) => ({ 
+                          core_number: i + 1, 
+                          tube_number: 1, 
+                          color: ['Blue','Orange','Green','Brown','Slate','White','Red','Black','Yellow','Violet','Rose','Aqua'][i], 
+                          status: 'Free' 
+                        }))).map((core: any) => {
+                          const isSelected = batchSpliceForm.selected_cores_a.includes(core.core_number);
+                          const isSpliced = core.status === 'Spliced';
+                          return (
+                            <div
+                              key={core.core_number}
+                              onClick={() => {
+                                setBatchSpliceForm(prev => {
+                                  const exists = prev.selected_cores_a.includes(core.core_number);
+                                  return {
+                                    ...prev,
+                                    selected_cores_a: exists
+                                      ? prev.selected_cores_a.filter(n => n !== core.core_number)
+                                      : [...prev.selected_cores_a, core.core_number].sort((a, b) => a - b)
+                                  };
+                                });
+                              }}
+                              className={`p-1.5 rounded-lg border text-center cursor-pointer transition-all flex flex-col items-center justify-between gap-1 select-none ${
+                                isSelected
+                                  ? 'bg-purple-50 border-purple-500 ring-1 ring-purple-500 shadow-xs'
+                                  : 'bg-gray-50/60 border-gray-200 hover:bg-gray-100 opacity-60'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between w-full">
+                                <span className="text-[10px] font-bold text-gray-700">C{core.core_number}</span>
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => {}}
+                                  className="rounded text-purple-600 focus:ring-purple-500 scale-75 cursor-pointer pointer-events-none"
+                                />
+                              </div>
+                              <span className={`text-[9px] font-semibold px-1 py-0.5 rounded w-full truncate ${getFiberBadge(core.color)}`}>
+                                {core.color}
+                              </span>
+                              {isSpliced ? (
+                                <span className="text-[8px] font-bold text-amber-800 bg-amber-100 px-1 rounded w-full truncate">
+                                  Terpakai
+                                </span>
+                              ) : (
+                                <span className="text-[8px] font-bold text-emerald-800 bg-emerald-100 px-1 rounded w-full truncate">
+                                  Bebas
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -2540,14 +2755,18 @@ export default function GisTopology() {
                     <strong className="text-purple-900">Di Joint Closure:</strong>{' '}
                     {batchSpliceForm.splice_type === 'petik'
                       ? `${(availableCables.find(c => c.id === batchSpliceForm.cable_a_id)?.name || 'Kabel-A')} ➔ ${(availableCables.find(c => c.id === batchSpliceForm.cable_b_id)?.name || 'Kabel-B')} (${batchSpliceForm.petik_tube} / ${batchSpliceForm.petik_core}${batchSpliceForm.petik_target ? ' - ' + batchSpliceForm.petik_target : ''})`
-                      : `${(availableCables.find(c => c.id === batchSpliceForm.cable_a_id)?.name || 'Kabel-A')} (Core ${batchSpliceForm.start_core_a}-${Number(batchSpliceForm.start_core_a)+Number(batchSpliceForm.count)-1}) ➔ ${(availableCables.find(c => c.id === batchSpliceForm.cable_b_id)?.name || 'Kabel-B')} (Core ${batchSpliceForm.start_core_b}-${Number(batchSpliceForm.start_core_b)+Number(batchSpliceForm.count)-1})${batchSpliceForm.custom_note ? ` - ${batchSpliceForm.custom_note}` : ''}`
+                      : batchSpliceForm.selection_mode === 'custom'
+                        ? `${(availableCables.find(c => c.id === batchSpliceForm.cable_a_id)?.name || 'Kabel-A')} (Core [${batchSpliceForm.selected_cores_a.join(',')}]) ➔ ${(availableCables.find(c => c.id === batchSpliceForm.cable_b_id)?.name || 'Kabel-B')}${batchSpliceForm.custom_note ? ` - ${batchSpliceForm.custom_note}` : ''}`
+                        : `${(availableCables.find(c => c.id === batchSpliceForm.cable_a_id)?.name || 'Kabel-A')} (Core ${batchSpliceForm.start_core_a}-${Number(batchSpliceForm.start_core_a)+Number(batchSpliceForm.count)-1}${batchSpliceForm.skip_spliced ? ' [Auto-Skip]' : ''}) ➔ ${(availableCables.find(c => c.id === batchSpliceForm.cable_b_id)?.name || 'Kabel-B')} (Core ${batchSpliceForm.start_core_b}-${Number(batchSpliceForm.start_core_b)+Number(batchSpliceForm.count)-1})${batchSpliceForm.custom_note ? ` - ${batchSpliceForm.custom_note}` : ''}`
                     }
                   </div>
                   <div className="text-emerald-700 bg-white p-1.5 rounded border border-gray-100">
                     <strong className="text-emerald-900">Di Kabel Asal:</strong>{' '}
                     {batchSpliceForm.splice_type === 'petik'
                       ? `Sambung ke ${(availableCables.find(c => c.id === batchSpliceForm.cable_b_id)?.name || 'Kabel-B')} via ${(sortedClosures.find(c => c.id === (batchSpliceForm.closure_id || sortedClosures[0]?.id))?.name || 'JC Terdekat')} (${batchSpliceForm.petik_tube} / ${batchSpliceForm.petik_core}${batchSpliceForm.petik_target ? ' - ' + batchSpliceForm.petik_target : ''})`
-                      : `Sambung ke ${(availableCables.find(c => c.id === batchSpliceForm.cable_b_id)?.name || 'Kabel-B')} via ${(sortedClosures.find(c => c.id === (batchSpliceForm.closure_id || sortedClosures[0]?.id))?.name || 'JC Terdekat')} (Core ${batchSpliceForm.start_core_a}-${Number(batchSpliceForm.start_core_a)+Number(batchSpliceForm.count)-1})${batchSpliceForm.custom_note ? ` - ${batchSpliceForm.custom_note}` : ''}`
+                      : batchSpliceForm.selection_mode === 'custom'
+                        ? `Sambung ke ${(availableCables.find(c => c.id === batchSpliceForm.cable_b_id)?.name || 'Kabel-B')} via ${(sortedClosures.find(c => c.id === (batchSpliceForm.closure_id || sortedClosures[0]?.id))?.name || 'JC Terdekat')} (Core [${batchSpliceForm.selected_cores_a.join(',')}])`
+                        : `Sambung ke ${(availableCables.find(c => c.id === batchSpliceForm.cable_b_id)?.name || 'Kabel-B')} via ${(sortedClosures.find(c => c.id === (batchSpliceForm.closure_id || sortedClosures[0]?.id))?.name || 'JC Terdekat')} (Core ${batchSpliceForm.start_core_a}-${Number(batchSpliceForm.start_core_a)+Number(batchSpliceForm.count)-1})${batchSpliceForm.custom_note ? ` - ${batchSpliceForm.custom_note}` : ''}`
                     }
                   </div>
                 </div>

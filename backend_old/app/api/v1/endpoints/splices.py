@@ -24,6 +24,9 @@ class BatchSplicePayload(BaseModel):
     petik_tube: Optional[str] = None # e.g. "Tube 2 (Oranye)"
     petik_core: Optional[str] = None # e.g. "Core 3 (Hijau)"
     petik_target: Optional[str] = None
+    skip_spliced: bool = True # Default True: otomatis lewati core yang sudah tersambung/dipetik
+    selected_cores_a: Optional[List[int]] = None # List nomor core spesifik di kabel A
+    selected_cores_b: Optional[List[int]] = None # List nomor core spesifik di kabel B
 
 TUBE_COLOR_MAP = {
     1: "Biru",
@@ -63,6 +66,18 @@ def sync_all_splice_descriptions(db: Session):
                     cl.description = None
                 continue
 
+            # Urutkan berdasarkan nomor core kabel feeder
+            def get_feeder_core_num(sp):
+                ca = sp.core_a
+                cb = sp.core_b
+                if not ca or not cb or not ca.cable or not cb.cable:
+                    return 999999
+                if (cb.cable.capacity or 0) >= (ca.cable.capacity or 0):
+                    return cb.core_number or 0
+                return ca.core_number or 0
+
+            splices = sorted(splices, key=get_feeder_core_num)
+
             lines = []
             for sp in splices:
                 ca = sp.core_a
@@ -80,7 +95,8 @@ def sync_all_splice_descriptions(db: Session):
 
                 t_lbl = format_tube_label(feeder_core.tube_number or 1)
                 c_in_t = ((feeder_core.core_number - 1) % 12) + 1
-                entry = f"[{feeder_c.name}] {t_lbl} / Core {c_in_t} ({feeder_core.color}) ➔ {drop_c.name}"
+                dest_info = f" (Core {drop_core.core_number})" if (drop_c.capacity or 0) > 2 else ""
+                entry = f"[{feeder_c.name}] {t_lbl} / Core {c_in_t} ({feeder_core.color}) ➔ {drop_c.name}{dest_info}"
                 if entry not in lines:
                     lines.append(entry)
 
@@ -107,6 +123,17 @@ def sync_all_splice_descriptions(db: Session):
                     cable.description = None
                 continue
 
+            # Urutkan berdasarkan nomor core kabel ini
+            def get_cable_core_num(sp):
+                ca = sp.core_a
+                cb = sp.core_b
+                if not ca or not cb:
+                    return 999999
+                c = ca if ca.cable_id == cable.id else cb
+                return c.core_number or 0
+
+            splices = sorted(splices, key=get_cable_core_num)
+
             lines = []
             is_feeder = (cable.capacity or 0) > 4
 
@@ -124,7 +151,8 @@ def sync_all_splice_descriptions(db: Session):
                 if is_feeder:
                     t_lbl = format_tube_label(this_core.tube_number or 1)
                     c_in_t = ((this_core.core_number - 1) % 12) + 1
-                    item = f"via {cl_name}: {t_lbl} / Core {c_in_t} ({this_core.color}) ➔ {other_cable.name}"
+                    dest_info = f" (Core {other_core.core_number})" if (other_cable.capacity or 0) > 2 else ""
+                    item = f"via {cl_name}: {t_lbl} / Core {c_in_t} ({this_core.color}) ➔ {other_cable.name}{dest_info}"
                 else:
                     ot_lbl = format_tube_label(other_core.tube_number or 1)
                     oc_in_t = ((other_core.core_number - 1) % 12) + 1
@@ -228,27 +256,47 @@ def batch_connect_cables(payload: BatchSplicePayload, db: Session = Depends(get_
             target_str = f" - {payload.petik_target}" if payload.petik_target else ""
             payload.custom_note = f"{payload.petik_tube} / {payload.petik_core}{target_str}"
 
-    # Validate start core indices
-    if payload.start_core_a > len(cores_a):
-        raise HTTPException(
-            status_code=400,
-            detail=f"Start Core A ({payload.start_core_a}) melebihi kapasitas kabel '{cable_a.name}' yang hanya memiliki {len(cores_a)} core. Gunakan Core 1 s/d {len(cores_a)}."
-        )
-    if payload.start_core_b > len(cores_b):
-        raise HTTPException(
-            status_code=400,
-            detail=f"Start Core B ({payload.start_core_b}) melebihi kapasitas kabel '{cable_b.name}' yang hanya memiliki {len(cores_b)} core. Gunakan Core 1 s/d {len(cores_b)}."
-        )
+    core_pairs = []
+    if payload.selected_cores_a and payload.selected_cores_b:
+        # Mode Custom Checklist: Sambungkan pasangan nomor core yang dipilih
+        for num_a, num_b in zip(payload.selected_cores_a, payload.selected_cores_b):
+            idx_a = num_a - 1
+            idx_b = num_b - 1
+            if 0 <= idx_a < len(cores_a) and 0 <= idx_b < len(cores_b):
+                core_pairs.append((cores_a[idx_a], cores_b[idx_b]))
+    else:
+        # Validate start core indices
+        if payload.start_core_a > len(cores_a):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Start Core A ({payload.start_core_a}) melebihi kapasitas kabel '{cable_a.name}' yang hanya memiliki {len(cores_a)} core. Gunakan Core 1 s/d {len(cores_a)}."
+            )
+        if payload.start_core_b > len(cores_b):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Start Core B ({payload.start_core_b}) melebihi kapasitas kabel '{cable_b.name}' yang hanya memiliki {len(cores_b)} core. Gunakan Core 1 s/d {len(cores_b)}."
+            )
 
-    for i in range(payload.count):
-        idx_a = payload.start_core_a - 1 + i
-        idx_b = payload.start_core_b - 1 + i
+        for i in range(payload.count):
+            idx_a = payload.start_core_a - 1 + i
+            idx_b = payload.start_core_b - 1 + i
+            if idx_a >= len(cores_a) or idx_b >= len(cores_b):
+                break
+            core_pairs.append((cores_a[idx_a], cores_b[idx_b]))
 
-        if idx_a >= len(cores_a) or idx_b >= len(cores_b):
-            break
-
-        ca = cores_a[idx_a]
-        cb = cores_b[idx_b]
+    skipped_count = 0
+    for ca, cb in core_pairs:
+        # Jika opsi skip_spliced aktif dan core ini sudah tersambung ke kabel LAIN (misal sudah dipetik ke ODP):
+        if payload.skip_spliced:
+            other_splice = db.query(Splice).filter(
+                ((Splice.core_a_id == ca.id) & (Splice.core_b_id != cb.id)) |
+                ((Splice.core_b_id == ca.id) & (Splice.core_a_id != cb.id)) |
+                ((Splice.core_a_id == cb.id) & (Splice.core_b_id != ca.id)) |
+                ((Splice.core_b_id == cb.id) & (Splice.core_a_id != ca.id))
+            ).first()
+            if other_splice:
+                skipped_count += 1
+                continue
 
         # Bersihkan splice lama jika core ca atau cb sudah pernah tersambung ke core lain (koreksi sambungan)
         old_splices = db.query(Splice).filter(
@@ -297,9 +345,8 @@ def batch_connect_cables(payload: BatchSplicePayload, db: Session = Depends(get_
         already_spliced = sum(1 for c in cores_a if c.status == "Spliced")
         raise HTTPException(
             status_code=400,
-            detail=f"Tidak ada core yang bisa disambung. "
-                   f"Kabel '{cable_a.name}' memiliki {len(cores_a)} core total, {already_spliced} sudah tersambung. "
-                   f"Pastikan Start Core A ({payload.start_core_a}) dan Start Core B ({payload.start_core_b}) valid dan core belum pernah disambung sebelumnya."
+            detail=f"Tidak ada core yang disambungkan (semua core terpilih sudah tersambung atau dilewati). "
+                   f"Kabel '{cable_a.name}' memiliki {len(cores_a)} core total, {already_spliced} sudah tersambung."
         )
 
     if payload.auto_update_description:
@@ -354,9 +401,11 @@ def batch_connect_cables(payload: BatchSplicePayload, db: Session = Depends(get_
     db.refresh(cable_a)
     db.refresh(cable_b)
 
+    skip_msg = f" (otomatis melewati {skipped_count} core yang sudah dipetik/tersambung)" if skipped_count > 0 else ""
     return {
-        "message": f"Berhasil menyambungkan {spliced_count} core antara '{cable_a.name}' dan '{cable_b.name}'",
+        "message": f"Berhasil menyambungkan {spliced_count} core antara '{cable_a.name}' dan '{cable_b.name}'{skip_msg}",
         "spliced_count": spliced_count,
+        "skipped_count": skipped_count,
         "closure_name": closure.name if closure else None,
         "details": splice_details,
         "description_a": cable_a.description,
