@@ -25,6 +25,114 @@ class BatchSplicePayload(BaseModel):
     petik_core: Optional[str] = None # e.g. "Core 3 (Hijau)"
     petik_target: Optional[str] = None
 
+TUBE_COLOR_MAP = {
+    1: "Biru",
+    2: "Oranye",
+    3: "Hijau",
+    4: "Cokelat",
+    5: "Abu-abu",
+    6: "Putih",
+    7: "Merah",
+    8: "Hitam",
+    9: "Kuning",
+    10: "Ungu",
+    11: "Pink",
+    12: "Toska"
+}
+
+def format_tube_label(tube_num: int) -> str:
+    color = TUBE_COLOR_MAP.get(tube_num, "")
+    return f"Tube {tube_num} ({color})" if color else f"Tube {tube_num}"
+
+def sync_all_splice_descriptions(db: Session):
+    """
+    Menyinkronkan deskripsi semua Joint Closure (JC) dan Kabel (Feeder maupun Dropcore)
+    berdasarkan data relasi sambungan fisik (Splice) yang ada di database.
+    """
+    try:
+        from sqlalchemy import func
+        # 1. Sync Joint Closures (Devices)
+        closures = db.query(Device).filter(
+            func.lower(Device.device_type).in_(["closure", "joint closure", "joint box"])
+        ).all()
+
+        for cl in closures:
+            splices = db.query(Splice).filter(Splice.closure_id == cl.id).all()
+            if not splices:
+                continue
+
+            lines = []
+            for sp in splices:
+                ca = sp.core_a
+                cb = sp.core_b
+                if not ca or not cb or not ca.cable or not cb.cable:
+                    continue
+
+                # Tentukan feeder (kapasitas lebih besar) dan drop
+                if (cb.cable.capacity or 0) >= (ca.cable.capacity or 0):
+                    feeder_c, feeder_core = cb.cable, cb
+                    drop_c, drop_core = ca.cable, ca
+                else:
+                    feeder_c, feeder_core = ca.cable, ca
+                    drop_c, drop_core = cb.cable, cb
+
+                t_lbl = format_tube_label(feeder_core.tube_number or 1)
+                c_in_t = ((feeder_core.core_number - 1) % 12) + 1
+                entry = f"[{feeder_c.name}] {t_lbl} / Core {c_in_t} ({feeder_core.color}) ➔ {drop_c.name}"
+                if entry not in lines:
+                    lines.append(entry)
+
+            if lines:
+                cl.description = " | ".join(lines)
+
+        # 2. Sync Cables (Feeder/Distribution dan Dropcore)
+        cables = db.query(Cable).all()
+        for cable in cables:
+            cable_cores = db.query(Core).filter(Core.cable_id == cable.id).all()
+            core_ids = [c.id for c in cable_cores]
+            if not core_ids:
+                continue
+
+            splices = db.query(Splice).filter(
+                (Splice.core_a_id.in_(core_ids)) | (Splice.core_b_id.in_(core_ids))
+            ).all()
+
+            if not splices:
+                continue
+
+            lines = []
+            is_feeder = (cable.capacity or 0) > 4
+
+            for sp in splices:
+                ca = sp.core_a
+                cb = sp.core_b
+                if not ca or not cb or not ca.cable or not cb.cable:
+                    continue
+
+                this_core = ca if ca.cable_id == cable.id else cb
+                other_core = cb if ca.cable_id == cable.id else ca
+                other_cable = other_core.cable
+                cl_name = sp.closure.name if sp.closure else "JC"
+
+                if is_feeder:
+                    t_lbl = format_tube_label(this_core.tube_number or 1)
+                    c_in_t = ((this_core.core_number - 1) % 12) + 1
+                    item = f"via {cl_name}: {t_lbl} / Core {c_in_t} ({this_core.color}) ➔ {other_cable.name}"
+                else:
+                    ot_lbl = format_tube_label(other_core.tube_number or 1)
+                    oc_in_t = ((other_core.core_number - 1) % 12) + 1
+                    item = f"Sambung ke {other_cable.name} via {cl_name} ({ot_lbl} / Core {oc_in_t} ({other_core.color}))"
+
+                if item not in lines:
+                    lines.append(item)
+
+            if lines:
+                cable.description = " | ".join(lines)
+
+        db.commit()
+    except Exception as e:
+        print(f"Error syncing splice descriptions: {e}")
+
 def get_db():
     db = SessionLocal()
     try:
@@ -204,6 +312,11 @@ def batch_connect_cables(payload: BatchSplicePayload, db: Session = Depends(get_
 
     db.commit()
 
+    # Otomatis sinkronkan deskripsi semua kabel dan JC terkait dari data splice fisik
+    sync_all_splice_descriptions(db)
+    db.refresh(cable_a)
+    db.refresh(cable_b)
+
     return {
         "message": f"Berhasil menyambungkan {spliced_count} core antara '{cable_a.name}' dan '{cable_b.name}'",
         "spliced_count": spliced_count,
@@ -212,6 +325,13 @@ def batch_connect_cables(payload: BatchSplicePayload, db: Session = Depends(get_
         "description_a": cable_a.description,
         "description_b": cable_b.description
     }
+
+@router.post("/sync-descriptions")
+@router.get("/sync-descriptions")
+def trigger_sync_descriptions(db: Session = Depends(get_db)):
+    """Sinkronkan ulang seluruh deskripsi JC dan kabel dari data tabel Splice."""
+    sync_all_splice_descriptions(db)
+    return {"message": "Semua deskripsi Joint Closure dan Kabel berhasil disinkronkan dari data Splice."}
 
 @router.post("", response_model=SpliceResponse)
 @router.post("/", response_model=SpliceResponse)

@@ -62,6 +62,19 @@ def on_startup():
     except Exception as e:
         print(f"Admin init error: {e}")
 
+    # 5. Auto-sync descriptions for all Joint Closures & Cables from actual splices
+    try:
+        from app.db.session import SessionLocal
+        from app.api.v1.endpoints.splices import sync_all_splice_descriptions
+        db_session = SessionLocal()
+        try:
+            sync_all_splice_descriptions(db_session)
+            print("Auto-synced all Joint Closure & Cable splice descriptions.")
+        finally:
+            db_session.close()
+    except Exception as e:
+        print(f"Splice descriptions auto-sync error: {e}")
+
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,

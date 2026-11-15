@@ -296,8 +296,14 @@ def unsplice_all_cores(cable_id: uuid.UUID, db: Session = Depends(get_db)):
     
     # Reset description of this cable
     db_cable.description = None
-    
     db.commit()
+
+    try:
+        from app.api.v1.endpoints.splices import sync_all_splice_descriptions
+        sync_all_splice_descriptions(db)
+    except Exception:
+        pass
+
     return {
         "message": f"Berhasil menghapus {deleted_splices} splice dari kabel '{db_cable.name}'. Core dibebaskan.",
         "deleted_splices": deleted_splices,

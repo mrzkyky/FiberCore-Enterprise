@@ -1282,11 +1282,16 @@ export default function GisTopology() {
                     <p><strong>Capacity:</strong> {popupInfo.feature.properties.capacity} Core</p>
                     <p><strong>Panjang Kabel:</strong> <span className="font-bold text-emerald-600 font-mono">{formatLength(popupInfo.feature.properties.length || 0)}</span></p>
                     {popupInfo.feature.properties.description && popupInfo.feature.properties.description.trim() !== '' && (
-                      <div className="bg-gray-50 p-2 rounded border border-gray-200 mt-2 mb-2">
-                        <p className="text-sm text-gray-800 font-medium">Description:</p>
-                        <p className="text-xs text-gray-600">
-                          {popupInfo.feature.properties.description}
-                        </p>
+                      <div className="bg-gray-50 p-2.5 rounded-lg border border-gray-200 mt-2 mb-2 max-h-[160px] overflow-y-auto">
+                        <p className="text-[11px] text-gray-500 font-bold uppercase tracking-wider mb-1.5">Keterangan Sambungan:</p>
+                        <div className="space-y-1">
+                          {popupInfo.feature.properties.description.split(' | ').map((part: string, idx: number) => (
+                            <div key={idx} className="text-xs text-gray-800 font-mono bg-white p-1.5 rounded border border-gray-200 flex items-start gap-1.5 leading-relaxed">
+                              <span className="text-purple-600 font-bold shrink-0">⚡</span>
+                              <span>{part.trim()}</span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     )}
                     <div className="mt-3 flex flex-col gap-2">
