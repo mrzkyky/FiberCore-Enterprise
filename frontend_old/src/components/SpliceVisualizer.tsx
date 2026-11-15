@@ -10,10 +10,15 @@ interface Splice {
 export default function SpliceVisualizer({ splices }: { splices: Splice[] }) {
   const getStrokeColor = (color: string) => {
     const map: Record<string, string> = {
-      Blue: '#3b82f6', Orange: '#f97316', Green: '#22c55e',
-      Brown: '#92400e', Slate: '#94a3b8', White: '#e2e8f0',
+      Biru: '#3b82f6', Oren: '#f97316', Hijau: '#22c55e',
+      Cokelat: '#92400e', Abu: '#94a3b8', Putih: '#e2e8f0',
+      Merah: '#ef4444', Hitam: '#1e293b', Kuning: '#facc15',
+      Ungu: '#a855f7', Pink: '#fb7185', Toska: '#5eead4',
+      // Compatibility aliases:
+      Blue: '#3b82f6', Orange: '#f97316', Oranye: '#f97316', Green: '#22c55e',
+      Brown: '#92400e', Coklat: '#92400e', Slate: '#94a3b8', 'Abu-abu': '#94a3b8', White: '#e2e8f0',
       Red: '#ef4444', Black: '#1e293b', Yellow: '#facc15',
-      Violet: '#a855f7', Rose: '#fb7185', Aqua: '#5eead4'
+      Violet: '#a855f7', Rose: '#fb7185', Aqua: '#5eead4', Tosca: '#5eead4'
     };
     return map[color] || '#cbd5e1';
   };

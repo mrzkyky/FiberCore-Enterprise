@@ -14,11 +14,27 @@ import {
 } from 'lucide-react';
 
 const FIBER_COLOR_CLASSES: Record<string, string> = {
+  Biru: 'bg-blue-600 text-white',
+  Oren: 'bg-orange-500 text-white',
+  Hijau: 'bg-green-600 text-white',
+  Cokelat: 'bg-amber-800 text-white',
+  Abu: 'bg-slate-400 text-white',
+  Putih: 'bg-white text-gray-900 border border-gray-300',
+  Merah: 'bg-red-600 text-white',
+  Hitam: 'bg-gray-900 text-white',
+  Kuning: 'bg-yellow-400 text-gray-900',
+  Ungu: 'bg-purple-600 text-white',
+  Pink: 'bg-pink-400 text-white',
+  Toska: 'bg-teal-400 text-gray-900',
+  // Alias & kompatibilitas:
   Blue: 'bg-blue-600 text-white',
   Orange: 'bg-orange-500 text-white',
+  Oranye: 'bg-orange-500 text-white',
   Green: 'bg-green-600 text-white',
   Brown: 'bg-amber-800 text-white',
+  Coklat: 'bg-amber-800 text-white',
   Slate: 'bg-slate-400 text-white',
+  'Abu-abu': 'bg-slate-400 text-white',
   White: 'bg-white text-gray-900 border border-gray-300',
   Red: 'bg-red-600 text-white',
   Black: 'bg-gray-900 text-white',
@@ -26,18 +42,7 @@ const FIBER_COLOR_CLASSES: Record<string, string> = {
   Violet: 'bg-purple-600 text-white',
   Rose: 'bg-pink-400 text-white',
   Aqua: 'bg-teal-400 text-gray-900',
-  Biru: 'bg-blue-600 text-white',
-  Oranye: 'bg-orange-500 text-white',
-  Hijau: 'bg-green-600 text-white',
-  Cokelat: 'bg-amber-800 text-white',
-  'Abu-abu': 'bg-slate-400 text-white',
-  Putih: 'bg-white text-gray-900 border border-gray-300',
-  Merah: 'bg-red-600 text-white',
-  Hitam: 'bg-gray-900 text-white',
-  Kuning: 'bg-yellow-400 text-gray-900',
-  Ungu: 'bg-purple-600 text-white',
-  Pink: 'bg-pink-400 text-white',
-  Toska: 'bg-teal-400 text-gray-900'
+  Tosca: 'bg-teal-400 text-gray-900'
 };
 
 const getFiberBadge = (color: string) => FIBER_COLOR_CLASSES[color] || 'bg-gray-500 text-white';
@@ -2028,10 +2033,10 @@ export default function GisTopology() {
                         className="w-full px-2 py-1.5 border border-emerald-300 rounded text-xs bg-white text-gray-800"
                       >
                         <option value="Tube 1 (Biru)">Tube 1 (Biru)</option>
-                        <option value="Tube 2 (Oranye)">Tube 2 (Oranye)</option>
+                        <option value="Tube 2 (Oren)">Tube 2 (Oren)</option>
                         <option value="Tube 3 (Hijau)">Tube 3 (Hijau)</option>
                         <option value="Tube 4 (Cokelat)">Tube 4 (Cokelat)</option>
-                        <option value="Tube 5 (Abu-abu)">Tube 5 (Abu-abu)</option>
+                        <option value="Tube 5 (Abu)">Tube 5 (Abu)</option>
                         <option value="Tube 6 (Putih)">Tube 6 (Putih)</option>
                       </select>
                     </div>
@@ -2043,10 +2048,10 @@ export default function GisTopology() {
                         className="w-full px-2 py-1.5 border border-emerald-300 rounded text-xs bg-white text-gray-800"
                       >
                         <option value="Core 1 (Biru)">Core 1 (Biru)</option>
-                        <option value="Core 2 (Oranye)">Core 2 (Oranye)</option>
+                        <option value="Core 2 (Oren)">Core 2 (Oren)</option>
                         <option value="Core 3 (Hijau)">Core 3 (Hijau)</option>
                         <option value="Core 4 (Cokelat)">Core 4 (Cokelat)</option>
-                        <option value="Core 5 (Abu-abu)">Core 5 (Abu-abu)</option>
+                        <option value="Core 5 (Abu)">Core 5 (Abu)</option>
                         <option value="Core 6 (Putih)">Core 6 (Putih)</option>
                         <option value="Core 7 (Merah)">Core 7 (Merah)</option>
                         <option value="Core 8 (Hitam)">Core 8 (Hitam)</option>
@@ -2466,10 +2471,10 @@ export default function GisTopology() {
                         className="w-full px-2 py-1.5 border border-emerald-300 rounded text-xs bg-white text-gray-800"
                       >
                         <option value="Tube 1 (Biru)">Tube 1 (Biru)</option>
-                        <option value="Tube 2 (Oranye)">Tube 2 (Oranye)</option>
+                        <option value="Tube 2 (Oren)">Tube 2 (Oren)</option>
                         <option value="Tube 3 (Hijau)">Tube 3 (Hijau)</option>
                         <option value="Tube 4 (Cokelat)">Tube 4 (Cokelat)</option>
-                        <option value="Tube 5 (Abu-abu)">Tube 5 (Abu-abu)</option>
+                        <option value="Tube 5 (Abu)">Tube 5 (Abu)</option>
                         <option value="Tube 6 (Putih)">Tube 6 (Putih)</option>
                       </select>
                     </div>
@@ -2487,10 +2492,10 @@ export default function GisTopology() {
                         className="w-full px-2 py-1.5 border border-emerald-300 rounded text-xs bg-white text-gray-800"
                       >
                         <option value="Core 1 (Biru)">Core 1 (Biru)</option>
-                        <option value="Core 2 (Oranye)">Core 2 (Oranye)</option>
+                        <option value="Core 2 (Oren)">Core 2 (Oren)</option>
                         <option value="Core 3 (Hijau)">Core 3 (Hijau)</option>
                         <option value="Core 4 (Cokelat)">Core 4 (Cokelat)</option>
-                        <option value="Core 5 (Abu-abu)">Core 5 (Abu-abu)</option>
+                        <option value="Core 5 (Abu)">Core 5 (Abu)</option>
                         <option value="Core 6 (Putih)">Core 6 (Putih)</option>
                         <option value="Core 7 (Merah)">Core 7 (Merah)</option>
                         <option value="Core 8 (Hitam)">Core 8 (Hitam)</option>
@@ -2648,7 +2653,7 @@ export default function GisTopology() {
                         {(batchCoresA && batchCoresA.length > 0 ? batchCoresA : Array.from({length: 12}, (_, i) => ({ 
                           core_number: i + 1, 
                           tube_number: 1, 
-                          color: ['Blue','Orange','Green','Brown','Slate','White','Red','Black','Yellow','Violet','Rose','Aqua'][i], 
+                          color: ['Biru','Oren','Hijau','Cokelat','Abu','Putih','Merah','Hitam','Kuning','Ungu','Pink','Toska'][i], 
                           status: 'Free' 
                         }))).map((core: any) => {
                           const isSelected = batchSpliceForm.selected_cores_a.includes(core.core_number);

@@ -89,8 +89,8 @@ def create_drawn_cable(payload: CableDrawPayload, db: Session = Depends(get_db))
     db.commit()
     db.refresh(db_cable)
     
-    # Standard 12 TIA Fiber Colors
-    colors = ["Blue", "Orange", "Green", "Brown", "Slate", "White", "Red", "Black", "Yellow", "Violet", "Rose", "Aqua"]
+    # Standard 12 TIA Fiber Colors (Standar Lapangan Indonesia)
+    colors = ["Biru", "Oren", "Hijau", "Cokelat", "Abu", "Putih", "Merah", "Hitam", "Kuning", "Ungu", "Pink", "Toska"]
     cores = []
     for i in range(1, payload.capacity + 1):
         cores.append(Core(
@@ -119,10 +119,10 @@ def create_cable(cable_in: CableCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(db_cable)
     
-    # Fiber Color Standard (12 Colors)
+    # Fiber Color Standard (12 Colors - Standar Lapangan Indonesia)
     colors = [
-        "Blue", "Orange", "Green", "Brown", "Slate", "White", 
-        "Red", "Black", "Yellow", "Violet", "Rose", "Aqua"
+        "Biru", "Oren", "Hijau", "Cokelat", "Abu", "Putih", 
+        "Merah", "Hitam", "Kuning", "Ungu", "Pink", "Toska"
     ]
     
     cores_to_add = []

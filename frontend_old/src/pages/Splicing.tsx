@@ -169,10 +169,15 @@ export default function Splicing() {
 
   const getTailwindColor = (color: string) => {
     const map: Record<string, string> = {
-      Blue: 'bg-blue-500', Orange: 'bg-orange-500', Green: 'bg-green-500',
-      Brown: 'bg-amber-800', Slate: 'bg-slate-400', White: 'bg-white text-black',
+      Biru: 'bg-blue-500', Oren: 'bg-orange-500', Hijau: 'bg-green-500',
+      Cokelat: 'bg-amber-800', Abu: 'bg-slate-400', Putih: 'bg-white text-black',
+      Merah: 'bg-red-500', Hitam: 'bg-black border border-gray-600', Kuning: 'bg-yellow-400 text-black',
+      Ungu: 'bg-purple-500', Pink: 'bg-pink-400', Toska: 'bg-teal-300 text-black',
+      // Compatibility aliases:
+      Blue: 'bg-blue-500', Orange: 'bg-orange-500', Oranye: 'bg-orange-500', Green: 'bg-green-500',
+      Brown: 'bg-amber-800', Coklat: 'bg-amber-800', Slate: 'bg-slate-400', 'Abu-abu': 'bg-slate-400', White: 'bg-white text-black',
       Red: 'bg-red-500', Black: 'bg-black border border-gray-600', Yellow: 'bg-yellow-400 text-black',
-      Violet: 'bg-purple-500', Rose: 'bg-pink-400', Aqua: 'bg-teal-300 text-black'
+      Violet: 'bg-purple-500', Rose: 'bg-pink-400', Aqua: 'bg-teal-300 text-black', Tosca: 'bg-teal-300 text-black'
     };
     return map[color] || 'bg-gray-500';
   };

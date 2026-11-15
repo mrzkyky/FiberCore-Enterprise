@@ -261,7 +261,7 @@ def parse_kml_coordinates(kml_content: bytes, kmz_zip: zipfile.ZipFile = None):
         
     return {"routes": routes, "points": points_data}
 
-TIA_COLORS = ["Blue", "Orange", "Green", "Brown", "Slate", "White", "Red", "Black", "Yellow", "Violet", "Rose", "Aqua"]
+TIA_COLORS = ["Biru", "Oren", "Hijau", "Cokelat", "Abu", "Putih", "Merah", "Hitam", "Kuning", "Ungu", "Pink", "Toska"]
 
 @router.post("/kml")
 async def upload_kml(

@@ -53,6 +53,30 @@ def on_startup():
                 WHERE tube_number > 1 AND core_number <= 12;
             """))
             print("Cores numbering migration applied successfully.")
+
+            # Standarisasi Bahasa Warna Core Lapangan:
+            # Biru, Oren, Hijau, Cokelat, Abu, Putih, Merah, Hitam, Kuning, Ungu, Pink, Toska
+            color_updates = {
+                "Blue": "Biru",
+                "Orange": "Oren",
+                "Oranye": "Oren",
+                "Green": "Hijau",
+                "Brown": "Cokelat",
+                "Coklat": "Cokelat",
+                "Slate": "Abu",
+                "Abu-abu": "Abu",
+                "White": "Putih",
+                "Red": "Merah",
+                "Black": "Hitam",
+                "Yellow": "Kuning",
+                "Violet": "Ungu",
+                "Rose": "Pink",
+                "Aqua": "Toska",
+                "Tosca": "Toska"
+            }
+            for old_c, new_c in color_updates.items():
+                conn.execute(text(f"UPDATE cores SET color = '{new_c}' WHERE color = '{old_c}';"))
+            print("Cores color standard normalization applied successfully.")
         except Exception as e:
             print(f"Migration error: {e}")
 

@@ -230,10 +230,16 @@ export default function Cables() {
 
   const getTailwindColor = (color: string) => {
     const map: Record<string, string> = {
-      Blue: 'bg-blue-500 text-white', Orange: 'bg-orange-500 text-white', Green: 'bg-green-500 text-white',
-      Brown: 'bg-amber-800 text-white', Slate: 'bg-slate-400 text-white', White: 'bg-white text-black border border-gray-300',
+      Biru: 'bg-blue-500 text-white', Oren: 'bg-orange-500 text-white', Hijau: 'bg-green-500 text-white',
+      Cokelat: 'bg-amber-800 text-white', Abu: 'bg-slate-400 text-white', Putih: 'bg-white text-black border border-gray-300',
+      Merah: 'bg-red-500 text-white', Hitam: 'bg-black text-white border border-gray-600', Kuning: 'bg-yellow-400 text-black',
+      Ungu: 'bg-purple-500 text-white', Pink: 'bg-pink-400 text-white', Toska: 'bg-teal-300 text-black',
+      // Compatibility aliases:
+      Blue: 'bg-blue-500 text-white', Orange: 'bg-orange-500 text-white', Oranye: 'bg-orange-500 text-white',
+      Green: 'bg-green-500 text-white', Brown: 'bg-amber-800 text-white', Coklat: 'bg-amber-800 text-white',
+      Slate: 'bg-slate-400 text-white', 'Abu-abu': 'bg-slate-400 text-white', White: 'bg-white text-black border border-gray-300',
       Red: 'bg-red-500 text-white', Black: 'bg-black text-white border border-gray-600', Yellow: 'bg-yellow-400 text-black',
-      Violet: 'bg-purple-500 text-white', Rose: 'bg-pink-400 text-white', Aqua: 'bg-teal-300 text-black'
+      Violet: 'bg-purple-500 text-white', Rose: 'bg-pink-400 text-white', Aqua: 'bg-teal-300 text-black', Tosca: 'bg-teal-300 text-black'
     };
     return map[color] || 'bg-gray-500 text-white';
   };
@@ -421,10 +427,10 @@ export default function Cables() {
                         const tNum = Number(tubeNum);
                         const tubeMeta = {
                           1: { name: 'Tube 1 (Biru)', badge: 'bg-blue-50 text-blue-700 border-blue-200' },
-                          2: { name: 'Tube 2 (Oranye)', badge: 'bg-orange-50 text-orange-700 border-orange-200' },
+                          2: { name: 'Tube 2 (Oren)', badge: 'bg-orange-50 text-orange-700 border-orange-200' },
                           3: { name: 'Tube 3 (Hijau)', badge: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
                           4: { name: 'Tube 4 (Cokelat)', badge: 'bg-amber-50 text-amber-800 border-amber-200' },
-                          5: { name: 'Tube 5 (Abu-abu)', badge: 'bg-slate-50 text-slate-700 border-slate-200' },
+                          5: { name: 'Tube 5 (Abu)', badge: 'bg-slate-50 text-slate-700 border-slate-200' },
                           6: { name: 'Tube 6 (Putih)', badge: 'bg-gray-50 text-gray-700 border-gray-200' },
                         }[tNum] || { name: `Tube ${tNum}`, badge: 'bg-gray-50 text-gray-700 border-gray-200' };
 

@@ -30,10 +30,10 @@ class BatchSplicePayload(BaseModel):
 
 TUBE_COLOR_MAP = {
     1: "Biru",
-    2: "Oranye",
+    2: "Oren",
     3: "Hijau",
     4: "Cokelat",
-    5: "Abu-abu",
+    5: "Abu",
     6: "Putih",
     7: "Merah",
     8: "Hitam",
