@@ -47,6 +47,31 @@ const FIBER_COLOR_CLASSES: Record<string, string> = {
 
 const getFiberBadge = (color: string) => FIBER_COLOR_CLASSES[color] || 'bg-gray-500 text-white';
 
+const STANDARD_TUBES = [
+  { num: 1, name: 'Tube 1 (Biru)', color: 'Biru' },
+  { num: 2, name: 'Tube 2 (Oren)', color: 'Oren' },
+  { num: 3, name: 'Tube 3 (Hijau)', color: 'Hijau' },
+  { num: 4, name: 'Tube 4 (Cokelat)', color: 'Cokelat' },
+  { num: 5, name: 'Tube 5 (Abu)', color: 'Abu' },
+  { num: 6, name: 'Tube 6 (Putih)', color: 'Putih' },
+  { num: 7, name: 'Tube 7 (Merah)', color: 'Merah' },
+  { num: 8, name: 'Tube 8 (Hitam)', color: 'Hitam' },
+  { num: 9, name: 'Tube 9 (Kuning)', color: 'Kuning' },
+  { num: 10, name: 'Tube 10 (Ungu)', color: 'Ungu' },
+  { num: 11, name: 'Tube 11 (Pink)', color: 'Pink' },
+  { num: 12, name: 'Tube 12 (Toska)', color: 'Toska' },
+];
+
+const STANDARD_CORE_NAMES = [
+  'Biru', 'Oren', 'Hijau', 'Cokelat', 'Abu', 'Putih',
+  'Merah', 'Hitam', 'Kuning', 'Ungu', 'Pink', 'Toska'
+];
+
+const getTubeCount = (capacity?: number) => {
+  if (!capacity || capacity <= 0) return 1;
+  return Math.max(1, Math.ceil(capacity / 12));
+};
+
 export default function GisTopology() {
   const token = useAuthStore(state => state.token);
   const queryClient = useQueryClient();
@@ -87,7 +112,9 @@ export default function GisTopology() {
     petik_core: 'Core 1 (Biru)',
     petik_target: '',
     skip_spliced: true, // Default true: otomatis lewati core yang sudah dipetik/tersambung
-    selection_mode: 'range', // 'range' | 'custom'
+    selection_mode: 'tube', // 'tube' | 'range' | 'custom'
+    selected_tube_a: 1,
+    selected_tube_b: 1,
     selected_cores_a: [] as number[],
   });
   const [isBatchSplicing, setIsBatchSplicing] = useState<boolean>(false);
@@ -295,6 +322,23 @@ export default function GisTopology() {
       return res.data;
     },
     enabled: !!batchSpliceForm.cable_a_id && batchSpliceModal
+  });
+
+  const selectedCableB = useMemo(() => {
+    if (!allGeoData?.features || !batchSpliceForm.cable_b_id) return null;
+    return allGeoData.features.find((f: any) => f.properties?.id === batchSpliceForm.cable_b_id);
+  }, [allGeoData, batchSpliceForm.cable_b_id]);
+
+  const { data: batchCoresB } = useQuery<any[]>({
+    queryKey: ['cable-cores', batchSpliceForm.cable_b_id],
+    queryFn: async () => {
+      if (!batchSpliceForm.cable_b_id) return [];
+      const res = await axios.get(`/api/v1/cables/${batchSpliceForm.cable_b_id}/cores`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      return res.data;
+    },
+    enabled: !!batchSpliceForm.cable_b_id && batchSpliceModal
   });
 
   const sortedClosures = useMemo(() => {
@@ -568,6 +612,7 @@ export default function GisTopology() {
     }
 
     const isCustom = batchSpliceForm.splice_type === 'straight' && batchSpliceForm.selection_mode === 'custom';
+    const isTube = batchSpliceForm.splice_type === 'straight' && batchSpliceForm.selection_mode === 'tube';
     if (isCustom && (!batchSpliceForm.selected_cores_a || batchSpliceForm.selected_cores_a.length === 0)) {
       alert("Harap centang minimal 1 core untuk disambung!");
       return;
@@ -575,10 +620,25 @@ export default function GisTopology() {
 
     setIsBatchSplicing(true);
 
+    let startA = Number(batchSpliceForm.start_core_a) || 1;
+    let startB = Number(batchSpliceForm.start_core_b) || 1;
+    let count = Number(batchSpliceForm.count) || 12;
+
+    if (isTube) {
+      startA = (Number(batchSpliceForm.selected_tube_a) - 1) * 12 + 1;
+      startB = (Number(batchSpliceForm.selected_tube_b) - 1) * 12 + 1;
+      count = 12;
+    }
+
     let note = batchSpliceForm.custom_note.trim();
     if (batchSpliceForm.splice_type === 'petik') {
       const petikDesc = `${batchSpliceForm.petik_tube} / ${batchSpliceForm.petik_core}${batchSpliceForm.petik_target ? ' - ' + batchSpliceForm.petik_target : ''}`;
       note = note ? `${petikDesc} | ${note}` : petikDesc;
+    } else if (isTube) {
+      const tubeAName = STANDARD_TUBES.find(t => t.num === Number(batchSpliceForm.selected_tube_a))?.name || `Tube ${batchSpliceForm.selected_tube_a}`;
+      const tubeBName = STANDARD_TUBES.find(t => t.num === Number(batchSpliceForm.selected_tube_b))?.name || `Tube ${batchSpliceForm.selected_tube_b}`;
+      const tubeNote = `Sambung ${tubeAName} ➔ ${tubeBName}`;
+      note = note ? `${tubeNote} (${note})` : tubeNote;
     }
 
     try {
@@ -586,9 +646,9 @@ export default function GisTopology() {
         cable_a_id: batchSpliceForm.cable_a_id,
         cable_b_id: batchSpliceForm.cable_b_id,
         closure_id: batchSpliceForm.closure_id || null,
-        count: batchSpliceForm.splice_type === 'petik' ? 1 : (Number(batchSpliceForm.count) || 12),
-        start_core_a: Number(batchSpliceForm.start_core_a) || 1,
-        start_core_b: Number(batchSpliceForm.start_core_b) || 1,
+        count: batchSpliceForm.splice_type === 'petik' ? 1 : count,
+        start_core_a: startA,
+        start_core_b: startB,
         auto_update_description: batchSpliceForm.auto_update_description,
         custom_note: note,
         splice_type: batchSpliceForm.splice_type,
@@ -2484,83 +2544,117 @@ export default function GisTopology() {
 
       {/* --- MODAL: SAMBUNG PELEBARAN KABEL (BATCH SPLICING) --- */}
       {batchSpliceModal && (
-        <div className="fixed inset-0 bg-dark-text/40 backdrop-blur-sm flex items-center justify-center z-[2000] p-4">
-          <div className="bg-white border border-dark-border w-full max-w-lg rounded-xl shadow-2xl overflow-hidden flex flex-col">
-            <div className="flex items-center justify-between p-4 border-b border-dark-border bg-dark-surface">
-              <h3 className="text-base font-bold text-dark-text flex items-center gap-2">
-                <GitMerge className="text-purple-600" size={18} />
-                Sambung Pelebaran Kabel (Auto-Splice)
-              </h3>
-              <button onClick={() => setBatchSpliceModal(false)} className="text-dark-muted hover:text-danger transition-colors cursor-pointer">
+        <div className="fixed inset-0 bg-dark-text/40 backdrop-blur-sm flex items-center justify-center z-[2000] p-3 sm:p-5">
+          <div className="bg-white border border-dark-border w-full max-w-3xl lg:max-w-4xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh] animate-in fade-in zoom-in-95 duration-150">
+            {/* Header Sticky */}
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-dark-border bg-dark-surface shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center text-purple-600 shadow-xs">
+                  <GitMerge size={18} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-dark-text">Sambung Pelebaran Kabel (Auto-Splice)</h3>
+                  <p className="text-[11px] text-dark-muted">Sambungkan kabel antar-proyek dan perbarui acuan lapangan otomatis</p>
+                </div>
+              </div>
+              <button 
+                type="button"
+                onClick={() => setBatchSpliceModal(false)} 
+                className="text-dark-muted hover:text-danger p-1 rounded-lg transition-colors cursor-pointer"
+              >
                 <X size={20} />
               </button>
             </div>
 
-            <form onSubmit={handleBatchSplice} className="p-4 space-y-3.5">
-              <p className="text-xs text-dark-muted leading-relaxed">
-                Sambungkan kabel proyek lama dengan kabel proyek baru / pelebaran secara otomatis. Sistem akan mengalokasikan core dan otomatis memperbarui deskripsi kabel.
-              </p>
-
+            {/* Form Scrollable Body */}
+            <form onSubmit={handleBatchSplice} className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+              {/* Mode Sambungan */}
               <div>
-                <label className="block text-xs font-semibold text-dark-text mb-1">Kabel Asal (Proyek Lama)</label>
-                <select
-                  required
-                  value={batchSpliceForm.cable_a_id}
-                  onChange={(e) => setBatchSpliceForm({...batchSpliceForm, cable_a_id: e.target.value})}
-                  className="w-full px-3 py-2 border border-dark-border rounded-lg text-sm bg-white text-dark-text focus:outline-none focus:border-primary"
-                >
-                  <option value="">-- Pilih Kabel Asal --</option>
-                  {availableCables.map(c => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} ({c.capacity} Core) - [{c.region || 'No Region'}]
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-dark-text mb-1">Mode Sambungan</label>
-                <div className="grid grid-cols-2 gap-2">
+                <label className="block text-xs font-bold text-dark-text mb-1.5">Mode Sambungan</label>
+                <div className="grid grid-cols-2 gap-2.5">
                   <button
                     type="button"
                     onClick={() => setBatchSpliceForm(prev => ({ ...prev, splice_type: 'straight' }))}
-                    className={`py-2 px-3 rounded-lg text-xs font-bold border transition-all cursor-pointer flex items-center justify-center gap-1.5 ${batchSpliceForm.splice_type === 'straight' ? 'bg-purple-600 text-white border-purple-600 shadow-xs' : 'bg-white text-dark-text border-dark-border hover:bg-gray-50'}`}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all cursor-pointer flex items-center justify-center gap-2 ${
+                      batchSpliceForm.splice_type === 'straight' 
+                        ? 'bg-purple-600 text-white border-purple-600 shadow-xs ring-2 ring-purple-200' 
+                        : 'bg-white text-dark-text border-dark-border hover:bg-gray-50'
+                    }`}
                   >
-                    ⚡ Pelebaran Lurus (Trunk)
+                    <GitMerge size={15} /> ⚡ Pelebaran Lurus (Trunk / Tube to Tube)
                   </button>
                   <button
                     type="button"
                     onClick={() => setBatchSpliceForm(prev => ({ ...prev, splice_type: 'petik', count: 1, start_core_a: 1, start_core_b: 1 }))}
-                    className={`py-2 px-3 rounded-lg text-xs font-bold border transition-all cursor-pointer flex items-center justify-center gap-1.5 ${batchSpliceForm.splice_type === 'petik' ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs' : 'bg-white text-dark-text border-dark-border hover:bg-gray-50'}`}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all cursor-pointer flex items-center justify-center gap-2 ${
+                      batchSpliceForm.splice_type === 'petik' 
+                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs ring-2 ring-emerald-200' 
+                        : 'bg-white text-dark-text border-dark-border hover:bg-gray-50'
+                    }`}
                   >
-                    🌿 Sambung Petik ke ODP/Drop
+                    <span>🌿</span> Sambung Petik ke ODP / Dropcore
                   </button>
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-dark-text mb-1">Kabel Tujuan (Pelebaran / Proyek Baru)</label>
-                <select
-                  required
-                  value={batchSpliceForm.cable_b_id}
-                  onChange={(e) => setBatchSpliceForm({...batchSpliceForm, cable_b_id: e.target.value})}
-                  className="w-full px-3 py-2 border border-dark-border rounded-lg text-sm bg-white text-dark-text focus:outline-none focus:border-primary"
-                >
-                  <option value="">-- Pilih Kabel Pelebaran / Tujuan --</option>
-                  {availableCables.map(c => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} ({c.capacity} Core) - [{c.region || 'No Region'}]
-                    </option>
-                  ))}
-                </select>
+              {/* Pemilihan 2 Kabel: Kabel Asal & Kabel Tujuan (Grid 2 Kolom) */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 p-3.5 bg-gray-50/90 rounded-xl border border-gray-200">
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-bold text-gray-700">Kabel Asal (Proyek Lama)</label>
+                    {selectedCableA && (
+                      <span className="text-[11px] font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
+                        {selectedCableA.properties?.capacity || 12} Core ({getTubeCount(selectedCableA.properties?.capacity)} Tube)
+                      </span>
+                    )}
+                  </div>
+                  <select
+                    required
+                    value={batchSpliceForm.cable_a_id}
+                    onChange={(e) => setBatchSpliceForm({...batchSpliceForm, cable_a_id: e.target.value})}
+                    className="w-full px-3 py-2 border border-dark-border rounded-lg text-xs bg-white text-dark-text focus:outline-none focus:border-purple-600 shadow-xs font-medium"
+                  >
+                    <option value="">-- Pilih Kabel Asal --</option>
+                    {availableCables.map(c => (
+                      <option key={c.id} value={c.id}>
+                        {c.name} ({c.capacity}C) - [{c.region || 'No Region'}]
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-bold text-gray-700">Kabel Tujuan (Pelebaran / Proyek Baru)</label>
+                    {selectedCableB && (
+                      <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                        {selectedCableB.properties?.capacity || 48} Core ({getTubeCount(selectedCableB.properties?.capacity)} Tube)
+                      </span>
+                    )}
+                  </div>
+                  <select
+                    required
+                    value={batchSpliceForm.cable_b_id}
+                    onChange={(e) => setBatchSpliceForm({...batchSpliceForm, cable_b_id: e.target.value})}
+                    className="w-full px-3 py-2 border border-dark-border rounded-lg text-xs bg-white text-dark-text focus:outline-none focus:border-purple-600 shadow-xs font-medium"
+                  >
+                    <option value="">-- Pilih Kabel Tujuan --</option>
+                    {availableCables.map(c => (
+                      <option key={c.id} value={c.id}>
+                        {c.name} ({c.capacity}C) - [{c.region || 'No Region'}]
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
+              {/* Mode Petik Konfigurasi */}
               {batchSpliceForm.splice_type === 'petik' && (
-                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg space-y-2">
+                <div className="p-3.5 bg-emerald-50/90 border border-emerald-200 rounded-xl space-y-3">
                   <span className="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
                     🌿 Konfigurasi Petik Core Feeder
                   </span>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="block text-[11px] font-semibold text-emerald-900 mb-1">Warna Tube Feeder</label>
                       <select
@@ -2572,14 +2666,11 @@ export default function GisTopology() {
                           const absCore = (tubeNum - 1) * 12 + coreInTube;
                           setBatchSpliceForm({...batchSpliceForm, petik_tube: val, start_core_b: absCore, start_core_a: 1});
                         }}
-                        className="w-full px-2 py-1.5 border border-emerald-300 rounded text-xs bg-white text-gray-800"
+                        className="w-full px-2.5 py-1.5 border border-emerald-300 rounded-lg text-xs bg-white text-gray-800 font-medium"
                       >
-                        <option value="Tube 1 (Biru)">Tube 1 (Biru)</option>
-                        <option value="Tube 2 (Oren)">Tube 2 (Oren)</option>
-                        <option value="Tube 3 (Hijau)">Tube 3 (Hijau)</option>
-                        <option value="Tube 4 (Cokelat)">Tube 4 (Cokelat)</option>
-                        <option value="Tube 5 (Abu)">Tube 5 (Abu)</option>
-                        <option value="Tube 6 (Putih)">Tube 6 (Putih)</option>
+                        {STANDARD_TUBES.slice(0, 8).map(t => (
+                          <option key={t.num} value={t.name}>{t.name}</option>
+                        ))}
                       </select>
                     </div>
                     <div>
@@ -2593,20 +2684,11 @@ export default function GisTopology() {
                           const absCore = (tubeNum - 1) * 12 + coreInTube;
                           setBatchSpliceForm({...batchSpliceForm, petik_core: val, start_core_b: absCore, start_core_a: 1});
                         }}
-                        className="w-full px-2 py-1.5 border border-emerald-300 rounded text-xs bg-white text-gray-800"
+                        className="w-full px-2.5 py-1.5 border border-emerald-300 rounded-lg text-xs bg-white text-gray-800 font-medium"
                       >
-                        <option value="Core 1 (Biru)">Core 1 (Biru)</option>
-                        <option value="Core 2 (Oren)">Core 2 (Oren)</option>
-                        <option value="Core 3 (Hijau)">Core 3 (Hijau)</option>
-                        <option value="Core 4 (Cokelat)">Core 4 (Cokelat)</option>
-                        <option value="Core 5 (Abu)">Core 5 (Abu)</option>
-                        <option value="Core 6 (Putih)">Core 6 (Putih)</option>
-                        <option value="Core 7 (Merah)">Core 7 (Merah)</option>
-                        <option value="Core 8 (Hitam)">Core 8 (Hitam)</option>
-                        <option value="Core 9 (Kuning)">Core 9 (Kuning)</option>
-                        <option value="Core 10 (Ungu)">Core 10 (Ungu)</option>
-                        <option value="Core 11 (Pink)">Core 11 (Pink)</option>
-                        <option value="Core 12 (Toska)">Core 12 (Toska)</option>
+                        {STANDARD_CORE_NAMES.map((name, i) => (
+                          <option key={i} value={`Core ${i+1} (${name})`}>Core {i+1} ({name})</option>
+                        ))}
                       </select>
                     </div>
                   </div>
@@ -2616,29 +2698,53 @@ export default function GisTopology() {
                       type="text"
                       value={batchSpliceForm.petik_target}
                       onChange={(e) => setBatchSpliceForm({...batchSpliceForm, petik_target: e.target.value})}
-                      className="w-full px-2 py-1.5 border border-emerald-300 rounded text-xs bg-white text-gray-800"
+                      className="w-full px-2.5 py-1.5 border border-emerald-300 rounded-lg text-xs bg-white text-gray-800"
                       placeholder="Contoh: Jalur ODP 36, DC Jalur ODP 29"
                     />
                   </div>
                 </div>
               )}
 
+              {/* Mode Trunk / Pelebaran Lurus: 3 METODE PEMILIHAN */}
               {batchSpliceForm.splice_type === 'straight' && (
-                <div className="space-y-2.5 bg-gray-50 p-3 rounded-lg border border-gray-200">
-                  {/* Pilihan Metode Input: Berurutan vs Checklist */}
-                  <div className="flex items-center justify-between pb-1 border-b border-gray-200">
-                    <span className="text-xs font-bold text-gray-700">Metode Pemilihan Core:</span>
-                    <div className="flex gap-1">
+                <div className="space-y-3 bg-gray-50/90 p-4 rounded-xl border border-gray-200">
+                  {/* Tab Pilihan 3 Metode */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-2.5 border-b border-gray-200 gap-2">
+                    <span className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
+                      <Layers size={14} className="text-purple-600" /> Metode Pemilihan Sambungan:
+                    </span>
+                    <div className="flex flex-wrap gap-1">
                       <button
                         type="button"
-                        onClick={() => setBatchSpliceForm(prev => ({ ...prev, selection_mode: 'range' }))}
-                        className={`px-2.5 py-1 rounded text-xs font-semibold transition-all cursor-pointer ${
-                          batchSpliceForm.selection_mode !== 'custom' 
+                        onClick={() => {
+                          const tA = Number(batchSpliceForm.selected_tube_a) || 1;
+                          const tB = Number(batchSpliceForm.selected_tube_b) || 1;
+                          setBatchSpliceForm(prev => ({
+                            ...prev,
+                            selection_mode: 'tube',
+                            start_core_a: (tA - 1) * 12 + 1,
+                            start_core_b: (tB - 1) * 12 + 1,
+                            count: 12
+                          }));
+                        }}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                          batchSpliceForm.selection_mode === 'tube' 
                             ? 'bg-purple-600 text-white shadow-xs' 
                             : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
                         }`}
                       >
-                        ⚡ Berurutan
+                        🎨 Sambung per Tube (Pilih Tube)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setBatchSpliceForm(prev => ({ ...prev, selection_mode: 'range' }))}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                          batchSpliceForm.selection_mode === 'range' 
+                            ? 'bg-purple-600 text-white shadow-xs' 
+                            : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
+                        }`}
+                      >
+                        ⚡ Berurutan (Manual)
                       </button>
                       <button
                         type="button"
@@ -2651,20 +2757,126 @@ export default function GisTopology() {
                             selected_cores_a: prev.selected_cores_a.length > 0 ? prev.selected_cores_a : (freeCores.length > 0 ? freeCores : allCores)
                           }));
                         }}
-                        className={`px-2.5 py-1 rounded text-xs font-semibold transition-all cursor-pointer ${
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
                           batchSpliceForm.selection_mode === 'custom' 
                             ? 'bg-purple-600 text-white shadow-xs' 
                             : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
                         }`}
                       >
-                        🎯 Checklist / Lewati Core
+                        🎯 Checklist Core
                       </button>
                     </div>
                   </div>
 
-                  {batchSpliceForm.selection_mode !== 'custom' ? (
-                    <>
-                      <div className="grid grid-cols-3 gap-2">
+                  {/* METODE 1: SAMBUNG PER TUBE (FITUR UTAMA) */}
+                  {batchSpliceForm.selection_mode === 'tube' && (
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                        {/* Tube Kabel Asal */}
+                        <div className="bg-white p-3 rounded-xl border border-purple-200 shadow-xs">
+                          <label className="block text-xs font-bold text-purple-950 mb-1 flex items-center justify-between">
+                            <span>Tube Kabel Asal</span>
+                            <span className="text-[10px] text-gray-500 font-normal">
+                              Total: {getTubeCount(selectedCableA?.properties?.capacity || 12)} Tube
+                            </span>
+                          </label>
+                          <select
+                            value={batchSpliceForm.selected_tube_a}
+                            onChange={(e) => {
+                              const tA = Number(e.target.value);
+                              setBatchSpliceForm(prev => ({
+                                ...prev,
+                                selected_tube_a: tA,
+                                start_core_a: (tA - 1) * 12 + 1
+                              }));
+                            }}
+                            className="w-full px-3 py-2 border border-purple-300 rounded-lg text-xs bg-purple-50/50 text-gray-900 font-bold focus:outline-none focus:border-purple-600"
+                          >
+                            {STANDARD_TUBES.slice(0, getTubeCount(selectedCableA?.properties?.capacity || 12)).map(t => (
+                              <option key={t.num} value={t.num}>
+                                {t.name} [Core {(t.num - 1) * 12 + 1} s/d {t.num * 12}]
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {/* Tube Kabel Tujuan */}
+                        <div className="bg-white p-3 rounded-xl border border-emerald-200 shadow-xs">
+                          <label className="block text-xs font-bold text-emerald-950 mb-1 flex items-center justify-between">
+                            <span>Tube Kabel Tujuan</span>
+                            <span className="text-[10px] text-gray-500 font-normal">
+                              Total: {getTubeCount(selectedCableB?.properties?.capacity || 48)} Tube
+                            </span>
+                          </label>
+                          <select
+                            value={batchSpliceForm.selected_tube_b}
+                            onChange={(e) => {
+                              const tB = Number(e.target.value);
+                              setBatchSpliceForm(prev => ({
+                                ...prev,
+                                selected_tube_b: tB,
+                                start_core_b: (tB - 1) * 12 + 1
+                              }));
+                            }}
+                            className="w-full px-3 py-2 border border-emerald-300 rounded-lg text-xs bg-emerald-50/50 text-gray-900 font-bold focus:outline-none focus:border-emerald-600"
+                          >
+                            {STANDARD_TUBES.slice(0, getTubeCount(selectedCableB?.properties?.capacity || 48)).map(t => (
+                              <option key={t.num} value={t.num}>
+                                {t.name} [Core {(t.num - 1) * 12 + 1} s/d {t.num * 12}]
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Visual Mapping 12 Core Antar-Tube */}
+                      <div className="p-3 bg-white rounded-xl border border-gray-200 shadow-xs">
+                        <div className="flex items-center justify-between text-xs font-bold text-gray-800 mb-2">
+                          <span>Pemetaan 12 Core (Standar Lapangan):</span>
+                          <span className="text-[11px] font-mono text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
+                            Tube {batchSpliceForm.selected_tube_a} [C{(batchSpliceForm.selected_tube_a - 1) * 12 + 1}..{batchSpliceForm.selected_tube_a * 12}] ➔ Tube {batchSpliceForm.selected_tube_b} [C{(batchSpliceForm.selected_tube_b - 1) * 12 + 1}..{batchSpliceForm.selected_tube_b * 12}]
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-1.5">
+                          {STANDARD_CORE_NAMES.map((cName, idx) => {
+                            const coreNumA = (batchSpliceForm.selected_tube_a - 1) * 12 + idx + 1;
+                            const coreNumB = (batchSpliceForm.selected_tube_b - 1) * 12 + idx + 1;
+                            return (
+                              <div key={idx} className="p-1.5 rounded-lg border border-gray-200 bg-gray-50/60 text-center flex flex-col items-center gap-1">
+                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded w-full truncate ${getFiberBadge(cName)}`}>
+                                  {cName}
+                                </span>
+                                <div className="flex items-center justify-between w-full text-[11px] font-mono font-bold text-gray-700 px-0.5">
+                                  <span>C{coreNumA}</span>
+                                  <span className="text-purple-600">➔</span>
+                                  <span>C{coreNumB}</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Auto-Skip Checkbox */}
+                      <div className="flex items-center gap-2 p-2 bg-purple-50/80 rounded-lg border border-purple-200">
+                        <input
+                          type="checkbox"
+                          id="skip_spliced_tube_cb"
+                          checked={batchSpliceForm.skip_spliced}
+                          onChange={(e) => setBatchSpliceForm({...batchSpliceForm, skip_spliced: e.target.checked})}
+                          className="rounded border-purple-300 text-purple-600 focus:ring-purple-500 cursor-pointer"
+                        />
+                        <label htmlFor="skip_spliced_tube_cb" className="text-[11px] font-semibold text-purple-900 cursor-pointer">
+                          ⚡ Otomatis lewati (skip) core yang sudah dipetik/tersambung ke ODP sebelumnya
+                        </label>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* METODE 2: BERURUTAN MANUAL */}
+                  {batchSpliceForm.selection_mode === 'range' && (
+                    <div className="space-y-2.5">
+                      <div className="grid grid-cols-3 gap-2.5">
                         <div>
                           <label className="block text-[11px] font-semibold text-dark-text mb-1">Start Core A</label>
                           <input
@@ -2672,7 +2884,7 @@ export default function GisTopology() {
                             min={1}
                             value={batchSpliceForm.start_core_a}
                             onChange={(e) => setBatchSpliceForm({...batchSpliceForm, start_core_a: Math.max(1, Number(e.target.value))})}
-                            className="w-full px-2.5 py-1.5 border border-dark-border rounded-lg text-xs bg-white text-dark-text focus:outline-none focus:border-primary"
+                            className="w-full px-2.5 py-1.5 border border-dark-border rounded-lg text-xs bg-white text-dark-text focus:outline-none focus:border-primary font-medium"
                           />
                         </div>
 
@@ -2683,7 +2895,7 @@ export default function GisTopology() {
                             min={1}
                             value={batchSpliceForm.start_core_b}
                             onChange={(e) => setBatchSpliceForm({...batchSpliceForm, start_core_b: Math.max(1, Number(e.target.value))})}
-                            className="w-full px-2.5 py-1.5 border border-dark-border rounded-lg text-xs bg-white text-dark-text focus:outline-none focus:border-primary"
+                            className="w-full px-2.5 py-1.5 border border-dark-border rounded-lg text-xs bg-white text-dark-text focus:outline-none focus:border-primary font-medium"
                           />
                         </div>
 
@@ -2694,12 +2906,11 @@ export default function GisTopology() {
                             min={1}
                             value={batchSpliceForm.count}
                             onChange={(e) => setBatchSpliceForm({...batchSpliceForm, count: Math.max(1, Number(e.target.value))})}
-                            className="w-full px-2.5 py-1.5 border border-dark-border rounded-lg text-xs bg-white text-dark-text focus:outline-none focus:border-primary"
+                            className="w-full px-2.5 py-1.5 border border-dark-border rounded-lg text-xs bg-white text-dark-text focus:outline-none focus:border-primary font-medium"
                           />
                         </div>
                       </div>
 
-                      {/* Checkbox Otomatis Lewati Core Terpakai */}
                       <div className="flex items-center gap-2 p-2 bg-purple-50/80 rounded-lg border border-purple-200">
                         <input
                           type="checkbox"
@@ -2712,13 +2923,15 @@ export default function GisTopology() {
                           ⚡ Otomatis lewati (skip) core yang sudah dipetik/tersambung ke ODP
                         </label>
                       </div>
-                    </>
-                  ) : (
-                    /* Tampilan Checklist Interaktif */
+                    </div>
+                  )}
+
+                  {/* METODE 3: CHECKLIST CORE SPESIFIK */}
+                  {batchSpliceForm.selection_mode === 'custom' && (
                     <div className="space-y-2">
                       <div className="flex items-center justify-between text-[11px]">
-                        <span className="text-gray-600 font-medium">
-                          Pilih core yang akan disambung ({batchSpliceForm.selected_cores_a.length} terpilih):
+                        <span className="text-gray-700 font-bold">
+                          Pilih core kabel asal ({batchSpliceForm.selected_cores_a.length} terpilih):
                         </span>
                         <div className="flex gap-1.5 text-[10px]">
                           <button
@@ -2753,11 +2966,11 @@ export default function GisTopology() {
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-4 sm:grid-cols-6 gap-1.5 max-h-48 overflow-y-auto p-1.5 bg-white rounded-lg border border-gray-200">
+                      <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-12 gap-1.5 max-h-48 overflow-y-auto p-2 bg-white rounded-xl border border-gray-200">
                         {(batchCoresA && batchCoresA.length > 0 ? batchCoresA : Array.from({length: 12}, (_, i) => ({ 
                           core_number: i + 1, 
                           tube_number: 1, 
-                          color: ['Biru','Oren','Hijau','Cokelat','Abu','Putih','Merah','Hitam','Kuning','Ungu','Pink','Toska'][i], 
+                          color: STANDARD_CORE_NAMES[i % 12], 
                           status: 'Free' 
                         }))).map((core: any) => {
                           const isSelected = batchSpliceForm.selected_cores_a.includes(core.core_number);
@@ -2812,25 +3025,40 @@ export default function GisTopology() {
                 </div>
               )}
 
-              <div>
-                <label className="block text-xs font-semibold text-dark-text mb-1">
-                  Titik Temu / Perangkat Sambung (Joint Closure)
-                </label>
-                <select
-                  value={batchSpliceForm.closure_id || (sortedClosures[0]?.id || '')}
-                  onChange={(e) => setBatchSpliceForm({...batchSpliceForm, closure_id: e.target.value})}
-                  className="w-full px-3 py-2 border border-dark-border rounded-lg text-sm bg-white text-dark-text focus:outline-none focus:border-primary"
-                >
-                  {sortedClosures.map((cl, idx) => (
-                    <option key={cl.id} value={cl.id}>
-                      {cl.name} ({cl.device_type}) {cl.dist < 50000 ? `[${cl.dist < 1000 ? Math.round(cl.dist) + 'm' : (cl.dist/1000).toFixed(1) + 'km'}${idx === 0 ? ' - ⭐ Terdekat' : ''}]` : ''}
-                    </option>
-                  ))}
-                  <option value="">Auto-Detect Terdekat / Buat Joint Baru</option>
-                </select>
+              {/* Titik Temu JC & Catatan Tambahan (Grid 2 Kolom) */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-xs font-bold text-dark-text mb-1">
+                    Titik Temu / Perangkat Sambung (Joint Closure)
+                  </label>
+                  <select
+                    value={batchSpliceForm.closure_id || (sortedClosures[0]?.id || '')}
+                    onChange={(e) => setBatchSpliceForm({...batchSpliceForm, closure_id: e.target.value})}
+                    className="w-full px-3 py-2 border border-dark-border rounded-lg text-xs bg-white text-dark-text focus:outline-none focus:border-purple-600 font-medium"
+                  >
+                    {sortedClosures.map((cl, idx) => (
+                      <option key={cl.id} value={cl.id}>
+                        {cl.name} ({cl.device_type}) {cl.dist < 50000 ? `[${cl.dist < 1000 ? Math.round(cl.dist) + 'm' : (cl.dist/1000).toFixed(1) + 'km'}${idx === 0 ? ' - ⭐ Terdekat' : ''}]` : ''}
+                      </option>
+                    ))}
+                    <option value="">Auto-Detect Terdekat / Buat Joint Baru</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-dark-text mb-1">Catatan Tambahan (Opsional)</label>
+                  <input
+                    type="text"
+                    value={batchSpliceForm.custom_note}
+                    onChange={(e) => setBatchSpliceForm({...batchSpliceForm, custom_note: e.target.value})}
+                    className="w-full px-3 py-2 border border-dark-border rounded-lg text-xs bg-white text-dark-text focus:outline-none focus:border-purple-600"
+                    placeholder="Contoh: Sambung Pelebaran Tahap 2"
+                  />
+                </div>
               </div>
 
-              <div className="flex items-center gap-2 pt-1">
+              {/* Checkbox Otomatis Catat Hasil */}
+              <div className="flex items-center gap-2 pt-0.5">
                 <input
                   type="checkbox"
                   id="auto_desc_checkbox"
@@ -2843,58 +3071,52 @@ export default function GisTopology() {
                 </label>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-dark-text mb-1">Catatan Tambahan (Opsional)</label>
-                <input
-                  type="text"
-                  value={batchSpliceForm.custom_note}
-                  onChange={(e) => setBatchSpliceForm({...batchSpliceForm, custom_note: e.target.value})}
-                  className="w-full px-3 py-2 border border-dark-border rounded-lg text-sm bg-white text-dark-text focus:outline-none focus:border-primary"
-                  placeholder="Contoh: Sambung Pelebaran Tahap 2"
-                />
-              </div>
-
               {/* Live Preview Deskripsi Sambungan */}
-              <div className="p-2.5 bg-gray-50 rounded-lg border border-gray-200 text-xs">
+              <div className="p-3 bg-gray-50/90 rounded-xl border border-gray-200 text-xs">
                 <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider block mb-1">
                   ✨ Format Catatan yang Akan Tersimpan ke JC &amp; Kabel:
                 </span>
-                <div className="space-y-1 font-mono text-[11px]">
-                  <div className="text-purple-700 bg-white p-1.5 rounded border border-gray-100">
+                <div className="space-y-1.5 font-mono text-[11px]">
+                  <div className="text-purple-700 bg-white p-2 rounded-lg border border-gray-200 shadow-xs">
                     <strong className="text-purple-900">Di Joint Closure:</strong>{' '}
                     {batchSpliceForm.splice_type === 'petik'
                       ? `${(availableCables.find(c => c.id === batchSpliceForm.cable_a_id)?.name || 'Kabel-A')} ➔ ${(availableCables.find(c => c.id === batchSpliceForm.cable_b_id)?.name || 'Kabel-B')} (${batchSpliceForm.petik_tube} / ${batchSpliceForm.petik_core}${batchSpliceForm.petik_target ? ' - ' + batchSpliceForm.petik_target : ''})`
-                      : batchSpliceForm.selection_mode === 'custom'
-                        ? `${(availableCables.find(c => c.id === batchSpliceForm.cable_a_id)?.name || 'Kabel-A')} (Core [${batchSpliceForm.selected_cores_a.join(',')}]) ➔ ${(availableCables.find(c => c.id === batchSpliceForm.cable_b_id)?.name || 'Kabel-B')}${batchSpliceForm.custom_note ? ` - ${batchSpliceForm.custom_note}` : ''}`
-                        : `${(availableCables.find(c => c.id === batchSpliceForm.cable_a_id)?.name || 'Kabel-A')} (Core ${batchSpliceForm.start_core_a}-${Number(batchSpliceForm.start_core_a)+Number(batchSpliceForm.count)-1}${batchSpliceForm.skip_spliced ? ' [Auto-Skip]' : ''}) ➔ ${(availableCables.find(c => c.id === batchSpliceForm.cable_b_id)?.name || 'Kabel-B')} (Core ${batchSpliceForm.start_core_b}-${Number(batchSpliceForm.start_core_b)+Number(batchSpliceForm.count)-1})${batchSpliceForm.custom_note ? ` - ${batchSpliceForm.custom_note}` : ''}`
+                      : batchSpliceForm.selection_mode === 'tube'
+                        ? `${(availableCables.find(c => c.id === batchSpliceForm.cable_a_id)?.name || 'Kabel-A')} (Tube ${batchSpliceForm.selected_tube_a}) ➔ ${(availableCables.find(c => c.id === batchSpliceForm.cable_b_id)?.name || 'Kabel-B')} (Tube ${batchSpliceForm.selected_tube_b}: Core ${(batchSpliceForm.selected_tube_b - 1) * 12 + 1}-${batchSpliceForm.selected_tube_b * 12})`
+                        : batchSpliceForm.selection_mode === 'custom'
+                          ? `${(availableCables.find(c => c.id === batchSpliceForm.cable_a_id)?.name || 'Kabel-A')} (Core [${batchSpliceForm.selected_cores_a.join(',')}]) ➔ ${(availableCables.find(c => c.id === batchSpliceForm.cable_b_id)?.name || 'Kabel-B')}${batchSpliceForm.custom_note ? ` - ${batchSpliceForm.custom_note}` : ''}`
+                          : `${(availableCables.find(c => c.id === batchSpliceForm.cable_a_id)?.name || 'Kabel-A')} (Core ${batchSpliceForm.start_core_a}-${Number(batchSpliceForm.start_core_a)+Number(batchSpliceForm.count)-1}${batchSpliceForm.skip_spliced ? ' [Auto-Skip]' : ''}) ➔ ${(availableCables.find(c => c.id === batchSpliceForm.cable_b_id)?.name || 'Kabel-B')} (Core ${batchSpliceForm.start_core_b}-${Number(batchSpliceForm.start_core_b)+Number(batchSpliceForm.count)-1})${batchSpliceForm.custom_note ? ` - ${batchSpliceForm.custom_note}` : ''}`
                     }
                   </div>
-                  <div className="text-emerald-700 bg-white p-1.5 rounded border border-gray-100">
+                  <div className="text-emerald-700 bg-white p-2 rounded-lg border border-gray-200 shadow-xs">
                     <strong className="text-emerald-900">Di Kabel Asal:</strong>{' '}
                     {batchSpliceForm.splice_type === 'petik'
                       ? `Sambung ke ${(availableCables.find(c => c.id === batchSpliceForm.cable_b_id)?.name || 'Kabel-B')} via ${(sortedClosures.find(c => c.id === (batchSpliceForm.closure_id || sortedClosures[0]?.id))?.name || 'JC Terdekat')} (${batchSpliceForm.petik_tube} / ${batchSpliceForm.petik_core}${batchSpliceForm.petik_target ? ' - ' + batchSpliceForm.petik_target : ''})`
-                      : batchSpliceForm.selection_mode === 'custom'
-                        ? `Sambung ke ${(availableCables.find(c => c.id === batchSpliceForm.cable_b_id)?.name || 'Kabel-B')} via ${(sortedClosures.find(c => c.id === (batchSpliceForm.closure_id || sortedClosures[0]?.id))?.name || 'JC Terdekat')} (Core [${batchSpliceForm.selected_cores_a.join(',')}])`
-                        : `Sambung ke ${(availableCables.find(c => c.id === batchSpliceForm.cable_b_id)?.name || 'Kabel-B')} via ${(sortedClosures.find(c => c.id === (batchSpliceForm.closure_id || sortedClosures[0]?.id))?.name || 'JC Terdekat')} (Core ${batchSpliceForm.start_core_a}-${Number(batchSpliceForm.start_core_a)+Number(batchSpliceForm.count)-1})${batchSpliceForm.custom_note ? ` - ${batchSpliceForm.custom_note}` : ''}`
+                      : batchSpliceForm.selection_mode === 'tube'
+                        ? `Sambung ke ${(availableCables.find(c => c.id === batchSpliceForm.cable_b_id)?.name || 'Kabel-B')} via ${(sortedClosures.find(c => c.id === (batchSpliceForm.closure_id || sortedClosures[0]?.id))?.name || 'JC Terdekat')} (Tube ${batchSpliceForm.selected_tube_a} ➔ Tube ${batchSpliceForm.selected_tube_b})`
+                        : batchSpliceForm.selection_mode === 'custom'
+                          ? `Sambung ke ${(availableCables.find(c => c.id === batchSpliceForm.cable_b_id)?.name || 'Kabel-B')} via ${(sortedClosures.find(c => c.id === (batchSpliceForm.closure_id || sortedClosures[0]?.id))?.name || 'JC Terdekat')} (Core [${batchSpliceForm.selected_cores_a.join(',')}])`
+                          : `Sambung ke ${(availableCables.find(c => c.id === batchSpliceForm.cable_b_id)?.name || 'Kabel-B')} via ${(sortedClosures.find(c => c.id === (batchSpliceForm.closure_id || sortedClosures[0]?.id))?.name || 'JC Terdekat')} (Core ${batchSpliceForm.start_core_a}-${Number(batchSpliceForm.start_core_a)+Number(batchSpliceForm.count)-1})${batchSpliceForm.custom_note ? ` - ${batchSpliceForm.custom_note}` : ''}`
                     }
                   </div>
                 </div>
               </div>
 
-              <div className="mt-4 flex justify-end gap-2 pt-2 border-t border-dark-border">
+              {/* Footer Sticky */}
+              <div className="flex justify-end gap-2.5 pt-3 border-t border-dark-border shrink-0">
                 <button
                   type="button"
                   onClick={() => setBatchSpliceModal(false)}
-                  className="px-4 py-2 border border-dark-border rounded-lg text-dark-text hover:bg-gray-50 text-xs font-semibold transition-colors cursor-pointer"
+                  className="px-4 py-2 border border-dark-border rounded-xl text-dark-text hover:bg-gray-100 text-xs font-semibold transition-colors cursor-pointer"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={isBatchSplicing}
-                  className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-sm"
+                  className="px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50 shadow-md"
                 >
-                  {isBatchSplicing ? <Loader2 size={14} className="animate-spin" /> : <GitMerge size={14} />}
+                  {isBatchSplicing ? <Loader2 size={15} className="animate-spin" /> : <GitMerge size={15} />}
                   Sambungkan Core &amp; Update Deskripsi
                 </button>
               </div>
