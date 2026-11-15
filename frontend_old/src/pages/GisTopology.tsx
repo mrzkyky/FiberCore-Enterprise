@@ -948,8 +948,8 @@ export default function GisTopology() {
             onClick={() => setAutoSync(!autoSync)}
             className={`flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-lg border transition-all cursor-pointer ${
               autoSync 
-                ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800' 
-                : 'bg-zinc-100 text-zinc-500 border-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:border-zinc-700'
+                ? 'bg-emerald-600 text-white border-emerald-700 shadow-sm' 
+                : 'bg-zinc-100 text-zinc-600 border-zinc-300 hover:bg-zinc-200'
             }`}
             title="Auto-refresh map topology every 5 seconds when Google Earth saves changes"
           >
@@ -1304,7 +1304,7 @@ export default function GisTopology() {
           )}
 
           {/* Map Style Toggle */}
-          <div className="absolute top-28 right-2.5 z-10 bg-white rounded-md shadow-sm border border-gray-200 overflow-hidden flex flex-col">
+          <div className="absolute top-2.5 right-14 z-10 bg-white rounded-md shadow-sm border border-gray-200 overflow-hidden flex flex-row">
             <button 
               onClick={() => setMapType('streets')}
               className={`p-2 transition-colors ${mapType === 'streets' ? 'bg-blue-100 text-blue-600' : 'bg-white hover:bg-gray-100'}`}
@@ -1314,7 +1314,7 @@ export default function GisTopology() {
             </button>
             <button 
               onClick={() => setMapType('satellite')}
-              className={`p-2 transition-colors border-t border-gray-200 ${mapType === 'satellite' ? 'bg-blue-100 text-blue-600' : 'bg-white hover:bg-gray-100'}`}
+              className={`p-2 transition-colors border-l border-gray-200 ${mapType === 'satellite' ? 'bg-blue-100 text-blue-600' : 'bg-white hover:bg-gray-100'}`}
               title="Satellite View"
             >
               <MapIcon size={18} />

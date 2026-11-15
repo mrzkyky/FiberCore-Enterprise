@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import axios from 'axios';
 import { 
   Activity, BarChart3, Box, Layers, LogOut, 
   Map, Settings, ShieldAlert, Users, 
-  Server, Route, Cpu, Bell, Search 
+  Server, Route, Cpu, Bell, Search, CheckCheck, AlertTriangle, GitMerge
 } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 
@@ -14,7 +16,62 @@ interface LayoutProps {
 export default function Layout({ children }: LayoutProps) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, logout } = useAuthStore();
+  const { user, logout, token } = useAuthStore();
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [readIds, setReadIds] = useState<Set<string>>(new Set());
+  const notifRef = useRef<HTMLDivElement>(null);
+
+  // Ambil data kabel untuk deteksi notifikasi (kabel tanpa sambungan / kapasitas penuh)
+  const { data: cablesData } = useQuery({
+    queryKey: ['layout-cables-notif'],
+    queryFn: async () => {
+      const res = await axios.get('/api/v1/cables/?limit=200', { headers: { Authorization: `Bearer ${token}` } });
+      return res.data; // array of cables
+    },
+    refetchInterval: 30000,
+    enabled: !!token
+  });
+
+  // Ambil data splicing terbaru
+  const { data: spliceData } = useQuery({
+    queryKey: ['layout-splice-notif'],
+    queryFn: async () => {
+      const res = await axios.get('/api/v1/splices/?limit=3', { headers: { Authorization: `Bearer ${token}` } });
+      return res.data; // array of splices
+    },
+    refetchInterval: 30000,
+    enabled: !!token
+  });
+
+  // Bangun list notifikasi dari data nyata
+  const notifications: { id: string; type: 'info' | 'warn'; text: string }[] = [];
+  if (Array.isArray(cablesData)) {
+    const penuh = cablesData.filter((c: any) => c.capacity > 0 && c.used_capacity >= c.capacity);
+    if (penuh.length > 0) {
+      notifications.push({ id: 'cap-full', type: 'warn', text: `${penuh.length} kabel kapasitas penuh (tersambung semua)` });
+    }
+    const tanpaSambung = cablesData.filter((c: any) => !c.description || c.description.trim() === '');
+    if (tanpaSambung.length > 3) {
+      notifications.push({ id: 'no-desc', type: 'info', text: `${tanpaSambung.length} kabel belum memiliki deskripsi sambungan` });
+    }
+  }
+  if (Array.isArray(spliceData) && spliceData.length > 0) {
+    const latest = spliceData[0];
+    notifications.push({ id: `splice-${latest.id}`, type: 'info', text: `Sambungan terbaru dicatat di sistem` });
+  }
+
+  const unreadCount = notifications.filter(n => !readIds.has(n.id)).length;
+
+  // Tutup notif saat klik di luar
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setNotifOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
 
   const handleLogout = () => {
     logout();
@@ -92,10 +149,44 @@ export default function Layout({ children }: LayoutProps) {
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <button className="relative p-2 text-dark-muted hover:text-primary transition-colors">
-              <Bell size={20} />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-orange-light rounded-full border border-white"></span>
-            </button>
+            {/* Notification Bell */}
+            <div className="relative" ref={notifRef}>
+              <button
+                onClick={() => { setNotifOpen(!notifOpen); setReadIds(new Set(notifications.map(n => n.id))); }}
+                className="relative p-2 text-dark-muted hover:text-primary transition-colors"
+              >
+                <Bell size={20} />
+                {unreadCount > 0 && (
+                  <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center border border-white">
+                    {unreadCount}
+                  </span>
+                )}
+              </button>
+              {notifOpen && (
+                <div className="absolute right-0 top-10 w-80 bg-white border border-dark-border rounded-xl shadow-2xl z-50 overflow-hidden">
+                  <div className="flex items-center justify-between px-4 py-3 border-b border-dark-border bg-dark-surface">
+                    <span className="text-sm font-bold text-dark-text flex items-center gap-2"><Bell size={14} /> Notifikasi</span>
+                    <span className="text-xs text-dark-muted">{notifications.length} pesan</span>
+                  </div>
+                  <div className="max-h-72 overflow-y-auto divide-y divide-dark-border">
+                    {notifications.length === 0 ? (
+                      <div className="px-4 py-6 text-center text-sm text-dark-muted">
+                        <CheckCheck size={24} className="mx-auto mb-2 text-emerald-500" />
+                        Semua beres! Tidak ada notifikasi.
+                      </div>
+                    ) : notifications.map(n => (
+                      <div key={n.id} className="px-4 py-3 hover:bg-gray-50 flex items-start gap-3">
+                        {n.type === 'warn'
+                          ? <AlertTriangle size={16} className="text-orange-500 mt-0.5 shrink-0" />
+                          : <GitMerge size={16} className="text-blue-500 mt-0.5 shrink-0" />
+                        }
+                        <span className="text-xs text-dark-text leading-relaxed">{n.text}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
             <div className="h-8 w-px bg-dark-border mx-2"></div>
             <div className="flex items-center gap-3">
               <div className="text-right">
