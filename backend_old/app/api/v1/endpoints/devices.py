@@ -41,6 +41,7 @@ class DeviceUpdate(BaseModel):
     location_wkt: Optional[str] = None
     pop_id: Optional[uuid.UUID] = None
     region: Optional[str] = None
+    icon_url: Optional[str] = None
 
 class DeviceResponse(BaseModel):
     id: uuid.UUID
@@ -51,6 +52,7 @@ class DeviceResponse(BaseModel):
     brand: Optional[str] = None
     description: Optional[str] = None
     region: Optional[str] = None
+    icon_url: Optional[str] = None
     created_at: Optional[datetime] = None
     
     class Config:

@@ -209,7 +209,15 @@ def build_kml_document(region: Optional[str], db: Session):
         kml_lines.append('      <Placemark>')
         kml_lines.append(f'        <name>{escape(dev.name or "Device")}</name>')
         kml_lines.append(f'        <description>{escape(desc)}</description>')
-        kml_lines.append(f'        <styleUrl>{s_url}</styleUrl>')
+        if dev.icon_url:
+            kml_lines.append('        <Style>')
+            kml_lines.append('          <IconStyle>')
+            kml_lines.append('            <scale>1.0</scale>')
+            kml_lines.append(f'            <Icon><href>{escape(dev.icon_url)}</href></Icon>')
+            kml_lines.append('          </IconStyle>')
+            kml_lines.append('        </Style>')
+        else:
+            kml_lines.append(f'        <styleUrl>{s_url}</styleUrl>')
         kml_lines.append('        <Point>')
         kml_lines.append(f'          <coordinates>{lng},{lat},0</coordinates>')
         kml_lines.append('        </Point>')

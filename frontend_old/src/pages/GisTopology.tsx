@@ -129,6 +129,7 @@ export default function GisTopology() {
     capacity: '',
     used_capacity: '',
     description: '',
+    icon_url: '',
     slack_meters: '',
     odp_source: ''
   });
@@ -391,7 +392,8 @@ export default function GisTopology() {
         device_type: editFormData.device_type || editingDevice.device_type,
         capacity: editFormData.capacity ? parseInt(editFormData.capacity) : null,
         used_capacity: editFormData.used_capacity ? parseInt(editFormData.used_capacity) : 0,
-        description: desc
+        description: desc,
+        icon_url: editFormData.icon_url || null
       }
     });
   };
@@ -1520,6 +1522,7 @@ export default function GisTopology() {
                               capacity: popupInfo.feature.properties.capacity?.toString() || '',
                               used_capacity: popupInfo.feature.properties.used_capacity?.toString() || '0',
                               description: popupInfo.feature.properties.description || '',
+                              icon_url: popupInfo.feature.properties.icon_url || '',
                               slack_meters: '',
                               odp_source: ''
                             });
@@ -1735,6 +1738,33 @@ export default function GisTopology() {
                     />
                   </div>
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-dark-text mb-1 flex items-center justify-between">
+                  <span>Ikon KMZ (Google Earth Export)</span>
+                  {editFormData.icon_url && (
+                    <span className="text-[10px] text-primary font-bold">Kustom Aktif</span>
+                  )}
+                </label>
+                <select
+                  value={editFormData.icon_url}
+                  onChange={(e) => setEditFormData({...editFormData, icon_url: e.target.value})}
+                  className="w-full px-3 py-2 border border-dark-border rounded-lg text-xs bg-white text-dark-text focus:outline-none focus:border-primary"
+                >
+                  <option value="">⚙️ Default (Otomatis Sesuai Tipe Node)</option>
+                  <option value="http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png">🔴 Bulat (Placemark Circle - Tiang)</option>
+                  <option value="http://maps.google.com/mapfiles/kml/shapes/square.png">🟩 Kotak (Square - ODP)</option>
+                  <option value="http://maps.google.com/mapfiles/kml/shapes/triangle.png">🔺 Segitiga (Triangle - Closure / JC)</option>
+                  <option value="http://maps.google.com/mapfiles/kml/shapes/donut.png">🍩 Cincin (Donut - Joint Box)</option>
+                  <option value="http://maps.google.com/mapfiles/kml/shapes/caution.png">⚠️ Peringatan (Caution - Slack Kabel)</option>
+                  <option value="http://maps.google.com/mapfiles/kml/shapes/target.png">🎯 Target (POP / OLT / Sentral)</option>
+                  <option value="http://maps.google.com/mapfiles/kml/pushpin/red-pushpin.png">📍 Jarum Merah (Red Pushpin)</option>
+                  <option value="http://maps.google.com/mapfiles/kml/pushpin/blue-pushpin.png">📍 Jarum Biru (Blue Pushpin)</option>
+                  <option value="http://maps.google.com/mapfiles/kml/pushpin/grn-pushpin.png">📍 Jarum Hijau (Green Pushpin)</option>
+                  <option value="http://maps.google.com/mapfiles/kml/pushpin/ylw-pushpin.png">📍 Jarum Kuning (Yellow Pushpin)</option>
+                  <option value="http://maps.google.com/mapfiles/kml/pushpin/purple-pushpin.png">📍 Jarum Ungu (Purple Pushpin)</option>
+                </select>
               </div>
 
               <div>
