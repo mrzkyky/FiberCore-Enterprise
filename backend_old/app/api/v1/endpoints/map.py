@@ -72,6 +72,7 @@ def get_map_topology(region: Optional[str] = None, db: Session = Depends(get_db)
                 "device_type": device.device_type,
                 "pop_id": str(device.pop_id) if device.pop_id else None,
                 "description": device.description,
+                "capacity": device.capacity,
                 "used_capacity": device.used_capacity,
                 "icon_url": device.icon_url,
                 "region": device.region
@@ -210,9 +211,27 @@ def build_kml_document(region: Optional[str], db: Session):
         kml_lines.append(f'        <name>{escape(dev.name or "Device")}</name>')
         kml_lines.append(f'        <description>{escape(desc)}</description>')
         if dev.icon_url:
+            i_url = dev.icon_url.lower()
+            color_tag = ""
+            scale_val = "1.1" if "pushpin" in i_url else "1.0"
+            if "placemark_circle" in i_url:
+                color_tag = "<color>ff0000ff</color>" # Merah
+            elif "square" in i_url:
+                color_tag = "<color>ff00ff00</color>" # Hijau
+            elif "triangle" in i_url:
+                color_tag = "<color>ffff00aa</color>" # Ungu
+            elif "donut" in i_url:
+                color_tag = "<color>ffea00ff</color>" # Pink
+            elif "caution" in i_url:
+                color_tag = "<color>ff00ffff</color>" # Kuning
+            elif "target" in i_url:
+                color_tag = "<color>ffffaa00</color>" # Biru
+            
             kml_lines.append('        <Style>')
             kml_lines.append('          <IconStyle>')
-            kml_lines.append('            <scale>1.0</scale>')
+            if color_tag:
+                kml_lines.append(f'            {color_tag}')
+            kml_lines.append(f'            <scale>{scale_val}</scale>')
             kml_lines.append(f'            <Icon><href>{escape(dev.icon_url)}</href></Icon>')
             kml_lines.append('          </IconStyle>')
             kml_lines.append('        </Style>')

@@ -130,7 +130,30 @@ def update_device(device_id: uuid.UUID, device_in: DeviceUpdate, db: Session = D
     elif device_in.location_wkt:
         db_device.location = func.ST_GeomFromText(device_in.location_wkt, 4326)
         
-    db.commit()
+    try:
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        err_msg = str(e).lower()
+        if "icon_url" in err_msg or "column" in err_msg:
+            from sqlalchemy import text
+            try:
+                db.execute(text("ALTER TABLE devices ADD COLUMN IF NOT EXISTS icon_url VARCHAR;"))
+                db.execute(text("ALTER TABLE devices ADD COLUMN IF NOT EXISTS description VARCHAR;"))
+                db.execute(text("ALTER TABLE devices ADD COLUMN IF NOT EXISTS used_capacity INTEGER DEFAULT 0;"))
+                db.commit()
+                db_device = db.query(Device).filter(Device.id == device_id).first()
+                for key, value in device_in.model_dump(exclude_unset=True).items():
+                    if key in ["latitude", "longitude", "location_wkt"]:
+                        continue
+                    setattr(db_device, key, value)
+                db.commit()
+            except Exception as e2:
+                db.rollback()
+                raise HTTPException(status_code=500, detail=f"Database migration error: {str(e2)}")
+        else:
+            raise HTTPException(status_code=500, detail=f"Failed to update device: {str(e)}")
+            
     db.refresh(db_device)
     
     if device_in.capacity and device_in.capacity > 0:

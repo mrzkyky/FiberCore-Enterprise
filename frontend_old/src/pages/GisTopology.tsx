@@ -135,6 +135,7 @@ export default function GisTopology() {
   });
 
   const [editingCable, setEditingCable] = useState<any | null>(null);
+  const [isLegendExpanded, setIsLegendExpanded] = useState<boolean>(true);
   const [editCableFormData, setEditCableFormData] = useState({
     name: '',
     type: 'Distribution',
@@ -748,7 +749,39 @@ export default function GisTopology() {
     'custom-icon-closure': '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><circle cx="18" cy="18" r="16" fill="#7c3aed" stroke="#ffffff" stroke-width="2.5"/><rect x="8" y="12" width="20" height="12" rx="4" fill="#ffffff"/><line x1="5" y1="18" x2="8" y2="18" stroke="#ffffff" stroke-width="3" stroke-linecap="round"/><line x1="28" y1="18" x2="31" y2="18" stroke="#ffffff" stroke-width="3" stroke-linecap="round"/><rect x="15" y="13" width="6" height="10" rx="1" fill="#7c3aed"/></svg>',
     'custom-icon-pop': '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><circle cx="18" cy="18" r="16" fill="#2563eb" stroke="#ffffff" stroke-width="2.5"/><rect x="10" y="8" width="16" height="5.5" rx="1.5" fill="#ffffff"/><rect x="10" y="15" width="16" height="5.5" rx="1.5" fill="#ffffff"/><rect x="10" y="22" width="16" height="5.5" rx="1.5" fill="#ffffff"/><circle cx="13" cy="10.8" r="1" fill="#2563eb"/><circle cx="13" cy="17.8" r="1" fill="#2563eb"/><circle cx="13" cy="24.8" r="1" fill="#2563eb"/><line x1="16" y1="10.8" x2="23" y2="10.8" stroke="#2563eb" stroke-width="1.5" stroke-linecap="round"/><line x1="16" y1="17.8" x2="23" y2="17.8" stroke="#2563eb" stroke-width="1.5" stroke-linecap="round"/><line x1="16" y1="24.8" x2="23" y2="24.8" stroke="#2563eb" stroke-width="1.5" stroke-linecap="round"/></svg>',
     'custom-icon-slack': '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><circle cx="18" cy="18" r="16" fill="#eab308" stroke="#ffffff" stroke-width="2.5"/><circle cx="18" cy="18" r="8" fill="none" stroke="#ffffff" stroke-width="2.5"/><circle cx="18" cy="18" r="4" fill="none" stroke="#ffffff" stroke-width="2"/><circle cx="18" cy="18" r="1.5" fill="#ffffff"/></svg>',
-    'custom-icon-joint_box': '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><circle cx="18" cy="18" r="16" fill="#db2777" stroke="#ffffff" stroke-width="2.5"/><rect x="10" y="10" width="16" height="16" rx="2" fill="#ffffff"/><path d="M14 14l8 8m0-8l-8 8" stroke="#db2777" stroke-width="2" stroke-linecap="round"/></svg>'
+    'custom-icon-joint_box': '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><circle cx="18" cy="18" r="16" fill="#db2777" stroke="#ffffff" stroke-width="2.5"/><rect x="10" y="10" width="16" height="16" rx="2" fill="#ffffff"/><path d="M14 14l8 8m0-8l-8 8" stroke="#db2777" stroke-width="2" stroke-linecap="round"/></svg>',
+
+    // Builtin KMZ Google Earth Pushpins (Resolusi Tajam & Bebas CORS)
+    'icon-pin-red': '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><path d="M18 2C12.5 2 8 6.5 8 12c0 7.5 10 22 10 22s10-14.5 10-22c0-5.5-4.5-10-10-10z" fill="#dc2626" stroke="#ffffff" stroke-width="2"/><circle cx="18" cy="12" r="4.5" fill="#ffffff"/><circle cx="18" cy="12" r="2.2" fill="#dc2626"/></svg>',
+    'icon-pin-blue': '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><path d="M18 2C12.5 2 8 6.5 8 12c0 7.5 10 22 10 22s10-14.5 10-22c0-5.5-4.5-10-10-10z" fill="#2563eb" stroke="#ffffff" stroke-width="2"/><circle cx="18" cy="12" r="4.5" fill="#ffffff"/><circle cx="18" cy="12" r="2.2" fill="#2563eb"/></svg>',
+    'icon-pin-green': '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><path d="M18 2C12.5 2 8 6.5 8 12c0 7.5 10 22 10 22s10-14.5 10-22c0-5.5-4.5-10-10-10z" fill="#16a34a" stroke="#ffffff" stroke-width="2"/><circle cx="18" cy="12" r="4.5" fill="#ffffff"/><circle cx="18" cy="12" r="2.2" fill="#16a34a"/></svg>',
+    'icon-pin-yellow': '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><path d="M18 2C12.5 2 8 6.5 8 12c0 7.5 10 22 10 22s10-14.5 10-22c0-5.5-4.5-10-10-10z" fill="#eab308" stroke="#ffffff" stroke-width="2"/><circle cx="18" cy="12" r="4.5" fill="#ffffff"/><circle cx="18" cy="12" r="2.2" fill="#eab308"/></svg>',
+    'icon-pin-purple': '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><path d="M18 2C12.5 2 8 6.5 8 12c0 7.5 10 22 10 22s10-14.5 10-22c0-5.5-4.5-10-10-10z" fill="#9333ea" stroke="#ffffff" stroke-width="2"/><circle cx="18" cy="12" r="4.5" fill="#ffffff"/><circle cx="18" cy="12" r="2.2" fill="#9333ea"/></svg>',
+
+    // Builtin KMZ Google Earth Geometric Shapes
+    'icon-shape-circle': '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><circle cx="18" cy="18" r="14" fill="#ef4444" stroke="#ffffff" stroke-width="3"/><circle cx="18" cy="18" r="5" fill="#ffffff"/></svg>',
+    'icon-shape-square': '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><rect x="5" y="5" width="26" height="26" rx="4" fill="#16a34a" stroke="#ffffff" stroke-width="3"/><rect x="11" y="11" width="14" height="14" rx="2" fill="#ffffff"/><circle cx="18" cy="18" r="3" fill="#16a34a"/></svg>',
+    'icon-shape-triangle': '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><polygon points="18,4 33,31 3,31" fill="#a855f7" stroke="#ffffff" stroke-width="3" stroke-linejoin="round"/><circle cx="18" cy="22" r="3.5" fill="#ffffff"/></svg>',
+    'icon-shape-donut': '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><circle cx="18" cy="18" r="14" fill="#ec4899" stroke="#ffffff" stroke-width="3"/><circle cx="18" cy="18" r="6" fill="#ffffff"/></svg>',
+    'icon-shape-caution': '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><polygon points="18,4 34,31 2,31" fill="#eab308" stroke="#ffffff" stroke-width="3" stroke-linejoin="round"/><rect x="16.5" y="13" width="3" height="8" rx="1.5" fill="#000000"/><circle cx="18" cy="25" r="1.8" fill="#000000"/></svg>',
+    'icon-shape-target': '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><circle cx="18" cy="18" r="15" fill="#2563eb" stroke="#ffffff" stroke-width="2.5"/><circle cx="18" cy="18" r="10" fill="#ffffff"/><circle cx="18" cy="18" r="5" fill="#2563eb"/></svg>'
+  };
+
+  const getSvgIconIdFromUrl = (url?: string): string | null => {
+    if (!url) return null;
+    const u = url.toLowerCase();
+    if (u.includes('blue-pushpin')) return 'icon-pin-blue';
+    if (u.includes('red-pushpin')) return 'icon-pin-red';
+    if (u.includes('grn-pushpin') || u.includes('green-pushpin')) return 'icon-pin-green';
+    if (u.includes('ylw-pushpin') || u.includes('yellow-pushpin')) return 'icon-pin-yellow';
+    if (u.includes('purple-pushpin')) return 'icon-pin-purple';
+    if (u.includes('placemark_circle') || (u.includes('circle') && !u.includes('square'))) return 'icon-shape-circle';
+    if (u.includes('square')) return 'icon-shape-square';
+    if (u.includes('triangle')) return 'icon-shape-triangle';
+    if (u.includes('donut')) return 'icon-shape-donut';
+    if (u.includes('caution')) return 'icon-shape-caution';
+    if (u.includes('target')) return 'icon-shape-target';
+    return null;
   };
 
   // --- Icon System: Hash-based IDs for MapLibre ---
@@ -764,10 +797,15 @@ export default function GisTopology() {
       let iconId = null;
       if (f.properties?.icon_url) {
         const url = f.properties.icon_url;
-        if (!iconMapping.current[url]) {
+        const builtinSvgId = getSvgIconIdFromUrl(url);
+        if (builtinSvgId) {
+          iconId = builtinSvgId;
+        } else if (!iconMapping.current[url]) {
           iconMapping.current[url] = `kmz-icon-${iconCounter.current++}`;
+          iconId = iconMapping.current[url];
+        } else {
+          iconId = iconMapping.current[url];
         }
-        iconId = iconMapping.current[url];
       } else if (f.properties?.type === 'device') {
         const dtype = (f.properties?.device_type || '').toLowerCase();
         if (dtype.includes('odp')) iconId = 'custom-icon-odp';
@@ -1272,7 +1310,6 @@ export default function GisTopology() {
           cursor={editorMode === 'select' ? 'pointer' : 'crosshair'}
         >
           <NavigationControl position="top-right" />
-          <FullscreenControl position="top-right" />
 
           {/* Active Drawing Layers */}
           {drawingLineGeoJSON && (
@@ -1303,21 +1340,23 @@ export default function GisTopology() {
             </Source>
           )}
 
-          {/* Map Style Toggle */}
-          <div className="absolute top-2.5 right-14 z-10 bg-white rounded-md shadow-sm border border-gray-200 overflow-hidden flex flex-row">
+          {/* Map Style Toggle - Tepat di bawah zoom controls di pojok kanan atas secara vertikal rapi */}
+          <div className="absolute top-[105px] right-[10px] z-10 bg-white rounded-md shadow-md border border-gray-200 overflow-hidden flex flex-col">
             <button 
+              type="button"
               onClick={() => setMapType('streets')}
-              className={`p-2 transition-colors ${mapType === 'streets' ? 'bg-blue-100 text-blue-600' : 'bg-white hover:bg-gray-100'}`}
-              title="Streets View"
+              className={`p-2 transition-colors cursor-pointer ${mapType === 'streets' ? 'bg-blue-100 text-blue-600' : 'bg-white hover:bg-gray-100 text-gray-700'}`}
+              title="Tampilan Peta Jalan (Streets)"
             >
-              <MapPin size={18} />
+              <MapPin size={16} />
             </button>
             <button 
+              type="button"
               onClick={() => setMapType('satellite')}
-              className={`p-2 transition-colors border-l border-gray-200 ${mapType === 'satellite' ? 'bg-blue-100 text-blue-600' : 'bg-white hover:bg-gray-100'}`}
-              title="Satellite View"
+              className={`p-2 transition-colors border-t border-gray-200 cursor-pointer ${mapType === 'satellite' ? 'bg-blue-100 text-blue-600' : 'bg-white hover:bg-gray-100 text-gray-700'}`}
+              title="Tampilan Peta Satelit (Satellite)"
             >
-              <MapIcon size={18} />
+              <MapIcon size={16} />
             </button>
           </div>
 
@@ -1557,26 +1596,56 @@ export default function GisTopology() {
           )}
         </Map>
 
-        {/* Legend */}
-        <div className="absolute top-4 right-12 z-[400] bg-dark-surface/90 backdrop-blur border border-dark-border p-3 rounded-xl shadow-lg flex gap-6 pointer-events-none max-w-md">
-          <div>
-            <div className="space-y-1.5 text-xs text-dark-text">
-              <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-[#ef4444] border border-white"></div><span>Tiang</span></div>
-              <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-[#22c55e] border border-[#16a34a]"></div><span>ODP</span></div>
-              <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-[#f97316] border border-white"></div><span>Closure</span></div>
-              <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-[#a855f7] border border-[#7c3aed]"></div><span>Joint Closure</span></div>
-              <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-[#ec4899] border border-[#db2777]"></div><span>Joint Box</span></div>
-              <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-[#facc15] border border-[#ca8a04]"></div><span>Slack</span></div>
-              <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-[#9333ea] border border-white"></div><span>PoP/OLT</span></div>
+        {/* Legend Box - Pojok Kiri Atas (Terpisah Jauh dari Kontrol Zoom di Kanan Atas) */}
+        <div className="absolute top-3 left-3 z-[400]">
+          {!isLegendExpanded ? (
+            <button 
+              type="button"
+              onClick={() => setIsLegendExpanded(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-white/95 dark:bg-dark-surface/95 backdrop-blur-md border border-dark-border rounded-xl shadow-md text-xs font-bold text-dark-text hover:bg-gray-50 dark:hover:bg-dark-card transition-all cursor-pointer pointer-events-auto"
+              title="Buka Legenda Simbol Peta"
+            >
+              <Layers size={14} className="text-primary" />
+              <span>Legenda Peta</span>
+              <ChevronDown size={14} className="text-dark-muted" />
+            </button>
+          ) : (
+            <div className="bg-white/95 dark:bg-dark-surface/95 backdrop-blur-md border border-dark-border p-3.5 rounded-xl shadow-xl flex flex-col gap-2.5 max-w-sm pointer-events-auto animate-in fade-in zoom-in-95 duration-150">
+              <div className="flex items-center justify-between pb-2 border-b border-dark-border">
+                <span className="text-xs font-bold text-dark-text flex items-center gap-1.5">
+                  <Layers size={14} className="text-primary" /> Legenda Simbol Peta
+                </span>
+                <button 
+                  type="button"
+                  onClick={() => setIsLegendExpanded(false)}
+                  className="text-dark-muted hover:text-dark-text p-0.5 rounded cursor-pointer"
+                  title="Tutup Legenda"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+              <div className="flex gap-6">
+                <div>
+                  <div className="space-y-1.5 text-xs text-dark-text">
+                    <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-[#ef4444] border border-white"></div><span>Tiang</span></div>
+                    <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-[#22c55e] border border-[#16a34a]"></div><span>ODP</span></div>
+                    <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-[#f97316] border border-white"></div><span>Closure</span></div>
+                    <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-[#a855f7] border border-[#7c3aed]"></div><span>Joint Closure</span></div>
+                    <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-[#ec4899] border border-[#db2777]"></div><span>Joint Box</span></div>
+                    <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-[#facc15] border border-[#ca8a04]"></div><span>Slack</span></div>
+                    <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-[#9333ea] border border-white"></div><span>PoP/OLT</span></div>
+                  </div>
+                </div>
+                <div>
+                  <div className="space-y-1.5 text-xs text-dark-text">
+                    <div className="flex items-center gap-2"><div className="w-5 h-1 bg-[#1E3A8A] rounded"></div><span>Backbone</span></div>
+                    <div className="flex items-center gap-2"><div className="w-5 h-0.5 bg-[#0284C7] rounded"></div><span>Feeder</span></div>
+                    <div className="flex items-center gap-2"><div className="w-5 border-b-2 border-dashed border-[#475569]"></div><span>Dist/Drop</span></div>
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
-          <div>
-            <div className="space-y-1.5 text-xs text-dark-text">
-              <div className="flex items-center gap-2"><div className="w-5 h-1 bg-[#1E3A8A] rounded"></div><span>Backbone</span></div>
-              <div className="flex items-center gap-2"><div className="w-5 h-0.5 bg-[#0284C7] rounded"></div><span>Feeder</span></div>
-              <div className="flex items-center gap-2"><div className="w-5 border-b border-[#475569] rounded"></div><span>Distribution/Drop</span></div>
-            </div>
-          </div>
+          )}
         </div>
 
         {/* Data Table Panel */}
@@ -1742,9 +1811,11 @@ export default function GisTopology() {
 
               <div>
                 <label className="block text-xs font-semibold text-dark-text mb-1 flex items-center justify-between">
-                  <span>Ikon KMZ (Google Earth Export)</span>
+                  <span>Ikon Node (Tampilan Peta &amp; Google Earth KMZ)</span>
                   {editFormData.icon_url && (
-                    <span className="text-[10px] text-primary font-bold">Kustom Aktif</span>
+                    <span className="text-[10px] text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                      ✓ Ikon Kustom Aktif
+                    </span>
                   )}
                 </label>
                 <select
@@ -1753,18 +1824,21 @@ export default function GisTopology() {
                   className="w-full px-3 py-2 border border-dark-border rounded-lg text-xs bg-white text-dark-text focus:outline-none focus:border-primary"
                 >
                   <option value="">⚙️ Default (Otomatis Sesuai Tipe Node)</option>
-                  <option value="http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png">🔴 Bulat (Placemark Circle - Tiang)</option>
-                  <option value="http://maps.google.com/mapfiles/kml/shapes/square.png">🟩 Kotak (Square - ODP)</option>
-                  <option value="http://maps.google.com/mapfiles/kml/shapes/triangle.png">🔺 Segitiga (Triangle - Closure / JC)</option>
-                  <option value="http://maps.google.com/mapfiles/kml/shapes/donut.png">🍩 Cincin (Donut - Joint Box)</option>
-                  <option value="http://maps.google.com/mapfiles/kml/shapes/caution.png">⚠️ Peringatan (Caution - Slack Kabel)</option>
-                  <option value="http://maps.google.com/mapfiles/kml/shapes/target.png">🎯 Target (POP / OLT / Sentral)</option>
-                  <option value="http://maps.google.com/mapfiles/kml/pushpin/red-pushpin.png">📍 Jarum Merah (Red Pushpin)</option>
                   <option value="http://maps.google.com/mapfiles/kml/pushpin/blue-pushpin.png">📍 Jarum Biru (Blue Pushpin)</option>
+                  <option value="http://maps.google.com/mapfiles/kml/pushpin/red-pushpin.png">📍 Jarum Merah (Red Pushpin)</option>
                   <option value="http://maps.google.com/mapfiles/kml/pushpin/grn-pushpin.png">📍 Jarum Hijau (Green Pushpin)</option>
                   <option value="http://maps.google.com/mapfiles/kml/pushpin/ylw-pushpin.png">📍 Jarum Kuning (Yellow Pushpin)</option>
                   <option value="http://maps.google.com/mapfiles/kml/pushpin/purple-pushpin.png">📍 Jarum Ungu (Purple Pushpin)</option>
+                  <option value="http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png">🔴 Bulat Merah (Placemark Circle)</option>
+                  <option value="http://maps.google.com/mapfiles/kml/shapes/square.png">🟩 Kotak Hijau (Square - ODP)</option>
+                  <option value="http://maps.google.com/mapfiles/kml/shapes/triangle.png">🔺 Segitiga Ungu (Triangle - Closure / JC)</option>
+                  <option value="http://maps.google.com/mapfiles/kml/shapes/donut.png">🍩 Cincin Pink (Donut - Joint Box)</option>
+                  <option value="http://maps.google.com/mapfiles/kml/shapes/caution.png">⚠️ Peringatan Kuning (Caution - Slack)</option>
+                  <option value="http://maps.google.com/mapfiles/kml/shapes/target.png">🎯 Target Biru (POP / Sentral)</option>
                 </select>
+                <p className="text-[11px] text-dark-muted mt-1">
+                  Ikon akan langsung tampil di Peta Web App dan otomatis tersimpan ke file KMZ / KML Google Earth.
+                </p>
               </div>
 
               <div>
