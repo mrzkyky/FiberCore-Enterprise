@@ -236,6 +236,7 @@ def batch_connect_cables(payload: BatchSplicePayload, db: Session = Depends(get_
 
     # Auto-calculate core index jika mode Petik
     if payload.splice_type == 'petik' or (payload.petik_tube and payload.petik_core):
+        payload.skip_spliced = False # Mode petik tidak boleh skip core yang dipilih user
         tube_match = re.search(r'\d+', payload.petik_tube or '')
         core_match = re.search(r'\d+', payload.petik_core or '')
         t_num = int(tube_match.group()) if tube_match else 1
@@ -243,11 +244,11 @@ def batch_connect_cables(payload: BatchSplicePayload, db: Session = Depends(get_
         # Deteksi otomatis kabel mana yang Feeder (kapasitas lebih besar) dan mana yang Dropcore
         feeder_abs_core = (t_num - 1) * 12 + c_num
         if (cable_a.capacity or 0) >= (cable_b.capacity or 0):
-            # cable_a adalah Feeder (misal 48 CORE), cable_b adalah Dropcore (misal 2C)
+            # cable_a adalah Feeder (misal 48 CORE / 12 CORE), cable_b adalah Dropcore (misal 2C)
             payload.start_core_a = feeder_abs_core
             payload.start_core_b = 1
         else:
-            # cable_b adalah Feeder (misal 48 CORE), cable_a adalah Dropcore (misal 2C)
+            # cable_b adalah Feeder, cable_a adalah Dropcore
             payload.start_core_b = feeder_abs_core
             payload.start_core_a = 1
 
@@ -286,22 +287,29 @@ def batch_connect_cables(payload: BatchSplicePayload, db: Session = Depends(get_
 
     skipped_count = 0
     for ca, cb in core_pairs:
-        # Jika opsi skip_spliced aktif dan core ini sudah tersambung ke kabel LAIN (misal sudah dipetik ke ODP):
-        if payload.skip_spliced:
-            other_splice = db.query(Splice).filter(
+        # Jika opsi skip_spliced aktif dan core ini sudah tersambung di closure INI:
+        if payload.skip_spliced and payload.splice_type != 'petik':
+            other_splice_query = db.query(Splice).filter(
                 ((Splice.core_a_id == ca.id) & (Splice.core_b_id != cb.id)) |
                 ((Splice.core_b_id == ca.id) & (Splice.core_a_id != cb.id)) |
                 ((Splice.core_a_id == cb.id) & (Splice.core_b_id != ca.id)) |
                 ((Splice.core_b_id == cb.id) & (Splice.core_a_id != ca.id))
-            ).first()
+            )
+            if closure:
+                other_splice_query = other_splice_query.filter(Splice.closure_id == closure.id)
+            other_splice = other_splice_query.first()
             if other_splice:
                 skipped_count += 1
                 continue
 
-        # Bersihkan splice lama jika core ca atau cb sudah pernah tersambung ke core lain (koreksi sambungan)
-        old_splices = db.query(Splice).filter(
+        # Bersihkan splice lama jika core ca atau cb sudah pernah tersambung ke core lain di closure INI (koreksi sambungan)
+        old_splices_query = db.query(Splice).filter(
             (Splice.core_a_id.in_([ca.id, cb.id])) | (Splice.core_b_id.in_([ca.id, cb.id]))
-        ).all()
+        )
+        if closure:
+            old_splices_query = old_splices_query.filter(Splice.closure_id == closure.id)
+        old_splices = old_splices_query.all()
+
         for old_sp in old_splices:
             # Lewati jika sudah merupakan splice antara ca dan cb
             if (old_sp.core_a_id == ca.id and old_sp.core_b_id == cb.id) or (old_sp.core_a_id == cb.id and old_sp.core_b_id == ca.id):
@@ -313,11 +321,14 @@ def batch_connect_cables(payload: BatchSplicePayload, db: Session = Depends(get_
                 other_core.status = "Free"
             db.delete(old_sp)
 
-        # Cek apakah sudah tersambung antara ca dan cb
-        existing = db.query(Splice).filter(
+        # Cek apakah sudah tersambung antara ca dan cb di closure ini
+        existing_query = db.query(Splice).filter(
             ((Splice.core_a_id == ca.id) & (Splice.core_b_id == cb.id)) |
             ((Splice.core_a_id == cb.id) & (Splice.core_b_id == ca.id))
-        ).first()
+        )
+        if closure:
+            existing_query = existing_query.filter(Splice.closure_id == closure.id)
+        existing = existing_query.first()
 
         if existing:
             if closure:

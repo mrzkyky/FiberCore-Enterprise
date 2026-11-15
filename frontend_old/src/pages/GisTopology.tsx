@@ -592,7 +592,7 @@ export default function GisTopology() {
         petik_tube: batchSpliceForm.petik_tube,
         petik_core: batchSpliceForm.petik_core,
         petik_target: batchSpliceForm.petik_target,
-        skip_spliced: batchSpliceForm.skip_spliced
+        skip_spliced: batchSpliceForm.splice_type === 'petik' ? false : batchSpliceForm.skip_spliced
       };
 
       if (isCustom) {
