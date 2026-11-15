@@ -59,6 +59,8 @@ def sync_all_splice_descriptions(db: Session):
         for cl in closures:
             splices = db.query(Splice).filter(Splice.closure_id == cl.id).all()
             if not splices:
+                if cl.description and ("➔" in cl.description or "to" in cl.description or "via" in cl.description or "Sambung" in cl.description):
+                    cl.description = None
                 continue
 
             lines = []
@@ -84,6 +86,9 @@ def sync_all_splice_descriptions(db: Session):
 
             if lines:
                 cl.description = " | ".join(lines)
+            else:
+                if cl.description and ("➔" in cl.description or "to" in cl.description or "via" in cl.description or "Sambung" in cl.description):
+                    cl.description = None
 
         # 2. Sync Cables (Feeder/Distribution dan Dropcore)
         cables = db.query(Cable).all()
@@ -98,6 +103,8 @@ def sync_all_splice_descriptions(db: Session):
             ).all()
 
             if not splices:
+                if cable.description and ("➔" in cable.description or "to" in cable.description or "via" in cable.description or "Sambung" in cable.description or "[Pelebaran" in cable.description):
+                    cable.description = None
                 continue
 
             lines = []
@@ -128,6 +135,9 @@ def sync_all_splice_descriptions(db: Session):
 
             if lines:
                 cable.description = " | ".join(lines)
+            else:
+                if cable.description and ("➔" in cable.description or "to" in cable.description or "via" in cable.description or "Sambung" in cable.description or "[Pelebaran" in cable.description):
+                    cable.description = None
 
         db.commit()
     except Exception as e:
@@ -202,9 +212,17 @@ def batch_connect_cables(payload: BatchSplicePayload, db: Session = Depends(get_
         core_match = re.search(r'\d+', payload.petik_core or '')
         t_num = int(tube_match.group()) if tube_match else 1
         c_num = int(core_match.group()) if core_match else 1
-        # Nomor core absolut di kabel feeder (kabel B):
-        payload.start_core_b = (t_num - 1) * 12 + c_num
-        payload.start_core_a = 1
+        # Deteksi otomatis kabel mana yang Feeder (kapasitas lebih besar) dan mana yang Dropcore
+        feeder_abs_core = (t_num - 1) * 12 + c_num
+        if (cable_a.capacity or 0) >= (cable_b.capacity or 0):
+            # cable_a adalah Feeder (misal 48 CORE), cable_b adalah Dropcore (misal 2C)
+            payload.start_core_a = feeder_abs_core
+            payload.start_core_b = 1
+        else:
+            # cable_b adalah Feeder (misal 48 CORE), cable_a adalah Dropcore (misal 2C)
+            payload.start_core_b = feeder_abs_core
+            payload.start_core_a = 1
+
         payload.count = 1
         if not payload.custom_note:
             target_str = f" - {payload.petik_target}" if payload.petik_target else ""
@@ -232,25 +250,37 @@ def batch_connect_cables(payload: BatchSplicePayload, db: Session = Depends(get_
         ca = cores_a[idx_a]
         cb = cores_b[idx_b]
 
-        # Bersihkan splice lama jika core ca sudah pernah tersambung ke tempat lain (misal koreksi splice)
-        old_splices_a = db.query(Splice).filter(
-            (Splice.core_a_id == ca.id) | (Splice.core_b_id == ca.id)
+        # Bersihkan splice lama jika core ca atau cb sudah pernah tersambung ke core lain (koreksi sambungan)
+        old_splices = db.query(Splice).filter(
+            (Splice.core_a_id.in_([ca.id, cb.id])) | (Splice.core_b_id.in_([ca.id, cb.id]))
         ).all()
-        for old_sp in old_splices_a:
-            other_id = old_sp.core_b_id if old_sp.core_a_id == ca.id else old_sp.core_a_id
-            if other_id != cb.id:
-                other_core = db.query(Core).filter(Core.id == other_id).first()
-                if other_core:
-                    other_core.status = "Free"
-                db.delete(old_sp)
+        for old_sp in old_splices:
+            # Lewati jika sudah merupakan splice antara ca dan cb
+            if (old_sp.core_a_id == ca.id and old_sp.core_b_id == cb.id) or (old_sp.core_a_id == cb.id and old_sp.core_b_id == ca.id):
+                continue
+            # Bebaskan core seberang yang dilepas
+            other_id = old_sp.core_b_id if old_sp.core_a_id in (ca.id, cb.id) else old_sp.core_a_id
+            other_core = db.query(Core).filter(Core.id == other_id).first()
+            if other_core:
+                other_core.status = "Free"
+            db.delete(old_sp)
 
-        # Check existing splice between ca and cb
+        # Cek apakah sudah tersambung antara ca dan cb
         existing = db.query(Splice).filter(
             ((Splice.core_a_id == ca.id) & (Splice.core_b_id == cb.id)) |
             ((Splice.core_a_id == cb.id) & (Splice.core_b_id == ca.id))
         ).first()
 
-        if not existing:
+        if existing:
+            if closure:
+                existing.closure_id = closure.id
+            if payload.attenuation is not None:
+                existing.attenuation = payload.attenuation
+            ca.status = "Spliced"
+            cb.status = "Spliced"
+            spliced_count += 1
+            splice_details.append(f"C{ca.core_number}({ca.color}) <-> C{cb.core_number}({cb.color})")
+        else:
             sp = Splice(
                 core_a_id=ca.id,
                 core_b_id=cb.id,
@@ -279,9 +309,16 @@ def batch_connect_cables(payload: BatchSplicePayload, db: Session = Depends(get_
         if is_petik:
             # Format Simpel & Bersih untuk Sambungan Petik (ODP/Dropcore)
             detail = payload.custom_note
-            note_for_a = f"Sambung ke {cable_b.name} via {closure_label} ({detail})"
-            note_for_b = f"via {closure_label}: {detail} ➔ {cable_a.name}"
-            jc_entry = f"{cable_a.name} ➔ {cable_b.name} ({detail})"
+            if (cable_a.capacity or 0) >= (cable_b.capacity or 0):
+                feeder_c, drop_c = cable_a, cable_b
+                note_for_a = f"via {closure_label}: {detail} ➔ {drop_c.name}"
+                note_for_b = f"Sambung ke {feeder_c.name} via {closure_label} ({detail})"
+                jc_entry = f"[{feeder_c.name}] {detail} ➔ {drop_c.name}"
+            else:
+                feeder_c, drop_c = cable_b, cable_a
+                note_for_a = f"Sambung ke {feeder_c.name} via {closure_label} ({detail})"
+                note_for_b = f"via {closure_label}: {detail} ➔ {drop_c.name}"
+                jc_entry = f"[{feeder_c.name}] {detail} ➔ {drop_c.name}"
         else:
             # Format Simpel & Bersih untuk Pelebaran Lurus (Trunk / Multi-Core)
             core_info_a = f"Core {payload.start_core_a}" if payload.count == 1 else f"Core {payload.start_core_a}-{payload.start_core_a + spliced_count - 1}"
