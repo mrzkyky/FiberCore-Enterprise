@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import { Cable as CableIcon, Plus, Loader2, UploadCloud, Upload, Layers, Box, Trash2, Edit2, ShieldAlert, Activity, AlertTriangle } from 'lucide-react';
@@ -39,6 +40,7 @@ interface Core {
 export default function Cables() {
   const token = useAuthStore(state => state.token);
   const queryClient = useQueryClient();
+  const [searchParams] = useSearchParams();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -62,6 +64,21 @@ export default function Cables() {
       return response.data;
     }
   });
+
+  // Auto-select kabel jika diarahkan dari Global Search Navbar
+  useEffect(() => {
+    const targetCableId = searchParams.get('cableId');
+    const targetCableName = searchParams.get('cableName');
+    if (cables && cables.length > 0) {
+      if (targetCableId) {
+        const found = cables.find(c => c.id === targetCableId);
+        if (found) setSelectedCable(found);
+      } else if (targetCableName) {
+        const found = cables.find(c => c.name.toLowerCase() === targetCableName.toLowerCase());
+        if (found) setSelectedCable(found);
+      }
+    }
+  }, [cables, searchParams]);
 
   const { data: regionsData } = useQuery({
     queryKey: ['regions'],
@@ -376,11 +393,24 @@ export default function Cables() {
 
         {/* Core Management */}
         <div className="bg-white border border-dark-border rounded-xl flex flex-col shadow-sm h-[calc(100vh-160px)] min-h-[600px]">
-          <div className="p-5 border-b border-dark-border bg-dark-surface rounded-t-xl shrink-0">
+          <div className="p-5 border-b border-dark-border bg-dark-surface rounded-t-xl shrink-0 flex items-center justify-between">
             <h3 className="text-lg font-bold text-dark-text flex items-center gap-2">
               <Layers size={20} className="text-primary" />
               Core Matrix
             </h3>
+            {selectedCable && (
+              <button
+                onClick={() => {
+                  queryClient.invalidateQueries({ queryKey: ['cores', selectedCable.id] });
+                  queryClient.invalidateQueries({ queryKey: ['cables'] });
+                }}
+                className="text-xs font-semibold text-primary hover:text-primary-glow flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-primary/20 hover:bg-primary/5 transition-all cursor-pointer"
+                title="Refresh Status Core"
+              >
+                <Activity size={13} className="text-primary" />
+                <span>Sinkronkan Ulang</span>
+              </button>
+            )}
           </div>
           
           <div className="p-6 flex-1 overflow-y-auto bg-white rounded-b-xl">

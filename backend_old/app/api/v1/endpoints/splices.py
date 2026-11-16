@@ -24,7 +24,7 @@ class BatchSplicePayload(BaseModel):
     petik_tube: Optional[str] = None # e.g. "Tube 2 (Oranye)"
     petik_core: Optional[str] = None # e.g. "Core 3 (Hijau)"
     petik_target: Optional[str] = None
-    skip_spliced: bool = True # Default True: otomatis lewati core yang sudah tersambung/dipetik
+    skip_spliced: bool = False # Default False: izinkan sambung langsung & overwrite / koreksi sambungan
     selected_cores_a: Optional[List[int]] = None # List nomor core spesifik di kabel A
     selected_cores_b: Optional[List[int]] = None # List nomor core spesifik di kabel B
 
@@ -287,7 +287,7 @@ def batch_connect_cables(payload: BatchSplicePayload, db: Session = Depends(get_
 
     skipped_count = 0
     for ca, cb in core_pairs:
-        # Jika opsi skip_spliced aktif dan core ini sudah tersambung di closure INI:
+        # Jika opsi skip_spliced aktif dan core ini sudah memiliki sambungan lain:
         if payload.skip_spliced and payload.splice_type != 'petik':
             other_splice_query = db.query(Splice).filter(
                 ((Splice.core_a_id == ca.id) & (Splice.core_b_id != cb.id)) |
@@ -302,12 +302,10 @@ def batch_connect_cables(payload: BatchSplicePayload, db: Session = Depends(get_
                 skipped_count += 1
                 continue
 
-        # Bersihkan splice lama jika core ca atau cb sudah pernah tersambung ke core lain di closure INI (koreksi sambungan)
+        # Bersihkan splice lama jika core ca atau cb sudah pernah tersambung ke core lain (koreksi sambungan / overwrite)
         old_splices_query = db.query(Splice).filter(
             (Splice.core_a_id.in_([ca.id, cb.id])) | (Splice.core_b_id.in_([ca.id, cb.id]))
         )
-        if closure:
-            old_splices_query = old_splices_query.filter(Splice.closure_id == closure.id)
         old_splices = old_splices_query.all()
 
         for old_sp in old_splices:
@@ -356,8 +354,8 @@ def batch_connect_cables(payload: BatchSplicePayload, db: Session = Depends(get_
         already_spliced = sum(1 for c in cores_a if c.status == "Spliced")
         raise HTTPException(
             status_code=400,
-            detail=f"Tidak ada core yang disambungkan (semua core terpilih sudah tersambung atau dilewati). "
-                   f"Kabel '{cable_a.name}' memiliki {len(cores_a)} core total, {already_spliced} sudah tersambung."
+            detail=f"Tidak ada core yang berhasil disambungkan (semua {len(core_pairs)} core terpilih dilewati karena sudah memiliki sambungan). "
+                   f"Hilangkan centang 'Otomatis lewati (skip) core' jika Anda ingin menimpa atau memperbarui sambungan kabel ini."
         )
 
     if payload.auto_update_description:
@@ -404,6 +402,10 @@ def batch_connect_cables(payload: BatchSplicePayload, db: Session = Depends(get_
             cable_b.description = note_for_b
         elif note_for_b not in cable_b.description:
             cable_b.description = f"{cable_b.description} | {note_for_b}"
+
+    # Update hitungan used_capacity di kedua kabel secara akurat
+    cable_a.used_capacity = db.query(Core).filter(Core.cable_id == cable_a.id, Core.status == "Spliced").count()
+    cable_b.used_capacity = db.query(Core).filter(Core.cable_id == cable_b.id, Core.status == "Spliced").count()
 
     db.commit()
 

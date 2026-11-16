@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { useState, useMemo, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import Map, { Source, Layer, Popup as MapPopup, NavigationControl, FullscreenControl } from 'react-map-gl/maplibre';
@@ -75,6 +76,7 @@ const getTubeCount = (capacity?: number) => {
 export default function GisTopology() {
   const token = useAuthStore(state => state.token);
   const queryClient = useQueryClient();
+  const [searchParams] = useSearchParams();
   const [selectedClosure, setSelectedClosure] = useState<string | null>(null);
   const [mapRegionFilter, setMapRegionFilter] = useState<string>('All');
   const [mapType, setMapType] = useState<'streets' | 'satellite'>('streets');
@@ -111,7 +113,7 @@ export default function GisTopology() {
     petik_tube: 'Tube 1 (Biru)',
     petik_core: 'Core 1 (Biru)',
     petik_target: '',
-    skip_spliced: true, // Default true: otomatis lewati core yang sudah dipetik/tersambung
+    skip_spliced: false, // Default false: langsung sambungkan & koreksi core tanpa dicegat/dilewati
     selection_mode: 'tube', // 'tube' | 'range' | 'custom'
     selected_tube_a: 1,
     selected_tube_b: 1,
@@ -175,6 +177,37 @@ export default function GisTopology() {
     feature: any;
     lngLat: [number, number];
   } | null>(null);
+
+  // Auto-focus ke titik / aset saat dibuka dari Global Search Navbar
+  useEffect(() => {
+    const lat = searchParams.get('lat');
+    const lng = searchParams.get('lng');
+    const name = searchParams.get('name');
+    const type = searchParams.get('type') || 'Device';
+    if (lat && lng) {
+      const latitude = parseFloat(lat);
+      const longitude = parseFloat(lng);
+      if (!isNaN(latitude) && !isNaN(longitude)) {
+        setTimeout(() => {
+          mapRef.current?.flyTo({
+            center: [longitude, latitude],
+            zoom: 18,
+            duration: 1200
+          });
+          setPopupInfo({
+            feature: {
+              properties: {
+                name: name || 'Selected Node',
+                device_type: type,
+                category: type
+              }
+            },
+            lngLat: [longitude, latitude]
+          });
+        }, 300);
+      }
+    }
+  }, [searchParams]);
 
   const { data: geoData, isLoading } = useQuery({
     queryKey: ['map-topology', mapRegionFilter],
@@ -670,6 +703,8 @@ export default function GisTopology() {
       });
       alert(res.data.message);
       queryClient.invalidateQueries({ queryKey: ['map-topology'] });
+      queryClient.invalidateQueries({ queryKey: ['cables'] });
+      queryClient.invalidateQueries({ queryKey: ['cores'] });
       queryClient.invalidateQueries({ queryKey: ['cable-cores'] });
       setBatchSpliceModal(false);
     } catch (err: any) {
@@ -1400,8 +1435,8 @@ export default function GisTopology() {
             </Source>
           )}
 
-          {/* Map Style Toggle - Tepat di bawah zoom controls di pojok kanan atas secara vertikal rapi */}
-          <div className="absolute top-[105px] right-[10px] z-10 bg-white rounded-md shadow-md border border-gray-200 overflow-hidden flex flex-col">
+          {/* Map Style Toggle - Tepat di bawah zoom controls di pojok kanan atas dengan jarak lega (tidak tumpuk) */}
+          <div className="absolute top-[125px] right-[10px] z-10 bg-white rounded-md shadow-md border border-gray-200 overflow-hidden flex flex-col">
             <button 
               type="button"
               onClick={() => setMapType('streets')}
