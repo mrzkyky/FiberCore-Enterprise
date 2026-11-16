@@ -234,8 +234,8 @@ def batch_connect_cables(payload: BatchSplicePayload, db: Session = Depends(get_
     spliced_count = 0
     splice_details = []
 
-    # Auto-calculate core index jika mode Petik
-    if payload.splice_type == 'petik' or (payload.petik_tube and payload.petik_core):
+    # Auto-calculate core index HANYA jika mode Petik
+    if payload.splice_type == 'petik':
         payload.skip_spliced = False # Mode petik tidak boleh skip core yang dipilih user
         tube_match = re.search(r'\d+', payload.petik_tube or '')
         core_match = re.search(r'\d+', payload.petik_core or '')
@@ -360,7 +360,7 @@ def batch_connect_cables(payload: BatchSplicePayload, db: Session = Depends(get_
 
     if payload.auto_update_description:
         closure_label = closure.name if closure else "JC"
-        is_petik = bool(payload.count == 1 and payload.custom_note and ("Tube" in payload.custom_note or "Core" in payload.custom_note))
+        is_petik = bool(payload.splice_type == 'petik')
         
         if is_petik:
             # Format Simpel & Bersih untuk Sambungan Petik (ODP/Dropcore)

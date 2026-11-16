@@ -685,9 +685,9 @@ export default function GisTopology() {
         auto_update_description: batchSpliceForm.auto_update_description,
         custom_note: note,
         splice_type: batchSpliceForm.splice_type,
-        petik_tube: batchSpliceForm.petik_tube,
-        petik_core: batchSpliceForm.petik_core,
-        petik_target: batchSpliceForm.petik_target,
+        petik_tube: batchSpliceForm.splice_type === 'petik' ? batchSpliceForm.petik_tube : null,
+        petik_core: batchSpliceForm.splice_type === 'petik' ? batchSpliceForm.petik_core : null,
+        petik_target: batchSpliceForm.splice_type === 'petik' ? batchSpliceForm.petik_target : null,
         skip_spliced: batchSpliceForm.splice_type === 'petik' ? false : batchSpliceForm.skip_spliced
       };
 
