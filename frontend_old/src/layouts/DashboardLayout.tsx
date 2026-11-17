@@ -227,28 +227,35 @@ export default function DashboardLayout() {
           isSidebarCollapsed ? 'w-[68px]' : 'w-64'
         }`}
       >
-        {/* Tombol Geser / Toggle Sidebar Melayang di Sisi Kanan Sidebar */}
-        <button
-          type="button"
-          onClick={toggleSidebar}
-          title={isSidebarCollapsed ? "Geser & Perluas Menu (Expand)" : "Geser & Tutup Menu (Collapse)"}
-          className="absolute -right-3.5 top-6 z-30 w-7 h-7 bg-white border border-dark-border rounded-full shadow-md hover:bg-primary hover:text-white text-gray-600 flex items-center justify-center transition-all cursor-pointer hover:scale-110"
-        >
-          {isSidebarCollapsed ? <ChevronRight size={15} /> : <ChevronLeft size={15} />}
-        </button>
-
         {/* Sidebar Header */}
-        <div className="h-16 flex items-center px-4.5 border-b border-dark-border overflow-hidden">
-          <div className="flex items-center min-w-0">
-            <div className="w-9 h-9 rounded-xl bg-primary text-white flex items-center justify-center font-bold text-lg shadow-sm shrink-0">
+        <div className={`h-16 flex items-center border-b border-dark-border overflow-hidden transition-all ${
+          isSidebarCollapsed ? 'justify-center px-2' : 'justify-between px-4'
+        }`}>
+          <div className="flex items-center gap-3 min-w-0">
+            <button
+              type="button"
+              onClick={toggleSidebar}
+              title={isSidebarCollapsed ? "Klik untuk Perluas Menu Sidebar" : "FiberCore Enterprise"}
+              className="w-9 h-9 rounded-xl bg-primary text-white flex items-center justify-center font-bold text-lg shadow-sm shrink-0 hover:scale-105 transition-transform cursor-pointer"
+            >
               <Network size={20} strokeWidth={2.5} />
-            </div>
+            </button>
             {!isSidebarCollapsed && (
-              <h1 className="text-xl font-extrabold text-dark-text tracking-tight ml-3 whitespace-nowrap animate-in fade-in duration-200">
+              <h1 className="text-xl font-extrabold text-dark-text tracking-tight whitespace-nowrap animate-in fade-in duration-200">
                 <span className="text-primary">Fiber</span>Core
               </h1>
             )}
           </div>
+          {!isSidebarCollapsed && (
+            <button
+              type="button"
+              onClick={toggleSidebar}
+              title="Tutup / Geser Menu (Collapse)"
+              className="p-1.5 text-gray-400 hover:text-primary hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
+            >
+              <ChevronLeft size={18} />
+            </button>
+          )}
         </div>
         
         {/* Navigation Items (Sub-menu List) */}

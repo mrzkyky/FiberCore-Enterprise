@@ -73,6 +73,48 @@ const getTubeCount = (capacity?: number) => {
   return Math.max(1, Math.ceil(capacity / 12));
 };
 
+// --- Custom GIS Vector Icons (Bebas CORS, Tajam, & Kompatibel Google Earth KMZ) ---
+const CUSTOM_SVGS: Record<string, string> = {
+  'custom-icon-tiang': '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><circle cx="18" cy="18" r="16" fill="#ef4444" stroke="#ffffff" stroke-width="2.5"/><rect x="16.5" y="7" width="3" height="22" rx="1.5" fill="#ffffff"/><rect x="8" y="11" width="20" height="3" rx="1" fill="#ffffff"/><rect x="11" y="16.5" width="14" height="2.2" rx="1" fill="#ffffff"/><circle cx="9.5" cy="10.5" r="1.5" fill="#fef08a"/><circle cx="26.5" cy="10.5" r="1.5" fill="#fef08a"/><circle cx="12.5" cy="15.5" r="1.2" fill="#fef08a"/><circle cx="23.5" cy="15.5" r="1.2" fill="#fef08a"/></svg>',
+  'custom-icon-odp': '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><circle cx="18" cy="18" r="16" fill="#16a34a" stroke="#ffffff" stroke-width="2.5"/><rect x="9" y="9" width="18" height="18" rx="3" fill="#ffffff"/><circle cx="13" cy="13.5" r="1.6" fill="#16a34a"/><circle cx="18" cy="13.5" r="1.6" fill="#16a34a"/><circle cx="23" cy="13.5" r="1.6" fill="#16a34a"/><circle cx="13" cy="18.5" r="1.6" fill="#16a34a"/><circle cx="18" cy="18.5" r="1.6" fill="#16a34a"/><circle cx="23" cy="18.5" r="1.6" fill="#16a34a"/><rect x="11.5" y="22.5" width="13" height="2" rx="1" fill="#15803d"/></svg>',
+  'custom-icon-closure': '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><circle cx="18" cy="18" r="16" fill="#7c3aed" stroke="#ffffff" stroke-width="2.5"/><rect x="8" y="12" width="20" height="12" rx="4" fill="#ffffff"/><line x1="5" y1="18" x2="8" y2="18" stroke="#ffffff" stroke-width="3" stroke-linecap="round"/><line x1="28" y1="18" x2="31" y2="18" stroke="#ffffff" stroke-width="3" stroke-linecap="round"/><rect x="15" y="13" width="6" height="10" rx="1" fill="#7c3aed"/></svg>',
+  'custom-icon-pop': '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><circle cx="18" cy="18" r="16" fill="#2563eb" stroke="#ffffff" stroke-width="2.5"/><rect x="10" y="8" width="16" height="5.5" rx="1.5" fill="#ffffff"/><rect x="10" y="15" width="16" height="5.5" rx="1.5" fill="#ffffff"/><rect x="10" y="22" width="16" height="5.5" rx="1.5" fill="#ffffff"/><circle cx="13" cy="10.8" r="1" fill="#2563eb"/><circle cx="13" cy="17.8" r="1" fill="#2563eb"/><circle cx="13" cy="24.8" r="1" fill="#2563eb"/><line x1="16" y1="10.8" x2="23" y2="10.8" stroke="#2563eb" stroke-width="1.5" stroke-linecap="round"/><line x1="16" y1="17.8" x2="23" y2="17.8" stroke="#2563eb" stroke-width="1.5" stroke-linecap="round"/><line x1="16" y1="24.8" x2="23" y2="24.8" stroke="#2563eb" stroke-width="1.5" stroke-linecap="round"/></svg>',
+  'custom-icon-slack': '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><circle cx="18" cy="18" r="16" fill="#eab308" stroke="#ffffff" stroke-width="2.5"/><circle cx="18" cy="18" r="8" fill="none" stroke="#ffffff" stroke-width="2.5"/><circle cx="18" cy="18" r="4" fill="none" stroke="#ffffff" stroke-width="2"/><circle cx="18" cy="18" r="1.5" fill="#ffffff"/></svg>',
+  'custom-icon-joint_box': '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><circle cx="18" cy="18" r="16" fill="#db2777" stroke="#ffffff" stroke-width="2.5"/><rect x="10" y="10" width="16" height="16" rx="2" fill="#ffffff"/><path d="M14 14l8 8m0-8l-8 8" stroke="#db2777" stroke-width="2" stroke-linecap="round"/></svg>',
+
+  // Builtin KMZ Google Earth Pushpins
+  'icon-pin-red': '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><path d="M18 2C12.5 2 8 6.5 8 12c0 7.5 10 22 10 22s10-14.5 10-22c0-5.5-4.5-10-10-10z" fill="#dc2626" stroke="#ffffff" stroke-width="2"/><circle cx="18" cy="12" r="4.5" fill="#ffffff"/><circle cx="18" cy="12" r="2.2" fill="#dc2626"/></svg>',
+  'icon-pin-blue': '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><path d="M18 2C12.5 2 8 6.5 8 12c0 7.5 10 22 10 22s10-14.5 10-22c0-5.5-4.5-10-10-10z" fill="#2563eb" stroke="#ffffff" stroke-width="2"/><circle cx="18" cy="12" r="4.5" fill="#ffffff"/><circle cx="18" cy="12" r="2.2" fill="#2563eb"/></svg>',
+  'icon-pin-green': '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><path d="M18 2C12.5 2 8 6.5 8 12c0 7.5 10 22 10 22s10-14.5 10-22c0-5.5-4.5-10-10-10z" fill="#16a34a" stroke="#ffffff" stroke-width="2"/><circle cx="18" cy="12" r="4.5" fill="#ffffff"/><circle cx="18" cy="12" r="2.2" fill="#16a34a"/></svg>',
+  'icon-pin-yellow': '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><path d="M18 2C12.5 2 8 6.5 8 12c0 7.5 10 22 10 22s10-14.5 10-22c0-5.5-4.5-10-10-10z" fill="#eab308" stroke="#ffffff" stroke-width="2"/><circle cx="18" cy="12" r="4.5" fill="#ffffff"/><circle cx="18" cy="12" r="2.2" fill="#eab308"/></svg>',
+  'icon-pin-purple': '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><path d="M18 2C12.5 2 8 6.5 8 12c0 7.5 10 22 10 22s10-14.5 10-22c0-5.5-4.5-10-10-10z" fill="#9333ea" stroke="#ffffff" stroke-width="2"/><circle cx="18" cy="12" r="4.5" fill="#ffffff"/><circle cx="18" cy="12" r="2.2" fill="#9333ea"/></svg>',
+
+  // Builtin KMZ Google Earth Geometric Shapes
+  'icon-shape-circle': '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><circle cx="18" cy="18" r="14" fill="#ef4444" stroke="#ffffff" stroke-width="3"/><circle cx="18" cy="18" r="5" fill="#ffffff"/></svg>',
+  'icon-shape-square': '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><rect x="5" y="5" width="26" height="26" rx="4" fill="#16a34a" stroke="#ffffff" stroke-width="3"/><rect x="11" y="11" width="14" height="14" rx="2" fill="#ffffff"/><circle cx="18" cy="18" r="3" fill="#16a34a"/></svg>',
+  'icon-shape-triangle': '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><polygon points="18,4 33,31 3,31" fill="#a855f7" stroke="#ffffff" stroke-width="3" stroke-linejoin="round"/><circle cx="18" cy="22" r="3.5" fill="#ffffff"/></svg>',
+  'icon-shape-donut': '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><circle cx="18" cy="18" r="14" fill="#ec4899" stroke="#ffffff" stroke-width="3"/><circle cx="18" cy="18" r="6" fill="#ffffff"/></svg>',
+  'icon-shape-caution': '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><polygon points="18,4 34,31 2,31" fill="#eab308" stroke="#ffffff" stroke-width="3" stroke-linejoin="round"/><rect x="16.5" y="13" width="3" height="8" rx="1.5" fill="#000000"/><circle cx="18" cy="25" r="1.8" fill="#000000"/></svg>',
+  'icon-shape-target': '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><circle cx="18" cy="18" r="15" fill="#2563eb" stroke="#ffffff" stroke-width="2.5"/><circle cx="18" cy="18" r="10" fill="#ffffff"/><circle cx="18" cy="18" r="5" fill="#2563eb"/></svg>'
+};
+
+const getSvgIconIdFromUrl = (url?: string): string | null => {
+  if (!url) return null;
+  const u = url.toLowerCase();
+  if (u.includes('blue-pushpin')) return 'icon-pin-blue';
+  if (u.includes('red-pushpin')) return 'icon-pin-red';
+  if (u.includes('grn-pushpin') || u.includes('green-pushpin')) return 'icon-pin-green';
+  if (u.includes('ylw-pushpin') || u.includes('yellow-pushpin')) return 'icon-pin-yellow';
+  if (u.includes('purple-pushpin')) return 'icon-pin-purple';
+  if (u.includes('placemark_circle') || (u.includes('circle') && !u.includes('square'))) return 'icon-shape-circle';
+  if (u.includes('square')) return 'icon-shape-square';
+  if (u.includes('triangle')) return 'icon-shape-triangle';
+  if (u.includes('donut')) return 'icon-shape-donut';
+  if (u.includes('caution')) return 'icon-shape-caution';
+  if (u.includes('target')) return 'icon-shape-target';
+  return null;
+};
+
 export default function GisTopology() {
   const token = useAuthStore(state => state.token);
   const queryClient = useQueryClient();
@@ -84,7 +126,7 @@ export default function GisTopology() {
   const [isFullScreenMap, setIsFullScreenMap] = useState<boolean>(false);
   const mapRef = useRef<MapRef>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
-  const [loadedIcons, setLoadedIcons] = useState<string[]>([]);
+  const [loadedIcons, setLoadedIcons] = useState<string[]>(() => Object.keys(CUSTOM_SVGS));
   
   // --- Web Editor States ---
   const [editorMode, setEditorMode] = useState<'select' | 'add-node' | 'draw-cable'>('select');
@@ -98,8 +140,10 @@ export default function GisTopology() {
   const [newProjectModal, setNewProjectModal] = useState<boolean>(false);
   const [newProjectName, setNewProjectName] = useState<string>('');
 
-  // Batch Splice (Pelebaran & Petik) Modal State
+  // Batch Splice (Pelebaran & Petik) Modal State & Region Filter
   const [batchSpliceModal, setBatchSpliceModal] = useState<boolean>(false);
+  const [batchFilterRegionA, setBatchFilterRegionA] = useState<string>('All');
+  const [batchFilterRegionB, setBatchFilterRegionB] = useState<string>('All');
   const [batchSpliceForm, setBatchSpliceForm] = useState({
     cable_a_id: '',
     cable_b_id: '',
@@ -292,6 +336,20 @@ export default function GisTopology() {
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   };
 
+  const getMinCableDistanceToPoint = (cableCoords: any, pointCoord?: [number, number]): number => {
+    if (!cableCoords || !pointCoord) return 999999999;
+    let minDist = 999999999;
+    if (Array.isArray(cableCoords)) {
+      for (const pt of cableCoords) {
+        if (Array.isArray(pt) && typeof pt[0] === 'number') {
+          const d = getDistanceMeters([pt[0], pt[1]], pointCoord);
+          if (d < minDist) minDist = d;
+        }
+      }
+    }
+    return minDist;
+  };
+
   // Extract unique regions for dropdown (we fallback to fetching 'All' initially to get them)
   const { data: allGeoData } = useQuery({
     queryKey: ['map-topology', 'All'],
@@ -320,9 +378,11 @@ export default function GisTopology() {
       .map((f: any) => ({
         id: f.properties.id,
         name: f.properties.name,
-        capacity: f.properties.capacity,
+        capacity: f.properties.capacity || 12,
         region: f.properties.region,
-        cable_type: f.properties.cable_type
+        cable_type: f.properties.cable_type || 'Distribution',
+        coordinates: f.geometry?.coordinates,
+        description: f.properties.description
       }));
   }, [allGeoData]);
 
@@ -390,15 +450,49 @@ export default function GisTopology() {
       if (refCoord && cl.coordinates) {
         dist = getDistanceMeters(refCoord, cl.coordinates);
       }
+      const isSelected = cl.id === batchSpliceForm.closure_id;
       const isSameRegion = !cableRegion || !cl.region || cl.region === cableRegion;
+      const sortScore = isSelected ? -100000000 : ((isSameRegion ? 0 : 50000) + dist);
       return {
         ...cl,
         dist,
         isSameRegion,
-        sortScore: (isSameRegion ? 0 : 50000) + dist
+        isSelected,
+        sortScore
       };
     }).sort((a, b) => a.sortScore - b.sortScore);
-  }, [availableClosures, popupInfo, selectedCableA]);
+  }, [availableClosures, popupInfo, selectedCableA, batchSpliceForm.closure_id]);
+
+  const selectedClosureObj = useMemo(() => {
+    const targetId = batchSpliceForm.closure_id || sortedClosures[0]?.id;
+    return availableClosures.find(c => c.id === targetId) || null;
+  }, [batchSpliceForm.closure_id, sortedClosures, availableClosures]);
+
+  const filteredCablesA = useMemo(() => {
+    const list = availableCables.filter(c => {
+      if (batchFilterRegionA !== 'All' && c.region !== batchFilterRegionA) return false;
+      return true;
+    });
+    if (!selectedClosureObj?.coordinates) return list;
+    return [...list].sort((a, b) => {
+      const dA = getMinCableDistanceToPoint(a.coordinates, selectedClosureObj.coordinates);
+      const dB = getMinCableDistanceToPoint(b.coordinates, selectedClosureObj.coordinates);
+      return dA - dB;
+    });
+  }, [availableCables, batchFilterRegionA, selectedClosureObj]);
+
+  const filteredCablesB = useMemo(() => {
+    const list = availableCables.filter(c => {
+      if (batchFilterRegionB !== 'All' && c.region !== batchFilterRegionB) return false;
+      return true;
+    });
+    if (!selectedClosureObj?.coordinates) return list;
+    return [...list].sort((a, b) => {
+      const dA = getMinCableDistanceToPoint(a.coordinates, selectedClosureObj.coordinates);
+      const dB = getMinCableDistanceToPoint(b.coordinates, selectedClosureObj.coordinates);
+      return dA - dB;
+    });
+  }, [availableCables, batchFilterRegionB, selectedClosureObj]);
 
   // Computed KPI Stats from Map
   const stats = useMemo(() => {
@@ -837,48 +931,6 @@ export default function GisTopology() {
     };
   }, [cablePoints]);
 
-  // --- Custom GIS Vector Icons ---
-  const CUSTOM_SVGS: Record<string, string> = {
-    'custom-icon-tiang': '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><circle cx="18" cy="18" r="16" fill="#ef4444" stroke="#ffffff" stroke-width="2.5"/><rect x="16.5" y="7" width="3" height="22" rx="1.5" fill="#ffffff"/><rect x="8" y="11" width="20" height="3" rx="1" fill="#ffffff"/><rect x="11" y="16.5" width="14" height="2.2" rx="1" fill="#ffffff"/><circle cx="9.5" cy="10.5" r="1.5" fill="#fef08a"/><circle cx="26.5" cy="10.5" r="1.5" fill="#fef08a"/><circle cx="12.5" cy="15.5" r="1.2" fill="#fef08a"/><circle cx="23.5" cy="15.5" r="1.2" fill="#fef08a"/></svg>',
-    'custom-icon-odp': '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><circle cx="18" cy="18" r="16" fill="#16a34a" stroke="#ffffff" stroke-width="2.5"/><rect x="9" y="9" width="18" height="18" rx="3" fill="#ffffff"/><circle cx="13" cy="13.5" r="1.6" fill="#16a34a"/><circle cx="18" cy="13.5" r="1.6" fill="#16a34a"/><circle cx="23" cy="13.5" r="1.6" fill="#16a34a"/><circle cx="13" cy="18.5" r="1.6" fill="#16a34a"/><circle cx="18" cy="18.5" r="1.6" fill="#16a34a"/><circle cx="23" cy="18.5" r="1.6" fill="#16a34a"/><rect x="11.5" y="22.5" width="13" height="2" rx="1" fill="#15803d"/></svg>',
-    'custom-icon-closure': '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><circle cx="18" cy="18" r="16" fill="#7c3aed" stroke="#ffffff" stroke-width="2.5"/><rect x="8" y="12" width="20" height="12" rx="4" fill="#ffffff"/><line x1="5" y1="18" x2="8" y2="18" stroke="#ffffff" stroke-width="3" stroke-linecap="round"/><line x1="28" y1="18" x2="31" y2="18" stroke="#ffffff" stroke-width="3" stroke-linecap="round"/><rect x="15" y="13" width="6" height="10" rx="1" fill="#7c3aed"/></svg>',
-    'custom-icon-pop': '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><circle cx="18" cy="18" r="16" fill="#2563eb" stroke="#ffffff" stroke-width="2.5"/><rect x="10" y="8" width="16" height="5.5" rx="1.5" fill="#ffffff"/><rect x="10" y="15" width="16" height="5.5" rx="1.5" fill="#ffffff"/><rect x="10" y="22" width="16" height="5.5" rx="1.5" fill="#ffffff"/><circle cx="13" cy="10.8" r="1" fill="#2563eb"/><circle cx="13" cy="17.8" r="1" fill="#2563eb"/><circle cx="13" cy="24.8" r="1" fill="#2563eb"/><line x1="16" y1="10.8" x2="23" y2="10.8" stroke="#2563eb" stroke-width="1.5" stroke-linecap="round"/><line x1="16" y1="17.8" x2="23" y2="17.8" stroke="#2563eb" stroke-width="1.5" stroke-linecap="round"/><line x1="16" y1="24.8" x2="23" y2="24.8" stroke="#2563eb" stroke-width="1.5" stroke-linecap="round"/></svg>',
-    'custom-icon-slack': '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><circle cx="18" cy="18" r="16" fill="#eab308" stroke="#ffffff" stroke-width="2.5"/><circle cx="18" cy="18" r="8" fill="none" stroke="#ffffff" stroke-width="2.5"/><circle cx="18" cy="18" r="4" fill="none" stroke="#ffffff" stroke-width="2"/><circle cx="18" cy="18" r="1.5" fill="#ffffff"/></svg>',
-    'custom-icon-joint_box': '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><circle cx="18" cy="18" r="16" fill="#db2777" stroke="#ffffff" stroke-width="2.5"/><rect x="10" y="10" width="16" height="16" rx="2" fill="#ffffff"/><path d="M14 14l8 8m0-8l-8 8" stroke="#db2777" stroke-width="2" stroke-linecap="round"/></svg>',
-
-    // Builtin KMZ Google Earth Pushpins (Resolusi Tajam & Bebas CORS)
-    'icon-pin-red': '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><path d="M18 2C12.5 2 8 6.5 8 12c0 7.5 10 22 10 22s10-14.5 10-22c0-5.5-4.5-10-10-10z" fill="#dc2626" stroke="#ffffff" stroke-width="2"/><circle cx="18" cy="12" r="4.5" fill="#ffffff"/><circle cx="18" cy="12" r="2.2" fill="#dc2626"/></svg>',
-    'icon-pin-blue': '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><path d="M18 2C12.5 2 8 6.5 8 12c0 7.5 10 22 10 22s10-14.5 10-22c0-5.5-4.5-10-10-10z" fill="#2563eb" stroke="#ffffff" stroke-width="2"/><circle cx="18" cy="12" r="4.5" fill="#ffffff"/><circle cx="18" cy="12" r="2.2" fill="#2563eb"/></svg>',
-    'icon-pin-green': '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><path d="M18 2C12.5 2 8 6.5 8 12c0 7.5 10 22 10 22s10-14.5 10-22c0-5.5-4.5-10-10-10z" fill="#16a34a" stroke="#ffffff" stroke-width="2"/><circle cx="18" cy="12" r="4.5" fill="#ffffff"/><circle cx="18" cy="12" r="2.2" fill="#16a34a"/></svg>',
-    'icon-pin-yellow': '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><path d="M18 2C12.5 2 8 6.5 8 12c0 7.5 10 22 10 22s10-14.5 10-22c0-5.5-4.5-10-10-10z" fill="#eab308" stroke="#ffffff" stroke-width="2"/><circle cx="18" cy="12" r="4.5" fill="#ffffff"/><circle cx="18" cy="12" r="2.2" fill="#eab308"/></svg>',
-    'icon-pin-purple': '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><path d="M18 2C12.5 2 8 6.5 8 12c0 7.5 10 22 10 22s10-14.5 10-22c0-5.5-4.5-10-10-10z" fill="#9333ea" stroke="#ffffff" stroke-width="2"/><circle cx="18" cy="12" r="4.5" fill="#ffffff"/><circle cx="18" cy="12" r="2.2" fill="#9333ea"/></svg>',
-
-    // Builtin KMZ Google Earth Geometric Shapes
-    'icon-shape-circle': '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><circle cx="18" cy="18" r="14" fill="#ef4444" stroke="#ffffff" stroke-width="3"/><circle cx="18" cy="18" r="5" fill="#ffffff"/></svg>',
-    'icon-shape-square': '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><rect x="5" y="5" width="26" height="26" rx="4" fill="#16a34a" stroke="#ffffff" stroke-width="3"/><rect x="11" y="11" width="14" height="14" rx="2" fill="#ffffff"/><circle cx="18" cy="18" r="3" fill="#16a34a"/></svg>',
-    'icon-shape-triangle': '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><polygon points="18,4 33,31 3,31" fill="#a855f7" stroke="#ffffff" stroke-width="3" stroke-linejoin="round"/><circle cx="18" cy="22" r="3.5" fill="#ffffff"/></svg>',
-    'icon-shape-donut': '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><circle cx="18" cy="18" r="14" fill="#ec4899" stroke="#ffffff" stroke-width="3"/><circle cx="18" cy="18" r="6" fill="#ffffff"/></svg>',
-    'icon-shape-caution': '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><polygon points="18,4 34,31 2,31" fill="#eab308" stroke="#ffffff" stroke-width="3" stroke-linejoin="round"/><rect x="16.5" y="13" width="3" height="8" rx="1.5" fill="#000000"/><circle cx="18" cy="25" r="1.8" fill="#000000"/></svg>',
-    'icon-shape-target': '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><circle cx="18" cy="18" r="15" fill="#2563eb" stroke="#ffffff" stroke-width="2.5"/><circle cx="18" cy="18" r="10" fill="#ffffff"/><circle cx="18" cy="18" r="5" fill="#2563eb"/></svg>'
-  };
-
-  const getSvgIconIdFromUrl = (url?: string): string | null => {
-    if (!url) return null;
-    const u = url.toLowerCase();
-    if (u.includes('blue-pushpin')) return 'icon-pin-blue';
-    if (u.includes('red-pushpin')) return 'icon-pin-red';
-    if (u.includes('grn-pushpin') || u.includes('green-pushpin')) return 'icon-pin-green';
-    if (u.includes('ylw-pushpin') || u.includes('yellow-pushpin')) return 'icon-pin-yellow';
-    if (u.includes('purple-pushpin')) return 'icon-pin-purple';
-    if (u.includes('placemark_circle') || (u.includes('circle') && !u.includes('square'))) return 'icon-shape-circle';
-    if (u.includes('square')) return 'icon-shape-square';
-    if (u.includes('triangle')) return 'icon-shape-triangle';
-    if (u.includes('donut')) return 'icon-shape-donut';
-    if (u.includes('caution')) return 'icon-shape-caution';
-    if (u.includes('target')) return 'icon-shape-target';
-    return null;
-  };
-
   // --- Icon System: Hash-based IDs for MapLibre ---
   const iconMapping = useRef<Record<string, string>>({});
   const iconCounter = useRef(0);
@@ -923,59 +975,68 @@ export default function GisTopology() {
     return { ...geoData, features };
   }, [geoData]);
 
-  useEffect(() => {
-    if (!mapRef.current) return;
-    const map = mapRef.current.getMap();
-    const newlyLoaded: string[] = [];
+  // Robust SVG & KMZ Icon Registration (Dipanggil saat map mount, style reload, & data update)
+  const registerAllIcons = useCallback((mapInstance?: any) => {
+    const map = mapInstance || mapRef.current?.getMap();
+    if (!map) return;
 
-    // Pre-load custom SVG icons
+    // 1. Pre-load custom SVG icons
     Object.entries(CUSTOM_SVGS).forEach(([id, svg]) => {
-      if (!map.hasImage(id)) {
-        const img = new Image(36, 36);
-        img.onload = () => {
-          if (!map.hasImage(id)) {
-            map.addImage(id, img);
-            setLoadedIcons(prev => prev.includes(id) ? prev : [...prev, id]);
-          }
-        };
-        img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg.trim());
-      } else {
-        newlyLoaded.push(id);
-      }
+      try {
+        if (!map.hasImage(id)) {
+          const img = new Image(36, 36);
+          img.onload = () => {
+            try {
+              if (!map.hasImage(id)) {
+                map.addImage(id, img);
+                setLoadedIcons(prev => prev.includes(id) ? prev : [...prev, id]);
+              }
+            } catch (e) {}
+          };
+          img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg.trim());
+        }
+      } catch (e) {}
     });
 
-    // Load KMZ remote icons if any
-    Object.entries(iconMapping.current).forEach(([url, iconId]) => {
-      if (map.hasImage(iconId)) {
-        newlyLoaded.push(iconId);
-        return;
-      }
-
-      if (url.startsWith('data:')) {
-        const img = new Image();
-        img.src = url;
-        img.onload = () => {
+    // 2. Load KMZ remote / data icons
+    if (iconMapping.current) {
+      Object.entries(iconMapping.current).forEach(([url, iconId]) => {
+        try {
           if (!map.hasImage(iconId)) {
-            map.addImage(iconId, img);
-            setLoadedIcons(prev => (!prev.includes(iconId) ? [...prev, iconId] : prev));
+            if (url.startsWith('data:')) {
+              const img = new Image();
+              img.onload = () => {
+                try {
+                  if (!map.hasImage(iconId)) {
+                    map.addImage(iconId, img);
+                    setLoadedIcons(prev => (!prev.includes(iconId) ? [...prev, iconId] : prev));
+                  }
+                } catch (e) {}
+              };
+              img.src = url;
+            } else {
+              map.loadImage(url, (error: any, imgData: any) => {
+                if (!error && imgData) {
+                  try {
+                    if (!map.hasImage(iconId)) {
+                      map.addImage(iconId, imgData);
+                      setLoadedIcons(prev => (!prev.includes(iconId) ? [...prev, iconId] : prev));
+                    }
+                  } catch (e) {}
+                }
+              });
+            }
           }
-        };
-        img.onerror = () => console.warn('Failed to load base64 icon:', iconId);
-      } else {
-        map.loadImage(url, (error: any, imgData: any) => {
-          if (error) { return; }
-          if (imgData && !map.hasImage(iconId)) {
-            map.addImage(iconId, imgData);
-            setLoadedIcons(prev => (!prev.includes(iconId) ? [...prev, iconId] : prev));
-          }
-        });
-      }
-    });
-
-    if (newlyLoaded.length > 0) {
-      setLoadedIcons(prev => Array.from(new Set([...prev, ...newlyLoaded])));
+        } catch (e) {}
+      });
     }
-  }, [processedGeoData]);
+  }, []);
+
+  useEffect(() => {
+    if (mapRef.current) {
+      registerAllIcons(mapRef.current.getMap());
+    }
+  }, [processedGeoData, mapType, registerAllIcons]);
 
   // --- MapLibre Styling Layers ---
   
@@ -1006,7 +1067,7 @@ export default function GisTopology() {
 
   const hasIconExpression = loadedIcons.length > 0 
     ? ['in', ['get', 'icon_id'], ['literal', loadedIcons]] 
-    : false;
+    : ['has', 'icon_id'];
 
   const deviceSymbolLayerStyle: SymbolLayer = {
     id: 'devices-symbol',
@@ -1116,50 +1177,50 @@ export default function GisTopology() {
         </div>
       </div>
 
-      {/* KPI Cards */}
+      {/* KPI Cards (8 Kartu Proporsional 1 Baris di Layar Lebar) */}
       {stats && (
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3 shrink-0">
-          <div className="bg-dark-surface border border-dark-border rounded-xl p-3 flex flex-col justify-between shadow-sm">
-            <span className="text-xs text-dark-muted font-semibold flex items-center gap-1 uppercase tracking-wider"><Server size={12}/> POP</span>
-            <span className="text-2xl font-bold text-orange-500 mt-2">{stats.pop}</span>
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5 shrink-0">
+          <div className="bg-dark-surface border border-dark-border rounded-xl p-2.5 sm:p-3 flex flex-col justify-between shadow-xs">
+            <span className="text-[11px] text-dark-muted font-bold flex items-center gap-1 uppercase tracking-wider"><Server size={12} className="text-orange-500" /> POP</span>
+            <span className="text-xl sm:text-2xl font-black text-orange-500 mt-1">{stats.pop}</span>
           </div>
-          <div className="bg-dark-surface border border-dark-border rounded-xl p-3 flex flex-col justify-between shadow-sm">
-            <span className="text-xs text-dark-muted font-semibold flex items-center gap-1 uppercase tracking-wider"><Database size={12}/> ODP</span>
-            <span className="text-2xl font-bold text-blue-500 mt-2">{stats.odp}</span>
+          <div className="bg-dark-surface border border-dark-border rounded-xl p-2.5 sm:p-3 flex flex-col justify-between shadow-xs">
+            <span className="text-[11px] text-dark-muted font-bold flex items-center gap-1 uppercase tracking-wider"><Database size={12} className="text-blue-500" /> ODP</span>
+            <span className="text-xl sm:text-2xl font-black text-blue-500 mt-1">{stats.odp}</span>
           </div>
-          <div className="bg-dark-surface border border-dark-border rounded-xl p-3 flex flex-col justify-between shadow-sm col-span-2">
-            <span className="text-xs text-dark-muted font-semibold flex items-center gap-1 uppercase tracking-wider"><MapPin size={12}/> Total Tiang</span>
-            <div className="flex flex-col mt-1">
-              <span className="text-2xl font-bold text-blue-400">{stats.totalTiang}</span>
-              <span className="text-[10px] text-dark-muted font-bold mt-1 tracking-wider uppercase">TIANG SPEK: {stats.tiangSpek}, TIANG BIASA: {stats.tiangBiasa}</span>
+          <div className="bg-dark-surface border border-dark-border rounded-xl p-2.5 sm:p-3 flex flex-col justify-between shadow-xs">
+            <span className="text-[11px] text-dark-muted font-bold flex items-center gap-1 uppercase tracking-wider"><MapPin size={12} className="text-blue-400" /> Tiang</span>
+            <div className="flex flex-col mt-0.5">
+              <span className="text-xl sm:text-2xl font-black text-blue-400">{stats.totalTiang}</span>
+              <span className="text-[9px] text-dark-muted font-semibold tracking-tight truncate">Spek: {stats.tiangSpek} | B: {stats.tiangBiasa}</span>
             </div>
           </div>
-          <div className="bg-dark-surface border border-dark-border rounded-xl p-3 flex flex-col justify-between shadow-sm">
-            <span className="text-xs text-dark-muted font-semibold flex items-center gap-1 uppercase tracking-wider"><GitMerge size={12}/> Closure</span>
-            <span className="text-2xl font-bold text-purple-400 mt-2">{stats.closure}</span>
+          <div className="bg-dark-surface border border-dark-border rounded-xl p-2.5 sm:p-3 flex flex-col justify-between shadow-xs">
+            <span className="text-[11px] text-dark-muted font-bold flex items-center gap-1 uppercase tracking-wider"><GitMerge size={12} className="text-purple-400" /> Closure</span>
+            <span className="text-xl sm:text-2xl font-black text-purple-400 mt-1">{stats.closure}</span>
           </div>
-          <div className="bg-dark-surface border border-dark-border rounded-xl p-3 flex flex-col justify-between shadow-sm">
-            <span className="text-xs text-dark-muted font-semibold flex items-center gap-1 uppercase tracking-wider"><Box size={12}/> Joint Closure</span>
-            <span className="text-2xl font-bold text-purple-500 mt-2">{stats.jointClosure}</span>
+          <div className="bg-dark-surface border border-dark-border rounded-xl p-2.5 sm:p-3 flex flex-col justify-between shadow-xs">
+            <span className="text-[11px] text-dark-muted font-bold flex items-center gap-1 uppercase tracking-wider"><Box size={12} className="text-purple-600" /> Joint Closure</span>
+            <span className="text-xl sm:text-2xl font-black text-purple-600 mt-1">{stats.jointClosure}</span>
           </div>
-          <div className="bg-dark-surface border border-dark-border rounded-xl p-3 flex flex-col justify-between shadow-sm">
-            <span className="text-xs text-dark-muted font-semibold flex items-center gap-1 uppercase tracking-wider"><Box size={12}/> Joint Box</span>
-            <span className="text-2xl font-bold text-red-500 mt-2">{stats.jointBox}</span>
+          <div className="bg-dark-surface border border-dark-border rounded-xl p-2.5 sm:p-3 flex flex-col justify-between shadow-xs">
+            <span className="text-[11px] text-dark-muted font-bold flex items-center gap-1 uppercase tracking-wider"><Box size={12} className="text-red-500" /> Joint Box</span>
+            <span className="text-xl sm:text-2xl font-black text-red-500 mt-1">{stats.jointBox}</span>
           </div>
-          <div className="bg-dark-surface border border-dark-border rounded-xl p-3 flex flex-col justify-between shadow-sm col-span-2">
-            <span className="text-xs text-dark-muted font-semibold flex items-center gap-1 uppercase tracking-wider"><Route size={12}/> Total Panjang Kabel</span>
-            <div className="flex flex-col mt-1">
-              <span className="text-2xl font-bold text-emerald-400">
+          <div className="bg-dark-surface border border-dark-border rounded-xl p-2.5 sm:p-3 flex flex-col justify-between shadow-xs">
+            <span className="text-[11px] text-dark-muted font-bold flex items-center gap-1 uppercase tracking-wider"><Activity size={12} className="text-yellow-500" /> Slack</span>
+            <span className="text-xl sm:text-2xl font-black text-yellow-500 mt-1">{stats.slack}</span>
+          </div>
+          <div className="bg-dark-surface border border-dark-border rounded-xl p-2.5 sm:p-3 flex flex-col justify-between shadow-xs">
+            <span className="text-[11px] text-dark-muted font-bold flex items-center gap-1 uppercase tracking-wider"><Route size={12} className="text-emerald-500" /> Total Kabel</span>
+            <div className="flex flex-col mt-0.5">
+              <span className="text-xl sm:text-2xl font-black text-emerald-500">
                 {formatLength(stats.backboneMeters + stats.feederMeters + stats.distributionMeters + stats.dropcoreMeters)}
               </span>
-              <span className="text-[10px] text-dark-muted font-bold mt-1 tracking-wider uppercase">
-                DIST: {formatLength(stats.distributionMeters)}, FDR: {formatLength(stats.feederMeters)}, DROP: {formatLength(stats.dropcoreMeters)}
+              <span className="text-[9px] text-dark-muted font-semibold tracking-tight truncate">
+                Dist {formatLength(stats.distributionMeters)}
               </span>
             </div>
-          </div>
-          <div className="bg-dark-surface border border-dark-border rounded-xl p-3 flex flex-col justify-between shadow-sm">
-            <span className="text-xs text-dark-muted font-semibold flex items-center gap-1 uppercase tracking-wider"><Activity size={12}/> Slack Kabel</span>
-            <span className="text-2xl font-bold text-yellow-500 mt-2">{stats.slack}</span>
           </div>
         </div>
       )}
@@ -1167,37 +1228,37 @@ export default function GisTopology() {
       {/* --- WEB GIS EDITOR & ACTIONS TOOLBAR (Bisa Digeser / Smooth Horizontal Scroll) --- */}
       <div className="bg-dark-surface border border-dark-border rounded-xl p-2 sm:p-2.5 flex items-center justify-between gap-3 shadow-sm shrink-0 overflow-x-auto">
         <div className="flex items-center gap-2 shrink-0">
-          <span className="text-xs font-bold text-dark-muted mr-1 uppercase tracking-wider flex items-center gap-1">
+          <span className="text-xs font-bold text-dark-muted mr-1 uppercase tracking-wider flex items-center gap-1 whitespace-nowrap shrink-0">
             <Compass size={14} className="text-primary" /> Mode Editor:
           </span>
 
           <button
             onClick={() => { setEditorMode('select'); setCablePoints([]); }}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap shrink-0 ${
               editorMode === 'select'
                 ? 'bg-primary text-white shadow-xs'
                 : 'bg-dark-border/40 text-dark-text hover:bg-dark-border'
             }`}
           >
-            <MousePointer size={14} /> 🖱️ Jelajah / Info
+            <MousePointer size={14} className="shrink-0" /> 🖱️ Jelajah / Info
           </button>
 
           <button
             onClick={() => { setEditorMode('add-node'); setCablePoints([]); }}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap shrink-0 ${
               editorMode === 'add-node'
                 ? 'bg-emerald-600 text-white shadow-xs ring-2 ring-emerald-300'
                 : 'bg-dark-border/40 text-dark-text hover:bg-dark-border'
             }`}
           >
-            <MapPin size={14} /> 📍 + Pasang Node
+            <MapPin size={14} className="shrink-0" /> 📍 + Pasang Node
           </button>
 
           {editorMode === 'add-node' && (
             <select
               value={selectedNodeType}
               onChange={(e) => setSelectedNodeType(e.target.value)}
-              className="bg-emerald-50 border border-emerald-300 text-emerald-800 dark:bg-emerald-950 dark:border-emerald-800 dark:text-emerald-200 rounded-lg px-2.5 py-1 text-xs font-bold focus:outline-none"
+              className="bg-emerald-50 border border-emerald-300 text-emerald-800 dark:bg-emerald-950 dark:border-emerald-800 dark:text-emerald-200 rounded-lg px-2.5 py-1 text-xs font-bold focus:outline-none whitespace-nowrap shrink-0"
             >
               <option value="Tiang">📍 Tiang (Pole)</option>
               <option value="ODP">🟩 ODP (Distribution Point)</option>
@@ -1211,17 +1272,17 @@ export default function GisTopology() {
 
           <button
             onClick={() => { setEditorMode('draw-cable'); setCablePoints([]); }}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap shrink-0 ${
               editorMode === 'draw-cable'
                 ? 'bg-amber-600 text-white shadow-xs ring-2 ring-amber-300'
                 : 'bg-dark-border/40 text-dark-text hover:bg-dark-border'
             }`}
           >
-            <RouteIcon size={14} /> 〰️ + Tarik Kabel
+            <RouteIcon size={14} className="shrink-0" /> 〰️ + Tarik Kabel
           </button>
 
           {editorMode === 'draw-cable' && (
-            <div className="flex items-center gap-2 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 rounded-lg px-2.5 py-1">
+            <div className="flex items-center gap-2 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 rounded-lg px-2.5 py-1 whitespace-nowrap shrink-0">
               <select
                 value={selectedCableType}
                 onChange={(e) => setSelectedCableType(e.target.value)}
@@ -1289,42 +1350,46 @@ export default function GisTopology() {
         <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={() => setBatchSpliceModal(true)}
-            className="px-2.5 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+            className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs whitespace-nowrap shrink-0"
             title="Sambungkan kabel proyek lama dengan kabel pelebaran baru secara otomatis"
           >
-            <GitMerge size={13} /> + Sambung Pelebaran
+            <GitMerge size={14} className="shrink-0" />
+            <span>+ Sambung Pelebaran</span>
           </button>
 
           <button
             onClick={() => setNewProjectModal(true)}
-            className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs whitespace-nowrap shrink-0"
           >
-            <FolderPlus size={13} /> + Project Baru
+            <FolderPlus size={14} className="shrink-0" />
+            <span>+ Project Baru</span>
           </button>
 
           <button
             onClick={handleExportKml}
-            className="px-2.5 py-1.5 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+            className="px-3 py-1.5 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs whitespace-nowrap shrink-0"
             title="Download file KML standar Google Earth (langsung tanpa blokir browser)"
           >
-            <FileText size={13} /> Export KML
+            <FileText size={14} className="shrink-0" />
+            <span>Export KML</span>
           </button>
 
           <button
             onClick={handleExportKmz}
-            className="px-2.5 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+            className="px-3 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm whitespace-nowrap shrink-0"
             title="Download file KMZ arsip untuk Google Earth Pro"
           >
-            <Download size={13} /> Export KMZ
+            <Download size={14} className="shrink-0" />
+            <span>Export KMZ</span>
           </button>
 
           <button
             onClick={toggleFullScreen}
-            className="px-2.5 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+            className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm whitespace-nowrap shrink-0"
             title={isFullScreenMap ? "Keluar dari Layar Penuh" : "Tampilkan Peta Layar Penuh"}
           >
-            {isFullScreenMap ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
-            {isFullScreenMap ? "Keluar Fullscreen" : "Fullscreen Peta"}
+            {isFullScreenMap ? <Minimize2 size={14} className="shrink-0" /> : <Maximize2 size={14} className="shrink-0" />}
+            <span>{isFullScreenMap ? "Keluar Fullscreen" : "Fullscreen Peta"}</span>
           </button>
         </div>
       </div>
@@ -1372,6 +1437,12 @@ export default function GisTopology() {
 
         <Map
           ref={mapRef}
+          onLoad={(e) => {
+            registerAllIcons(e.target);
+          }}
+          onStyleData={(e) => {
+            registerAllIcons(e.target);
+          }}
           initialViewState={{
             longitude: 106.816666,
             latitude: -6.200000,
@@ -1646,42 +1717,67 @@ export default function GisTopology() {
                     )}
                     
                     {popupInfo.feature.properties.type === 'device' && (
-                      <div className="mt-3 flex gap-2">
-                        <button 
-                          onClick={() => {
-                            setEditingDevice(popupInfo.feature.properties);
-                            setEditFormData({
-                              name: popupInfo.feature.properties.name || '',
-                              device_type: popupInfo.feature.properties.device_type || 'Tiang',
-                              capacity: popupInfo.feature.properties.capacity?.toString() || '',
-                              used_capacity: popupInfo.feature.properties.used_capacity?.toString() || '0',
-                              description: popupInfo.feature.properties.description || '',
-                              icon_url: popupInfo.feature.properties.icon_url || '',
-                              slack_meters: '',
-                              odp_source: ''
-                            });
-                          }}
-                          className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-800 py-1.5 px-2 rounded-lg text-sm flex items-center justify-center gap-1 transition-colors font-medium"
-                        >
-                          <Edit size={14} /> Edit
-                        </button>
-                        
-                        {(popupInfo.feature.properties.device_type === 'Closure' || popupInfo.feature.properties.device_type === 'ODP') && (
+                      <div className="mt-3 space-y-2">
+                        {/* Tombol Hubungkan Kabel Antar Wilayah di JC Ini */}
+                        {['Closure', 'Joint Closure', 'ODP', 'Joint Box'].some(t => (popupInfo.feature.properties.device_type || '').toLowerCase().includes(t.toLowerCase())) && (
                           <button 
-                            onClick={() => setSelectedClosure(popupInfo.feature.properties.id)}
-                            className="flex-1 btn-primary py-1.5 px-2 text-sm flex items-center justify-center gap-1 cursor-pointer"
+                            type="button"
+                            onClick={() => {
+                              const jcId = popupInfo.feature.properties.id;
+                              const jcRegion = popupInfo.feature.properties.region;
+                              setBatchSpliceForm(prev => ({
+                                ...prev,
+                                closure_id: jcId
+                              }));
+                              if (jcRegion) {
+                                setBatchFilterRegionA(jcRegion);
+                              }
+                              setBatchSpliceModal(true);
+                            }}
+                            className="w-full py-2 px-3 bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-700 hover:to-indigo-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all cursor-pointer"
+                            title="Hubungkan kabel antar wilayah / proyek baru di titik Joint Closure ini"
                           >
-                            <Activity size={14} /> Matrix
+                            <GitMerge size={15} /> 🔗 Hubungkan Kabel Antar Wilayah di JC Ini
                           </button>
                         )}
 
-                        <button 
-                          onClick={() => handleDeleteFeature(popupInfo.feature.properties.id, 'device', popupInfo.feature.properties.name)}
-                          className="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 px-2 py-1.5 rounded-lg flex items-center justify-center transition-colors cursor-pointer"
-                          title="Hapus Perangkat"
-                        >
-                          <Trash2 size={14} />
-                        </button>
+                        <div className="flex gap-2">
+                          <button 
+                            onClick={() => {
+                              setEditingDevice(popupInfo.feature.properties);
+                              setEditFormData({
+                                name: popupInfo.feature.properties.name || '',
+                                device_type: popupInfo.feature.properties.device_type || 'Tiang',
+                                capacity: popupInfo.feature.properties.capacity?.toString() || '',
+                                used_capacity: popupInfo.feature.properties.used_capacity?.toString() || '0',
+                                description: popupInfo.feature.properties.description || '',
+                                icon_url: popupInfo.feature.properties.icon_url || '',
+                                slack_meters: '',
+                                odp_source: ''
+                              });
+                            }}
+                            className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-800 py-1.5 px-2 rounded-lg text-sm flex items-center justify-center gap-1 transition-colors font-medium cursor-pointer"
+                          >
+                            <Edit size={14} /> Edit
+                          </button>
+                          
+                          {['Closure', 'Joint Closure', 'ODP'].some(t => (popupInfo.feature.properties.device_type || '').toLowerCase().includes(t.toLowerCase())) && (
+                            <button 
+                              onClick={() => setSelectedClosure(popupInfo.feature.properties.id)}
+                              className="flex-1 btn-primary py-1.5 px-2 text-sm flex items-center justify-center gap-1 cursor-pointer"
+                            >
+                              <Activity size={14} /> Matrix
+                            </button>
+                          )}
+
+                          <button 
+                            onClick={() => handleDeleteFeature(popupInfo.feature.properties.id, 'device', popupInfo.feature.properties.name)}
+                            className="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 px-2 py-1.5 rounded-lg flex items-center justify-center transition-colors cursor-pointer"
+                            title="Hapus Perangkat"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
                       </div>
                     )}
                   </>
@@ -2632,16 +2728,48 @@ export default function GisTopology() {
                 </div>
               </div>
 
+              {/* Info Titik Temu JC (Jika Dipilih dari Peta / Dropdown) */}
+              {selectedClosureObj && (
+                <div className="p-3 bg-purple-50 border border-purple-200 rounded-xl flex items-center justify-between text-xs text-purple-900 shadow-xs">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-purple-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
+                      <MapPin size={15} />
+                    </div>
+                    <div>
+                      <span className="font-bold">Titik Temu Sambung: {selectedClosureObj.name}</span>
+                      <span className="text-[11px] text-purple-700 ml-1.5">({selectedClosureObj.device_type} - {selectedClosureObj.region || 'Perbatasan Antar Wilayah'})</span>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-bold bg-purple-200/80 text-purple-900 px-2.5 py-0.5 rounded-full shrink-0">
+                    Interkoneksi Wilayah
+                  </span>
+                </div>
+              )}
+
               {/* Pemilihan 2 Kabel: Kabel Asal & Kabel Tujuan (Grid 2 Kolom) */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 p-3.5 bg-gray-50/90 rounded-xl border border-gray-200">
                 <div>
-                  <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center justify-between mb-1.5">
                     <label className="text-xs font-bold text-gray-700">Kabel Asal (Proyek Lama)</label>
                     {selectedCableA && (
                       <span className="text-[11px] font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
                         {selectedCableA.properties?.capacity || 12} Core ({getTubeCount(selectedCableA.properties?.capacity)} Tube)
                       </span>
                     )}
+                  </div>
+                  {/* Filter Region Asal */}
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <span className="text-[10px] text-gray-500 font-bold shrink-0">Filter Wilayah:</span>
+                    <select
+                      value={batchFilterRegionA}
+                      onChange={(e) => setBatchFilterRegionA(e.target.value)}
+                      className="bg-white border border-gray-300 rounded px-2 py-0.5 text-[11px] font-semibold text-gray-700 focus:outline-none w-full"
+                    >
+                      <option value="All">🌐 Semua Wilayah</option>
+                      {uniqueRegions.map(r => (
+                        <option key={r} value={r}>{r}</option>
+                      ))}
+                    </select>
                   </div>
                   <select
                     required
@@ -2650,22 +2778,39 @@ export default function GisTopology() {
                     className="w-full px-3 py-2 border border-dark-border rounded-lg text-xs bg-white text-dark-text focus:outline-none focus:border-purple-600 shadow-xs font-medium"
                   >
                     <option value="">-- Pilih Kabel Asal --</option>
-                    {availableCables.map(c => (
-                      <option key={c.id} value={c.id}>
-                        {c.name} ({c.capacity}C) - [{c.region || 'No Region'}]
-                      </option>
-                    ))}
+                    {filteredCablesA.map(c => {
+                      const isNear = selectedClosureObj?.coordinates && getMinCableDistanceToPoint(c.coordinates, selectedClosureObj.coordinates) < 250;
+                      return (
+                        <option key={c.id} value={c.id}>
+                          {isNear ? '⭐ [Di JC Ini] ' : ''}{c.name} ({c.capacity}C) - [{c.region || 'No Region'}]
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
 
                 <div>
-                  <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center justify-between mb-1.5">
                     <label className="text-xs font-bold text-gray-700">Kabel Tujuan (Pelebaran / Proyek Baru)</label>
                     {selectedCableB && (
                       <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
                         {selectedCableB.properties?.capacity || 48} Core ({getTubeCount(selectedCableB.properties?.capacity)} Tube)
                       </span>
                     )}
+                  </div>
+                  {/* Filter Region Tujuan */}
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <span className="text-[10px] text-gray-500 font-bold shrink-0">Filter Wilayah:</span>
+                    <select
+                      value={batchFilterRegionB}
+                      onChange={(e) => setBatchFilterRegionB(e.target.value)}
+                      className="bg-white border border-gray-300 rounded px-2 py-0.5 text-[11px] font-semibold text-gray-700 focus:outline-none w-full"
+                    >
+                      <option value="All">🌐 Semua Wilayah</option>
+                      {uniqueRegions.map(r => (
+                        <option key={r} value={r}>{r}</option>
+                      ))}
+                    </select>
                   </div>
                   <select
                     required
@@ -2674,11 +2819,14 @@ export default function GisTopology() {
                     className="w-full px-3 py-2 border border-dark-border rounded-lg text-xs bg-white text-dark-text focus:outline-none focus:border-purple-600 shadow-xs font-medium"
                   >
                     <option value="">-- Pilih Kabel Tujuan --</option>
-                    {availableCables.map(c => (
-                      <option key={c.id} value={c.id}>
-                        {c.name} ({c.capacity}C) - [{c.region || 'No Region'}]
-                      </option>
-                    ))}
+                    {filteredCablesB.map(c => {
+                      const isNear = selectedClosureObj?.coordinates && getMinCableDistanceToPoint(c.coordinates, selectedClosureObj.coordinates) < 250;
+                      return (
+                        <option key={c.id} value={c.id}>
+                          {isNear ? '⭐ [Di JC Ini] ' : ''}{c.name} ({c.capacity}C) - [{c.region || 'No Region'}]
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
               </div>
@@ -3071,11 +3219,14 @@ export default function GisTopology() {
                     onChange={(e) => setBatchSpliceForm({...batchSpliceForm, closure_id: e.target.value})}
                     className="w-full px-3 py-2 border border-dark-border rounded-lg text-xs bg-white text-dark-text focus:outline-none focus:border-purple-600 font-medium"
                   >
-                    {sortedClosures.map((cl, idx) => (
-                      <option key={cl.id} value={cl.id}>
-                        {cl.name} ({cl.device_type}) {cl.dist < 50000 ? `[${cl.dist < 1000 ? Math.round(cl.dist) + 'm' : (cl.dist/1000).toFixed(1) + 'km'}${idx === 0 ? ' - ⭐ Terdekat' : ''}]` : ''}
-                      </option>
-                    ))}
+                    {sortedClosures.map((cl, idx) => {
+                      const isSelected = cl.id === batchSpliceForm.closure_id;
+                      return (
+                        <option key={cl.id} value={cl.id}>
+                          {isSelected ? '🎯 ' : ''}{cl.name} ({cl.device_type}) - [{cl.region || 'No Region'}] {cl.dist < 50000 ? `[${cl.dist < 1000 ? Math.round(cl.dist) + 'm' : (cl.dist/1000).toFixed(1) + 'km'}${idx === 0 ? ' - ⭐ Terdekat' : ''}]` : ''}
+                        </option>
+                      );
+                    })}
                     <option value="">Auto-Detect Terdekat / Buat Joint Baru</option>
                   </select>
                 </div>
