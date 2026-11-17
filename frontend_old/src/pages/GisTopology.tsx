@@ -1164,9 +1164,9 @@ export default function GisTopology() {
         </div>
       )}
 
-      {/* --- WEB GIS EDITOR & ACTIONS TOOLBAR --- */}
-      <div className="bg-dark-surface border border-dark-border rounded-xl p-2.5 flex flex-wrap items-center justify-between gap-3 shadow-sm shrink-0">
-        <div className="flex items-center gap-2 flex-wrap">
+      {/* --- WEB GIS EDITOR & ACTIONS TOOLBAR (Bisa Digeser / Smooth Horizontal Scroll) --- */}
+      <div className="bg-dark-surface border border-dark-border rounded-xl p-2 sm:p-2.5 flex items-center justify-between gap-3 shadow-sm shrink-0 overflow-x-auto">
+        <div className="flex items-center gap-2 shrink-0">
           <span className="text-xs font-bold text-dark-muted mr-1 uppercase tracking-wider flex items-center gap-1">
             <Compass size={14} className="text-primary" /> Mode Editor:
           </span>
@@ -1286,7 +1286,7 @@ export default function GisTopology() {
         </div>
 
         {/* Right: Project Management, Splicing, Export & Fullscreen */}
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={() => setBatchSpliceModal(true)}
             className="px-2.5 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
