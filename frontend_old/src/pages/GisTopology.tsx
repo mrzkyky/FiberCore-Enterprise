@@ -144,6 +144,10 @@ export default function GisTopology() {
   const [batchSpliceModal, setBatchSpliceModal] = useState<boolean>(false);
   const [batchFilterRegionA, setBatchFilterRegionA] = useState<string>('All');
   const [batchFilterRegionB, setBatchFilterRegionB] = useState<string>('All');
+  const [cableSearchA, setCableSearchA] = useState<string>('');
+  const [cableSearchB, setCableSearchB] = useState<string>('');
+  const [cableDropdownOpenA, setCableDropdownOpenA] = useState<boolean>(false);
+  const [cableDropdownOpenB, setCableDropdownOpenB] = useState<boolean>(false);
   const [batchSpliceForm, setBatchSpliceForm] = useState({
     cable_a_id: '',
     cable_b_id: '',
@@ -801,6 +805,10 @@ export default function GisTopology() {
       queryClient.invalidateQueries({ queryKey: ['cores'] });
       queryClient.invalidateQueries({ queryKey: ['cable-cores'] });
       setBatchSpliceModal(false);
+      setCableDropdownOpenA(false);
+      setCableDropdownOpenB(false);
+      setCableSearchA('');
+      setCableSearchB('');
     } catch (err: any) {
       alert('Gagal menyambung kabel: ' + (err.response?.data?.detail || err.message));
     } finally {
@@ -1039,6 +1047,14 @@ export default function GisTopology() {
   }, [processedGeoData, mapType, registerAllIcons]);
 
   // --- MapLibre Styling Layers ---
+
+  // Close cable dropdowns on outside click
+  useEffect(() => {
+    if (!cableDropdownOpenA && !cableDropdownOpenB) return;
+    const handler = () => { setCableDropdownOpenA(false); setCableDropdownOpenB(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [cableDropdownOpenA, cableDropdownOpenB]);
   
   const cableLayerStyle: LineLayer = {
     id: 'cables',
@@ -2771,22 +2787,67 @@ export default function GisTopology() {
                       ))}
                     </select>
                   </div>
-                  <select
-                    required
-                    value={batchSpliceForm.cable_a_id}
-                    onChange={(e) => setBatchSpliceForm({...batchSpliceForm, cable_a_id: e.target.value})}
-                    className="w-full px-3 py-2 border border-dark-border rounded-lg text-xs bg-white text-dark-text focus:outline-none focus:border-purple-600 shadow-xs font-medium"
-                  >
-                    <option value="">-- Pilih Kabel Asal --</option>
-                    {filteredCablesA.map(c => {
-                      const isNear = selectedClosureObj?.coordinates && getMinCableDistanceToPoint(c.coordinates, selectedClosureObj.coordinates) < 250;
-                      return (
-                        <option key={c.id} value={c.id}>
-                          {isNear ? '⭐ [Di JC Ini] ' : ''}{c.name} ({c.capacity}C) - [{c.region || 'No Region'}]
-                        </option>
-                      );
-                    })}
-                  </select>
+                  {/* Custom Searchable Grouped Dropdown — Kabel Asal */}
+                  <div className="relative">
+                    <div
+                      className="w-full px-3 py-2 border border-dark-border rounded-lg text-xs bg-white text-dark-text focus:outline-none focus:border-purple-600 shadow-xs font-medium cursor-pointer flex items-center justify-between gap-2"
+                      onClick={() => { setCableDropdownOpenA(v => !v); setCableDropdownOpenB(false); }}
+                    >
+                      {batchSpliceForm.cable_a_id
+                        ? (() => { const c = filteredCablesA.find(x => String(x.id) === String(batchSpliceForm.cable_a_id)); return c ? <span className="truncate">{c.name} <span className="text-purple-600 font-bold">({c.cable_type || 'Kabel'} · {c.capacity}C)</span></span> : <span className="text-gray-400">-- Pilih Kabel Asal --</span>; })()
+                        : <span className="text-gray-400">-- Pilih Kabel Asal --</span>}
+                      <svg className={`w-3.5 h-3.5 text-gray-400 shrink-0 transition-transform ${cableDropdownOpenA ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7"/></svg>
+                    </div>
+                    {cableDropdownOpenA && (
+                      <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-2xl overflow-hidden" style={{maxHeight: 320}}>
+                        {/* Search box */}
+                        <div className="p-2 border-b border-gray-100 sticky top-0 bg-white z-10">
+                          <input
+                            autoFocus
+                            type="text"
+                            value={cableSearchA}
+                            onChange={e => setCableSearchA(e.target.value)}
+                            placeholder="🔍 Cari nama kabel..."
+                            className="w-full px-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:border-purple-400 bg-gray-50"
+                          />
+                        </div>
+                        <div className="overflow-y-auto" style={{maxHeight: 260}}>
+                          {(() => {
+                            const search = cableSearchA.toLowerCase();
+                            const cables = filteredCablesA.filter(c => !search || c.name.toLowerCase().includes(search) || (c.cable_type||'').toLowerCase().includes(search));
+                            const nearCables = cables.filter(c => selectedClosureObj?.coordinates && getMinCableDistanceToPoint(c.coordinates, selectedClosureObj.coordinates) < 250);
+                            const feeder = cables.filter(c => (c.cable_type||'').toLowerCase() === 'feeder');
+                            const dist = cables.filter(c => (c.cable_type||'').toLowerCase() === 'distribution');
+                            const drop = cables.filter(c => ['dropcore','drop'].includes((c.cable_type||'').toLowerCase()));
+                            const other = cables.filter(c => !['feeder','distribution','dropcore','drop'].includes((c.cable_type||'').toLowerCase()));
+                            const groups = [
+                              ...(nearCables.length ? [{ label: '⭐ Di JC Ini (Terdekat)', color: 'bg-yellow-50 text-yellow-700', items: nearCables }] : []),
+                              ...(feeder.length ? [{ label: '🟧 Feeder', color: 'bg-orange-50 text-orange-700', items: feeder }] : []),
+                              ...(dist.length ? [{ label: '🟦 Distribution', color: 'bg-blue-50 text-blue-700', items: dist }] : []),
+                              ...(drop.length ? [{ label: '🟩 Dropcore / Drop', color: 'bg-green-50 text-green-700', items: drop }] : []),
+                              ...(other.length ? [{ label: '📦 Lainnya', color: 'bg-gray-50 text-gray-600', items: other }] : []),
+                            ];
+                            if (!cables.length) return <div className="p-4 text-center text-xs text-gray-400">Kabel tidak ditemukan</div>;
+                            return groups.map(g => (
+                              <div key={g.label}>
+                                <div className={`px-3 py-1 text-[10px] font-bold tracking-wide uppercase ${g.color} border-b border-gray-100`}>{g.label} <span className="font-normal opacity-70">({g.items.length} kabel)</span></div>
+                                {g.items.map(c => (
+                                  <div
+                                    key={c.id}
+                                    onClick={() => { setBatchSpliceForm({...batchSpliceForm, cable_a_id: String(c.id)}); setCableDropdownOpenA(false); setCableSearchA(''); }}
+                                    className={`px-3 py-2 cursor-pointer hover:bg-purple-50 border-b border-gray-50 flex items-center justify-between gap-2 ${String(batchSpliceForm.cable_a_id) === String(c.id) ? 'bg-purple-100' : ''}`}
+                                  >
+                                    <span className="text-xs text-gray-800 font-medium truncate">{c.name}</span>
+                                    <span className="shrink-0 text-[10px] font-bold text-purple-700 bg-purple-50 border border-purple-200 rounded px-1.5 py-0.5">{c.capacity}C · {getTubeCount(c.capacity)} Tube</span>
+                                  </div>
+                                ))}
+                              </div>
+                            ));
+                          })()}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <div>
@@ -2812,22 +2873,66 @@ export default function GisTopology() {
                       ))}
                     </select>
                   </div>
-                  <select
-                    required
-                    value={batchSpliceForm.cable_b_id}
-                    onChange={(e) => setBatchSpliceForm({...batchSpliceForm, cable_b_id: e.target.value})}
-                    className="w-full px-3 py-2 border border-dark-border rounded-lg text-xs bg-white text-dark-text focus:outline-none focus:border-purple-600 shadow-xs font-medium"
-                  >
-                    <option value="">-- Pilih Kabel Tujuan --</option>
-                    {filteredCablesB.map(c => {
-                      const isNear = selectedClosureObj?.coordinates && getMinCableDistanceToPoint(c.coordinates, selectedClosureObj.coordinates) < 250;
-                      return (
-                        <option key={c.id} value={c.id}>
-                          {isNear ? '⭐ [Di JC Ini] ' : ''}{c.name} ({c.capacity}C) - [{c.region || 'No Region'}]
-                        </option>
-                      );
-                    })}
-                  </select>
+                  {/* Custom Searchable Grouped Dropdown — Kabel Tujuan */}
+                  <div className="relative">
+                    <div
+                      className="w-full px-3 py-2 border border-dark-border rounded-lg text-xs bg-white text-dark-text focus:outline-none focus:border-emerald-600 shadow-xs font-medium cursor-pointer flex items-center justify-between gap-2"
+                      onClick={() => { setCableDropdownOpenB(v => !v); setCableDropdownOpenA(false); }}
+                    >
+                      {batchSpliceForm.cable_b_id
+                        ? (() => { const c = filteredCablesB.find(x => String(x.id) === String(batchSpliceForm.cable_b_id)); return c ? <span className="truncate">{c.name} <span className="text-emerald-600 font-bold">({c.cable_type || 'Kabel'} · {c.capacity}C)</span></span> : <span className="text-gray-400">-- Pilih Kabel Tujuan --</span>; })()
+                        : <span className="text-gray-400">-- Pilih Kabel Tujuan --</span>}
+                      <svg className={`w-3.5 h-3.5 text-gray-400 shrink-0 transition-transform ${cableDropdownOpenB ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7"/></svg>
+                    </div>
+                    {cableDropdownOpenB && (
+                      <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-2xl overflow-hidden" style={{maxHeight: 320}}>
+                        <div className="p-2 border-b border-gray-100 sticky top-0 bg-white z-10">
+                          <input
+                            autoFocus
+                            type="text"
+                            value={cableSearchB}
+                            onChange={e => setCableSearchB(e.target.value)}
+                            placeholder="🔍 Cari nama kabel..."
+                            className="w-full px-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:border-emerald-400 bg-gray-50"
+                          />
+                        </div>
+                        <div className="overflow-y-auto" style={{maxHeight: 260}}>
+                          {(() => {
+                            const search = cableSearchB.toLowerCase();
+                            const cables = filteredCablesB.filter(c => !search || c.name.toLowerCase().includes(search) || (c.cable_type||'').toLowerCase().includes(search));
+                            const nearCables = cables.filter(c => selectedClosureObj?.coordinates && getMinCableDistanceToPoint(c.coordinates, selectedClosureObj.coordinates) < 250);
+                            const feeder = cables.filter(c => (c.cable_type||'').toLowerCase() === 'feeder');
+                            const dist = cables.filter(c => (c.cable_type||'').toLowerCase() === 'distribution');
+                            const drop = cables.filter(c => ['dropcore','drop'].includes((c.cable_type||'').toLowerCase()));
+                            const other = cables.filter(c => !['feeder','distribution','dropcore','drop'].includes((c.cable_type||'').toLowerCase()));
+                            const groups = [
+                              ...(nearCables.length ? [{ label: '⭐ Di JC Ini (Terdekat)', color: 'bg-yellow-50 text-yellow-700', items: nearCables }] : []),
+                              ...(feeder.length ? [{ label: '🟧 Feeder', color: 'bg-orange-50 text-orange-700', items: feeder }] : []),
+                              ...(dist.length ? [{ label: '🟦 Distribution', color: 'bg-blue-50 text-blue-700', items: dist }] : []),
+                              ...(drop.length ? [{ label: '🟩 Dropcore / Drop', color: 'bg-green-50 text-green-700', items: drop }] : []),
+                              ...(other.length ? [{ label: '📦 Lainnya', color: 'bg-gray-50 text-gray-600', items: other }] : []),
+                            ];
+                            if (!cables.length) return <div className="p-4 text-center text-xs text-gray-400">Kabel tidak ditemukan</div>;
+                            return groups.map(g => (
+                              <div key={g.label}>
+                                <div className={`px-3 py-1 text-[10px] font-bold tracking-wide uppercase ${g.color} border-b border-gray-100`}>{g.label} <span className="font-normal opacity-70">({g.items.length} kabel)</span></div>
+                                {g.items.map(c => (
+                                  <div
+                                    key={c.id}
+                                    onClick={() => { setBatchSpliceForm({...batchSpliceForm, cable_b_id: String(c.id)}); setCableDropdownOpenB(false); setCableSearchB(''); }}
+                                    className={`px-3 py-2 cursor-pointer hover:bg-emerald-50 border-b border-gray-50 flex items-center justify-between gap-2 ${String(batchSpliceForm.cable_b_id) === String(c.id) ? 'bg-emerald-100' : ''}`}
+                                  >
+                                    <span className="text-xs text-gray-800 font-medium truncate">{c.name}</span>
+                                    <span className="shrink-0 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-1.5 py-0.5">{c.capacity}C · {getTubeCount(c.capacity)} Tube</span>
+                                  </div>
+                                ))}
+                              </div>
+                            ));
+                          })()}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
