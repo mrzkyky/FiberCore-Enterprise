@@ -93,11 +93,12 @@ def create_drawn_cable(payload: CableDrawPayload, db: Session = Depends(get_db))
     colors = ["Biru", "Oren", "Hijau", "Cokelat", "Abu", "Putih", "Merah", "Hitam", "Kuning", "Ungu", "Pink", "Toska"]
     cores = []
     for i in range(1, payload.capacity + 1):
+        cores_per_t = 6 if payload.capacity in (6, 12, 24) else 12
         cores.append(Core(
             cable_id=db_cable.id,
             core_number=i,
-            tube_number=((i - 1) // 12) + 1,
-            color=colors[(i - 1) % 12],
+            tube_number=((i - 1) // cores_per_t) + 1,
+            color=colors[(i - 1) % cores_per_t],
             status="Free"
         ))
     db.add_all(cores)

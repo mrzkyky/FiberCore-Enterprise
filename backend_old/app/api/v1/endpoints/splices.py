@@ -47,6 +47,26 @@ def format_tube_label(tube_num: int) -> str:
     color = TUBE_COLOR_MAP.get(tube_num, "")
     return f"Tube {tube_num} ({color})" if color else f"Tube {tube_num}"
 
+def get_core_tube_info(cable_capacity: int, core_number: int):
+    cap = cable_capacity or 12
+    if cap <= 6:
+        return 1, core_number
+    elif cap <= 12:
+        # Standar Lapangan Indonesia: 12 Core = 2 Tube x 6 Core
+        t_num = ((core_number - 1) // 6) + 1
+        c_in_t = ((core_number - 1) % 6) + 1
+        return t_num, c_in_t
+    elif cap <= 24:
+        # Standar Lapangan Indonesia: 24 Core = 4 Tube x 6 Core
+        t_num = ((core_number - 1) // 6) + 1
+        c_in_t = ((core_number - 1) % 6) + 1
+        return t_num, c_in_t
+    else:
+        # 48C, 96C, 144C = 12 Core per Tube
+        t_num = ((core_number - 1) // 12) + 1
+        c_in_t = ((core_number - 1) % 12) + 1
+        return t_num, c_in_t
+
 def sync_all_splice_descriptions(db: Session):
     """
     Menyinkronkan deskripsi semua Joint Closure (JC) dan Kabel (Feeder maupun Dropcore)
@@ -93,8 +113,8 @@ def sync_all_splice_descriptions(db: Session):
                     feeder_c, feeder_core = ca.cable, ca
                     drop_c, drop_core = cb.cable, cb
 
-                t_lbl = format_tube_label(feeder_core.tube_number or 1)
-                c_in_t = ((feeder_core.core_number - 1) % 12) + 1
+                t_num, c_in_t = get_core_tube_info(feeder_c.capacity, feeder_core.core_number)
+                t_lbl = format_tube_label(t_num)
                 dest_info = f" (Core {drop_core.core_number})" if (drop_c.capacity or 0) > 2 else ""
                 entry = f"[{feeder_c.name}] {t_lbl} / Core {c_in_t} ({feeder_core.color}) ➔ {drop_c.name}{dest_info}"
                 if entry not in lines:
@@ -149,13 +169,13 @@ def sync_all_splice_descriptions(db: Session):
                 cl_name = sp.closure.name if sp.closure else "JC"
 
                 if is_feeder:
-                    t_lbl = format_tube_label(this_core.tube_number or 1)
-                    c_in_t = ((this_core.core_number - 1) % 12) + 1
+                    t_num, c_in_t = get_core_tube_info(cable.capacity, this_core.core_number)
+                    t_lbl = format_tube_label(t_num)
                     dest_info = f" (Core {other_core.core_number})" if (other_cable.capacity or 0) > 2 else ""
                     item = f"via {cl_name}: {t_lbl} / Core {c_in_t} ({this_core.color}) ➔ {other_cable.name}{dest_info}"
                 else:
-                    ot_lbl = format_tube_label(other_core.tube_number or 1)
-                    oc_in_t = ((other_core.core_number - 1) % 12) + 1
+                    t_num, oc_in_t = get_core_tube_info(other_cable.capacity, other_core.core_number)
+                    ot_lbl = format_tube_label(t_num)
                     item = f"Sambung ke {other_cable.name} via {cl_name} ({ot_lbl} / Core {oc_in_t} ({other_core.color}))"
 
                 if item not in lines:

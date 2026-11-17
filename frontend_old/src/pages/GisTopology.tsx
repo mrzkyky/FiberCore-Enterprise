@@ -68,9 +68,77 @@ const STANDARD_CORE_NAMES = [
   'Merah', 'Hitam', 'Kuning', 'Ungu', 'Pink', 'Toska'
 ];
 
-const getTubeCount = (capacity?: number) => {
-  if (!capacity || capacity <= 0) return 1;
-  return Math.max(1, Math.ceil(capacity / 12));
+const getCableTubeStructure = (capacity?: number) => {
+  const cap = Number(capacity) || 12;
+
+  // 1 - 4 Core: 1 Tube (Dropcore)
+  if (cap <= 2) {
+    return {
+      tubeCount: 1,
+      coresPerTube: cap,
+      tubes: [{ num: 1, name: 'Tube 1 (Biru)', color: 'Biru', startCore: 1, endCore: cap, coreCount: cap }]
+    };
+  }
+  if (cap <= 4) {
+    return {
+      tubeCount: 1,
+      coresPerTube: cap,
+      tubes: [{ num: 1, name: 'Tube 1 (Biru)', color: 'Biru', startCore: 1, endCore: cap, coreCount: cap }]
+    };
+  }
+  if (cap <= 6) {
+    return {
+      tubeCount: 1,
+      coresPerTube: 6,
+      tubes: [{ num: 1, name: 'Tube 1 (Biru)', color: 'Biru', startCore: 1, endCore: cap, coreCount: cap }]
+    };
+  }
+  // Standar Lapangan Indonesia (Telkom): 12 Core = 2 Tube x 6 Core
+  if (cap <= 12) {
+    return {
+      tubeCount: 2,
+      coresPerTube: 6,
+      tubes: [
+        { num: 1, name: 'Tube 1 (Biru)', color: 'Biru', startCore: 1, endCore: 6, coreCount: 6 },
+        { num: 2, name: 'Tube 2 (Oren)', color: 'Oren', startCore: 7, endCore: 12, coreCount: 6 }
+      ]
+    };
+  }
+  // Standar 24 Core: 4 Tube x 6 Core
+  if (cap <= 24) {
+    return {
+      tubeCount: 4,
+      coresPerTube: 6,
+      tubes: [
+        { num: 1, name: 'Tube 1 (Biru)', color: 'Biru', startCore: 1, endCore: 6, coreCount: 6 },
+        { num: 2, name: 'Tube 2 (Oren)', color: 'Oren', startCore: 7, endCore: 12, coreCount: 6 },
+        { num: 3, name: 'Tube 3 (Hijau)', color: 'Hijau', startCore: 13, endCore: 18, coreCount: 6 },
+        { num: 4, name: 'Tube 4 (Cokelat)', color: 'Cokelat', startCore: 19, endCore: 24, coreCount: 6 }
+      ]
+    };
+  }
+
+  // 48C, 96C, 144C: 12 Core per Tube
+  const coresPerTube = 12;
+  const tubeCount = Math.max(1, Math.ceil(cap / coresPerTube));
+  const tubes = STANDARD_TUBES.slice(0, tubeCount).map(t => {
+    const startCore = (t.num - 1) * coresPerTube + 1;
+    const endCore = Math.min(cap, t.num * coresPerTube);
+    return {
+      num: t.num,
+      name: t.name,
+      color: t.color,
+      startCore,
+      endCore,
+      coreCount: endCore - startCore + 1
+    };
+  });
+
+  return { tubeCount, coresPerTube, tubes };
+};
+
+const getTubeCount = (capacity?: number): number => {
+  return getCableTubeStructure(capacity).tubeCount;
 };
 
 // --- Custom GIS Vector Icons (Bebas CORS, Tajam, & Kompatibel Google Earth KMZ) ---
@@ -440,6 +508,14 @@ export default function GisTopology() {
     enabled: !!batchSpliceForm.cable_b_id && batchSpliceModal
   });
 
+  const tubeStructA = useMemo(() => {
+    return getCableTubeStructure(selectedCableA?.properties?.capacity || 12);
+  }, [selectedCableA]);
+
+  const tubeStructB = useMemo(() => {
+    return getCableTubeStructure(selectedCableB?.properties?.capacity || 48);
+  }, [selectedCableB]);
+
   const sortedClosures = useMemo(() => {
     if (!availableClosures.length) return [];
     
@@ -762,9 +838,11 @@ export default function GisTopology() {
     let count = Number(batchSpliceForm.count) || 12;
 
     if (isTube) {
-      startA = (Number(batchSpliceForm.selected_tube_a) - 1) * 12 + 1;
-      startB = (Number(batchSpliceForm.selected_tube_b) - 1) * 12 + 1;
-      count = 12;
+      const curTubeA = tubeStructA.tubes.find(t => t.num === Number(batchSpliceForm.selected_tube_a)) || tubeStructA.tubes[0];
+      const curTubeB = tubeStructB.tubes.find(t => t.num === Number(batchSpliceForm.selected_tube_b)) || tubeStructB.tubes[0];
+      startA = curTubeA?.startCore || 1;
+      startB = curTubeB?.startCore || 1;
+      count = Math.min(curTubeA?.coreCount || 12, curTubeB?.coreCount || 12);
     }
 
     let note = batchSpliceForm.custom_note.trim();
@@ -772,8 +850,10 @@ export default function GisTopology() {
       const petikDesc = `${batchSpliceForm.petik_tube} / ${batchSpliceForm.petik_core}${batchSpliceForm.petik_target ? ' - ' + batchSpliceForm.petik_target : ''}`;
       note = note ? `${petikDesc} | ${note}` : petikDesc;
     } else if (isTube) {
-      const tubeAName = STANDARD_TUBES.find(t => t.num === Number(batchSpliceForm.selected_tube_a))?.name || `Tube ${batchSpliceForm.selected_tube_a}`;
-      const tubeBName = STANDARD_TUBES.find(t => t.num === Number(batchSpliceForm.selected_tube_b))?.name || `Tube ${batchSpliceForm.selected_tube_b}`;
+      const curTubeA = tubeStructA.tubes.find(t => t.num === Number(batchSpliceForm.selected_tube_a)) || tubeStructA.tubes[0];
+      const curTubeB = tubeStructB.tubes.find(t => t.num === Number(batchSpliceForm.selected_tube_b)) || tubeStructB.tubes[0];
+      const tubeAName = curTubeA?.name || `Tube ${batchSpliceForm.selected_tube_a}`;
+      const tubeBName = curTubeB?.name || `Tube ${batchSpliceForm.selected_tube_b}`;
       const tubeNote = `Sambung ${tubeAName} ➔ ${tubeBName}`;
       note = note ? `${tubeNote} (${note})` : tubeNote;
     }
@@ -1155,6 +1235,15 @@ export default function GisTopology() {
       ]
     }
   };
+
+  const activePopupProps = useMemo(() => {
+    if (!popupInfo?.feature?.properties) return null;
+    const featId = popupInfo.feature.properties.id;
+    if (!featId) return popupInfo.feature.properties;
+    const found = allGeoData?.features?.find((f: any) => String(f.properties?.id) === String(featId))
+               || geoData?.features?.find((f: any) => String(f.properties?.id) === String(featId));
+    return found ? { ...popupInfo.feature.properties, ...found.properties } : popupInfo.feature.properties;
+  }, [popupInfo, allGeoData, geoData]);
 
   return (
     <div className="flex flex-col h-[calc(100vh-6rem)] relative gap-4">
@@ -1578,25 +1667,29 @@ export default function GisTopology() {
               maxWidth="300px"
             >
               <div className="p-1 min-w-[200px] text-dark-text">
-                <h3 className="font-bold text-lg border-b pb-2 mb-2">{popupInfo.feature.properties.name}</h3>
+                <h3 className="font-bold text-lg border-b pb-2 mb-2">{activePopupProps?.name || popupInfo.feature.properties.name}</h3>
                 
                 {popupInfo.feature.properties.type === 'cable' ? (
                   <div className="space-y-1 text-sm text-gray-700">
-                    <p><strong>Type:</strong> {popupInfo.feature.properties.cable_type}</p>
-                    <p><strong>Region:</strong> {popupInfo.feature.properties.region || '-'}</p>
-                    <p><strong>Capacity:</strong> {popupInfo.feature.properties.capacity} Core</p>
-                    <p><strong>Panjang Kabel:</strong> <span className="font-bold text-emerald-600 font-mono">{formatLength(popupInfo.feature.properties.length || 0)}</span></p>
-                    {popupInfo.feature.properties.description && popupInfo.feature.properties.description.trim() !== '' && (
+                    <p><strong>Type:</strong> {activePopupProps?.cable_type || popupInfo.feature.properties.cable_type}</p>
+                    <p><strong>Region:</strong> {activePopupProps?.region || popupInfo.feature.properties.region || '-'}</p>
+                    <p><strong>Capacity:</strong> {activePopupProps?.capacity || popupInfo.feature.properties.capacity} Core ({getTubeCount(activePopupProps?.capacity || popupInfo.feature.properties.capacity)} Tube)</p>
+                    <p><strong>Panjang Kabel:</strong> <span className="font-bold text-emerald-600 font-mono">{formatLength(activePopupProps?.length || popupInfo.feature.properties.length || 0)}</span></p>
+                    {activePopupProps?.description && activePopupProps.description.trim() !== '' ? (
                       <div className="bg-gray-50 p-2.5 rounded-lg border border-gray-200 mt-2 mb-2 max-h-[160px] overflow-y-auto">
                         <p className="text-[11px] text-gray-500 font-bold uppercase tracking-wider mb-1.5">Keterangan Sambungan:</p>
                         <div className="space-y-1">
-                          {popupInfo.feature.properties.description.split(' | ').map((part: string, idx: number) => (
+                          {activePopupProps.description.split(' | ').map((part: string, idx: number) => (
                             <div key={idx} className="text-xs text-gray-800 font-mono bg-white p-1.5 rounded border border-gray-200 flex items-start gap-1.5 leading-relaxed">
                               <span className="text-purple-600 font-bold shrink-0">⚡</span>
                               <span>{part.trim()}</span>
                             </div>
                           ))}
                         </div>
+                      </div>
+                    ) : (
+                      <div className="bg-gray-50 p-2 rounded-lg border border-dashed border-gray-200 mt-2 mb-2 text-center">
+                        <p className="text-[11px] text-gray-400 italic">Belum ada keterangan sambungan pada kabel ini</p>
                       </div>
                     )}
                     <div className="mt-3 flex flex-col gap-2">
@@ -3107,24 +3200,25 @@ export default function GisTopology() {
                           <label className="block text-xs font-bold text-purple-950 mb-1 flex items-center justify-between">
                             <span>Tube Kabel Asal</span>
                             <span className="text-[10px] text-gray-500 font-normal">
-                              Total: {getTubeCount(selectedCableA?.properties?.capacity || 12)} Tube
+                              Total: {tubeStructA.tubeCount} Tube ({tubeStructA.coresPerTube} Core/Tube)
                             </span>
                           </label>
                           <select
                             value={batchSpliceForm.selected_tube_a}
                             onChange={(e) => {
                               const tA = Number(e.target.value);
+                              const chosen = tubeStructA.tubes.find(t => t.num === tA) || tubeStructA.tubes[0];
                               setBatchSpliceForm(prev => ({
                                 ...prev,
                                 selected_tube_a: tA,
-                                start_core_a: (tA - 1) * 12 + 1
+                                start_core_a: chosen?.startCore || 1
                               }));
                             }}
                             className="w-full px-3 py-2 border border-purple-300 rounded-lg text-xs bg-purple-50/50 text-gray-900 font-bold focus:outline-none focus:border-purple-600"
                           >
-                            {STANDARD_TUBES.slice(0, getTubeCount(selectedCableA?.properties?.capacity || 12)).map(t => (
+                            {tubeStructA.tubes.map(t => (
                               <option key={t.num} value={t.num}>
-                                {t.name} [Core {(t.num - 1) * 12 + 1} s/d {t.num * 12}]
+                                {t.name} [Core {t.startCore} s/d {t.endCore}]
                               </option>
                             ))}
                           </select>
@@ -3135,57 +3229,70 @@ export default function GisTopology() {
                           <label className="block text-xs font-bold text-emerald-950 mb-1 flex items-center justify-between">
                             <span>Tube Kabel Tujuan</span>
                             <span className="text-[10px] text-gray-500 font-normal">
-                              Total: {getTubeCount(selectedCableB?.properties?.capacity || 48)} Tube
+                              Total: {tubeStructB.tubeCount} Tube ({tubeStructB.coresPerTube} Core/Tube)
                             </span>
                           </label>
                           <select
                             value={batchSpliceForm.selected_tube_b}
                             onChange={(e) => {
                               const tB = Number(e.target.value);
+                              const chosen = tubeStructB.tubes.find(t => t.num === tB) || tubeStructB.tubes[0];
                               setBatchSpliceForm(prev => ({
                                 ...prev,
                                 selected_tube_b: tB,
-                                start_core_b: (tB - 1) * 12 + 1
+                                start_core_b: chosen?.startCore || 1
                               }));
                             }}
                             className="w-full px-3 py-2 border border-emerald-300 rounded-lg text-xs bg-emerald-50/50 text-gray-900 font-bold focus:outline-none focus:border-emerald-600"
                           >
-                            {STANDARD_TUBES.slice(0, getTubeCount(selectedCableB?.properties?.capacity || 48)).map(t => (
+                            {tubeStructB.tubes.map(t => (
                               <option key={t.num} value={t.num}>
-                                {t.name} [Core {(t.num - 1) * 12 + 1} s/d {t.num * 12}]
+                                {t.name} [Core {t.startCore} s/d {t.endCore}]
                               </option>
                             ))}
                           </select>
                         </div>
                       </div>
 
-                      {/* Visual Mapping 12 Core Antar-Tube */}
-                      <div className="p-3 bg-white rounded-xl border border-gray-200 shadow-xs">
-                        <div className="flex items-center justify-between text-xs font-bold text-gray-800 mb-2">
-                          <span>Pemetaan 12 Core (Standar Lapangan):</span>
-                          <span className="text-[11px] font-mono text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
-                            Tube {batchSpliceForm.selected_tube_a} [C{(batchSpliceForm.selected_tube_a - 1) * 12 + 1}..{batchSpliceForm.selected_tube_a * 12}] ➔ Tube {batchSpliceForm.selected_tube_b} [C{(batchSpliceForm.selected_tube_b - 1) * 12 + 1}..{batchSpliceForm.selected_tube_b * 12}]
-                          </span>
-                        </div>
-                        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-1.5">
-                          {STANDARD_CORE_NAMES.map((cName, idx) => {
-                            const coreNumA = (batchSpliceForm.selected_tube_a - 1) * 12 + idx + 1;
-                            const coreNumB = (batchSpliceForm.selected_tube_b - 1) * 12 + idx + 1;
-                            return (
-                              <div key={idx} className="p-1.5 rounded-lg border border-gray-200 bg-gray-50/60 text-center flex flex-col items-center gap-1">
-                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded w-full truncate ${getFiberBadge(cName)}`}>
-                                  {cName}
-                                </span>
-                                <div className="flex items-center justify-between w-full text-[11px] font-mono font-bold text-gray-700 px-0.5">
-                                  <span>C{coreNumA}</span>
-                                  <span className="text-purple-600">➔</span>
-                                  <span>C{coreNumB}</span>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
+                      {/* Visual Mapping Dinamis Sesuai Tube yang Dipilih */}
+                      {(() => {
+                        const curTubeA = tubeStructA.tubes.find(t => t.num === Number(batchSpliceForm.selected_tube_a)) || tubeStructA.tubes[0];
+                        const curTubeB = tubeStructB.tubes.find(t => t.num === Number(batchSpliceForm.selected_tube_b)) || tubeStructB.tubes[0];
+                        const countToMap = Math.min(curTubeA?.coreCount || 1, curTubeB?.coreCount || 1);
+                        const maxDisplay = Math.max(curTubeA?.coreCount || 1, curTubeB?.coreCount || 1);
+
+                        return (
+                          <div className="p-3 bg-white rounded-xl border border-gray-200 shadow-xs">
+                            <div className="flex items-center justify-between text-xs font-bold text-gray-800 mb-2">
+                              <span>Pemetaan Sambungan ({countToMap} Core):</span>
+                              <span className="text-[11px] font-mono text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
+                                {curTubeA?.name} [C{curTubeA?.startCore}..C{curTubeA?.endCore}] ➔ {curTubeB?.name} [C{curTubeB?.startCore}..C{curTubeB?.endCore}]
+                              </span>
+                            </div>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-1.5">
+                              {Array.from({ length: maxDisplay }).map((_, idx) => {
+                                const coreNumA = (curTubeA?.startCore || 1) + idx;
+                                const coreNumB = (curTubeB?.startCore || 1) + idx;
+                                const isValidA = idx < (curTubeA?.coreCount || 0);
+                                const isValidB = idx < (curTubeB?.coreCount || 0);
+                                const colorName = STANDARD_CORE_NAMES[idx % 12];
+                                return (
+                                  <div key={idx} className={`p-1.5 rounded-lg border text-center flex flex-col items-center gap-1 ${isValidA && isValidB ? 'border-purple-200 bg-purple-50/30' : 'border-gray-200 bg-gray-50 opacity-40'}`}>
+                                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded w-full truncate ${getFiberBadge(colorName)}`}>
+                                      {colorName}
+                                    </span>
+                                    <div className="flex items-center justify-between w-full text-[11px] font-mono font-bold text-gray-700 px-0.5">
+                                      <span>{isValidA ? `C${coreNumA}` : '-'}</span>
+                                      <span className="text-purple-600">➔</span>
+                                      <span>{isValidB ? `C${coreNumB}` : '-'}</span>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })()}
 
                       {/* Auto-Skip Checkbox */}
                       <div className="flex items-center gap-2 p-2 bg-purple-50/80 rounded-lg border border-purple-200">
