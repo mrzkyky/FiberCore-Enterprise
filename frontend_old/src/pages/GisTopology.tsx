@@ -148,6 +148,8 @@ export default function GisTopology() {
   const [cableSearchB, setCableSearchB] = useState<string>('');
   const [cableDropdownOpenA, setCableDropdownOpenA] = useState<boolean>(false);
   const [cableDropdownOpenB, setCableDropdownOpenB] = useState<boolean>(false);
+  const cableDropdownRefA = useRef<HTMLDivElement>(null);
+  const cableDropdownRefB = useRef<HTMLDivElement>(null);
   const [batchSpliceForm, setBatchSpliceForm] = useState({
     cable_a_id: '',
     cable_b_id: '',
@@ -405,7 +407,7 @@ export default function GisTopology() {
 
   const selectedCableA = useMemo(() => {
     if (!allGeoData?.features || !batchSpliceForm.cable_a_id) return null;
-    return allGeoData.features.find((f: any) => f.properties?.id === batchSpliceForm.cable_a_id);
+    return allGeoData.features.find((f: any) => String(f.properties?.id) === String(batchSpliceForm.cable_a_id));
   }, [allGeoData, batchSpliceForm.cable_a_id]);
 
   // Query status core kabel A untuk modal sambungan
@@ -423,7 +425,7 @@ export default function GisTopology() {
 
   const selectedCableB = useMemo(() => {
     if (!allGeoData?.features || !batchSpliceForm.cable_b_id) return null;
-    return allGeoData.features.find((f: any) => f.properties?.id === batchSpliceForm.cable_b_id);
+    return allGeoData.features.find((f: any) => String(f.properties?.id) === String(batchSpliceForm.cable_b_id));
   }, [allGeoData, batchSpliceForm.cable_b_id]);
 
   const { data: batchCoresB } = useQuery<any[]>({
@@ -733,11 +735,15 @@ export default function GisTopology() {
 
   const handleBatchSplice = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!batchSpliceForm.cable_a_id || !batchSpliceForm.cable_b_id) {
-      alert("Harap pilih kabel asal dan kabel tujuan!");
+    if (!batchSpliceForm.cable_a_id) {
+      alert("Harap pilih kabel asal (proyek lama)!");
       return;
     }
-    if (batchSpliceForm.cable_a_id === batchSpliceForm.cable_b_id) {
+    if (!batchSpliceForm.cable_b_id) {
+      alert("Harap pilih kabel tujuan (pelebaran / proyek baru)!");
+      return;
+    }
+    if (String(batchSpliceForm.cable_a_id) === String(batchSpliceForm.cable_b_id)) {
       alert("Kabel asal dan kabel tujuan tidak boleh sama!");
       return;
     }
@@ -1051,7 +1057,15 @@ export default function GisTopology() {
   // Close cable dropdowns on outside click
   useEffect(() => {
     if (!cableDropdownOpenA && !cableDropdownOpenB) return;
-    const handler = () => { setCableDropdownOpenA(false); setCableDropdownOpenB(false); };
+    const handler = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (cableDropdownRefA.current && !cableDropdownRefA.current.contains(target)) {
+        setCableDropdownOpenA(false);
+      }
+      if (cableDropdownRefB.current && !cableDropdownRefB.current.contains(target)) {
+        setCableDropdownOpenB(false);
+      }
+    };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [cableDropdownOpenA, cableDropdownOpenB]);
@@ -2788,9 +2802,9 @@ export default function GisTopology() {
                     </select>
                   </div>
                   {/* Custom Searchable Grouped Dropdown — Kabel Asal */}
-                  <div className="relative">
+                  <div className="relative" ref={cableDropdownRefA}>
                     <div
-                      className="w-full px-3 py-2 border border-dark-border rounded-lg text-xs bg-white text-dark-text focus:outline-none focus:border-purple-600 shadow-xs font-medium cursor-pointer flex items-center justify-between gap-2"
+                      className={`w-full px-3 py-2 border rounded-lg text-xs bg-white text-dark-text shadow-xs font-medium cursor-pointer flex items-center justify-between gap-2 transition-colors ${!batchSpliceForm.cable_a_id ? 'border-amber-400 bg-amber-50/20' : 'border-dark-border focus:border-purple-600'}`}
                       onClick={() => { setCableDropdownOpenA(v => !v); setCableDropdownOpenB(false); }}
                     >
                       {batchSpliceForm.cable_a_id
@@ -2799,19 +2813,20 @@ export default function GisTopology() {
                       <svg className={`w-3.5 h-3.5 text-gray-400 shrink-0 transition-transform ${cableDropdownOpenA ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7"/></svg>
                     </div>
                     {cableDropdownOpenA && (
-                      <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-2xl overflow-hidden" style={{maxHeight: 320}}>
+                      <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-2xl overflow-hidden" style={{maxHeight: 320}} onMouseDown={e => e.stopPropagation()}>
                         {/* Search box */}
-                        <div className="p-2 border-b border-gray-100 sticky top-0 bg-white z-10">
+                        <div className="p-2 border-b border-gray-100 sticky top-0 bg-white z-10" onMouseDown={e => e.stopPropagation()}>
                           <input
                             autoFocus
                             type="text"
                             value={cableSearchA}
+                            onMouseDown={e => e.stopPropagation()}
                             onChange={e => setCableSearchA(e.target.value)}
                             placeholder="🔍 Cari nama kabel..."
                             className="w-full px-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:border-purple-400 bg-gray-50"
                           />
                         </div>
-                        <div className="overflow-y-auto" style={{maxHeight: 260}}>
+                        <div className="overflow-y-auto" style={{maxHeight: 260}} onMouseDown={e => e.stopPropagation()}>
                           {(() => {
                             const search = cableSearchA.toLowerCase();
                             const cables = filteredCablesA.filter(c => !search || c.name.toLowerCase().includes(search) || (c.cable_type||'').toLowerCase().includes(search));
@@ -2834,7 +2849,20 @@ export default function GisTopology() {
                                 {g.items.map(c => (
                                   <div
                                     key={c.id}
-                                    onClick={() => { setBatchSpliceForm({...batchSpliceForm, cable_a_id: String(c.id)}); setCableDropdownOpenA(false); setCableSearchA(''); }}
+                                    onMouseDown={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      setBatchSpliceForm(prev => ({ ...prev, cable_a_id: String(c.id) }));
+                                      setCableDropdownOpenA(false);
+                                      setCableSearchA('');
+                                    }}
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      setBatchSpliceForm(prev => ({ ...prev, cable_a_id: String(c.id) }));
+                                      setCableDropdownOpenA(false);
+                                      setCableSearchA('');
+                                    }}
                                     className={`px-3 py-2 cursor-pointer hover:bg-purple-50 border-b border-gray-50 flex items-center justify-between gap-2 ${String(batchSpliceForm.cable_a_id) === String(c.id) ? 'bg-purple-100' : ''}`}
                                   >
                                     <span className="text-xs text-gray-800 font-medium truncate">{c.name}</span>
@@ -2874,9 +2902,9 @@ export default function GisTopology() {
                     </select>
                   </div>
                   {/* Custom Searchable Grouped Dropdown — Kabel Tujuan */}
-                  <div className="relative">
+                  <div className="relative" ref={cableDropdownRefB}>
                     <div
-                      className="w-full px-3 py-2 border border-dark-border rounded-lg text-xs bg-white text-dark-text focus:outline-none focus:border-emerald-600 shadow-xs font-medium cursor-pointer flex items-center justify-between gap-2"
+                      className={`w-full px-3 py-2 border rounded-lg text-xs bg-white text-dark-text shadow-xs font-medium cursor-pointer flex items-center justify-between gap-2 transition-colors ${!batchSpliceForm.cable_b_id ? 'border-amber-400 bg-amber-50/20' : 'border-dark-border focus:border-emerald-600'}`}
                       onClick={() => { setCableDropdownOpenB(v => !v); setCableDropdownOpenA(false); }}
                     >
                       {batchSpliceForm.cable_b_id
@@ -2885,18 +2913,19 @@ export default function GisTopology() {
                       <svg className={`w-3.5 h-3.5 text-gray-400 shrink-0 transition-transform ${cableDropdownOpenB ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7"/></svg>
                     </div>
                     {cableDropdownOpenB && (
-                      <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-2xl overflow-hidden" style={{maxHeight: 320}}>
-                        <div className="p-2 border-b border-gray-100 sticky top-0 bg-white z-10">
+                      <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-2xl overflow-hidden" style={{maxHeight: 320}} onMouseDown={e => e.stopPropagation()}>
+                        <div className="p-2 border-b border-gray-100 sticky top-0 bg-white z-10" onMouseDown={e => e.stopPropagation()}>
                           <input
                             autoFocus
                             type="text"
                             value={cableSearchB}
+                            onMouseDown={e => e.stopPropagation()}
                             onChange={e => setCableSearchB(e.target.value)}
                             placeholder="🔍 Cari nama kabel..."
                             className="w-full px-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:border-emerald-400 bg-gray-50"
                           />
                         </div>
-                        <div className="overflow-y-auto" style={{maxHeight: 260}}>
+                        <div className="overflow-y-auto" style={{maxHeight: 260}} onMouseDown={e => e.stopPropagation()}>
                           {(() => {
                             const search = cableSearchB.toLowerCase();
                             const cables = filteredCablesB.filter(c => !search || c.name.toLowerCase().includes(search) || (c.cable_type||'').toLowerCase().includes(search));
@@ -2919,7 +2948,20 @@ export default function GisTopology() {
                                 {g.items.map(c => (
                                   <div
                                     key={c.id}
-                                    onClick={() => { setBatchSpliceForm({...batchSpliceForm, cable_b_id: String(c.id)}); setCableDropdownOpenB(false); setCableSearchB(''); }}
+                                    onMouseDown={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      setBatchSpliceForm(prev => ({ ...prev, cable_b_id: String(c.id) }));
+                                      setCableDropdownOpenB(false);
+                                      setCableSearchB('');
+                                    }}
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      setBatchSpliceForm(prev => ({ ...prev, cable_b_id: String(c.id) }));
+                                      setCableDropdownOpenB(false);
+                                      setCableSearchB('');
+                                    }}
                                     className={`px-3 py-2 cursor-pointer hover:bg-emerald-50 border-b border-gray-50 flex items-center justify-between gap-2 ${String(batchSpliceForm.cable_b_id) === String(c.id) ? 'bg-emerald-100' : ''}`}
                                   >
                                     <span className="text-xs text-gray-800 font-medium truncate">{c.name}</span>
