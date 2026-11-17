@@ -278,9 +278,11 @@ def batch_connect_cables(payload: BatchSplicePayload, db: Session = Depends(get_
             payload.custom_note = f"{payload.petik_tube} / {payload.petik_core}{target_str}"
 
     core_pairs = []
-    if payload.selected_cores_a and payload.selected_cores_b:
+    if payload.selected_cores_a:
         # Mode Custom Checklist: Sambungkan pasangan nomor core yang dipilih
-        for num_a, num_b in zip(payload.selected_cores_a, payload.selected_cores_b):
+        start_b = payload.start_core_b or 1
+        targets_b = payload.selected_cores_b if payload.selected_cores_b else [start_b + i for i in range(len(payload.selected_cores_a))]
+        for num_a, num_b in zip(payload.selected_cores_a, targets_b):
             idx_a = num_a - 1
             idx_b = num_b - 1
             if 0 <= idx_a < len(cores_a) and 0 <= idx_b < len(cores_b):
@@ -304,6 +306,12 @@ def batch_connect_cables(payload: BatchSplicePayload, db: Session = Depends(get_
             if idx_a >= len(cores_a) or idx_b >= len(cores_b):
                 break
             core_pairs.append((cores_a[idx_a], cores_b[idx_b]))
+
+    if not core_pairs:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Tidak ada pasangan core yang valid untuk disambungkan. Pastikan nomor core tidak melebihi kapasitas kabel tujuan '{cable_b.name}' yang hanya memiliki {len(cores_b)} core."
+        )
 
     skipped_count = 0
     for ca, cb in core_pairs:
@@ -397,12 +405,19 @@ def batch_connect_cables(payload: BatchSplicePayload, db: Session = Depends(get_
                 jc_entry = f"[{feeder_c.name}] {detail} ➔ {drop_c.name}"
         else:
             # Format Simpel & Bersih untuk Pelebaran Lurus (Trunk / Multi-Core)
-            core_info_a = f"Core {payload.start_core_a}" if payload.count == 1 else f"Core {payload.start_core_a}-{payload.start_core_a + spliced_count - 1}"
-            core_info_b = f"Core {payload.start_core_b}" if payload.count == 1 else f"Core {payload.start_core_b}-{payload.start_core_b + spliced_count - 1}"
+            if payload.selected_cores_a:
+                min_a, max_a = min(payload.selected_cores_a), max(payload.selected_cores_a)
+                core_info_a = f"Core {min_a}" if min_a == max_a else f"Core {min_a}-{max_a}"
+                targets_b = payload.selected_cores_b if payload.selected_cores_b else [(payload.start_core_b or 1) + i for i in range(len(payload.selected_cores_a))]
+                min_b, max_b = min(targets_b), max(targets_b)
+                core_info_b = f"Core {min_b}" if min_b == max_b else f"Core {min_b}-{max_b}"
+            else:
+                core_info_a = f"Core {payload.start_core_a}" if payload.count == 1 else f"Core {payload.start_core_a}-{payload.start_core_a + spliced_count - 1}"
+                core_info_b = f"Core {payload.start_core_b}" if payload.count == 1 else f"Core {payload.start_core_b}-{payload.start_core_b + spliced_count - 1}"
             extra = f" - {payload.custom_note}" if payload.custom_note else ""
             
-            note_for_a = f"Sambung ke {cable_b.name} via {closure_label} ({core_info_a}){extra}"
-            note_for_b = f"Sambung dari {cable_a.name} via {closure_label} ({core_info_b}){extra}"
+            note_for_a = f"Sambung ke {cable_b.name} via {closure_label} ({core_info_a} ➔ {core_info_b}){extra}"
+            note_for_b = f"Sambung dari {cable_a.name} via {closure_label} ({core_info_b} ➔ {core_info_a}){extra}"
             jc_entry = f"{cable_a.name} ({core_info_a}) ➔ {cable_b.name} ({core_info_b}){extra}"
 
         # 1. Update Joint Closure

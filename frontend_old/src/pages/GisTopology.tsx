@@ -876,10 +876,17 @@ export default function GisTopology() {
       };
 
       if (isCustom) {
-        payload.selected_cores_a = batchSpliceForm.selected_cores_a;
-        // Mapping ke nomor core kabel B dengan offset start_core_b
-        const offset = (Number(batchSpliceForm.start_core_b) || 1) - (Number(batchSpliceForm.start_core_a) || 1);
-        payload.selected_cores_b = batchSpliceForm.selected_cores_a.map(num => Math.max(1, num + offset));
+        const sortedA = [...batchSpliceForm.selected_cores_a].sort((a, b) => a - b);
+        const startTargetB = Number(batchSpliceForm.start_core_b) || 1;
+        const capB = selectedCableB?.properties?.capacity || 12;
+        if (startTargetB + sortedA.length - 1 > capB) {
+          alert(`Jumlah core terpilih (${sortedA.length} core) melebihi kapasitas kabel tujuan '${selectedCableB?.properties?.name || 'Kabel Tujuan'}' (Kapasitas: ${capB} Core, Target Mulai dari Core: ${startTargetB})!`);
+          setIsBatchSplicing(false);
+          return;
+        }
+        payload.selected_cores_a = sortedA;
+        payload.selected_cores_b = sortedA.map((_, idx) => startTargetB + idx);
+        payload.start_core_b = startTargetB;
       }
 
       const res = await axios.post('/api/v1/splices/batch-connect', payload, {
@@ -3457,6 +3464,70 @@ export default function GisTopology() {
                           );
                         })}
                       </div>
+
+                      {/* Konfigurasi Target Core Kabel Tujuan untuk Checklist */}
+                      <div className="p-3 bg-purple-50/70 border border-purple-200 rounded-xl space-y-2">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <label className="text-xs font-bold text-purple-950 shrink-0">
+                              Mulai Sambung ke Kabel Tujuan dari Core:
+                            </label>
+                            <input
+                              type="number"
+                              min={1}
+                              max={selectedCableB?.properties?.capacity || 12}
+                              value={batchSpliceForm.start_core_b || 1}
+                              onChange={(e) => setBatchSpliceForm(prev => ({
+                                ...prev,
+                                start_core_b: Math.max(1, Number(e.target.value))
+                              }))}
+                              className="w-16 px-2.5 py-1 text-xs border border-purple-300 rounded-lg bg-white text-gray-900 font-bold focus:outline-none focus:border-purple-600 text-center"
+                            />
+                          </div>
+                          <span className="text-[11px] font-semibold text-purple-800 bg-white px-2 py-0.5 rounded border border-purple-200">
+                            Target: <span className="font-mono text-purple-900 font-bold">Core {batchSpliceForm.start_core_b || 1} s/d {(Number(batchSpliceForm.start_core_b) || 1) + Math.max(0, batchSpliceForm.selected_cores_a.length - 1)}</span> di {selectedCableB?.properties?.name || 'Kabel Tujuan'}
+                          </span>
+                        </div>
+
+                        {/* Live Preview Pasangan Sambungan */}
+                        {batchSpliceForm.selected_cores_a.length > 0 && (
+                          <div className="pt-1.5 border-t border-purple-200/60">
+                            <p className="text-[10px] text-purple-800 font-bold mb-1">Preview Pemetaan Core ({batchSpliceForm.selected_cores_a.length} Core):</p>
+                            <div className="flex flex-wrap gap-1 max-h-20 overflow-y-auto">
+                              {[...batchSpliceForm.selected_cores_a].sort((a, b) => a - b).map((numA, idx) => {
+                                const targetB = (Number(batchSpliceForm.start_core_b) || 1) + idx;
+                                const isOutOfRange = targetB > (selectedCableB?.properties?.capacity || 12);
+                                return (
+                                  <span
+                                    key={numA}
+                                    className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded border flex items-center gap-1 ${
+                                      isOutOfRange
+                                        ? 'bg-red-50 text-red-700 border-red-300'
+                                        : 'bg-white text-purple-900 border-purple-200'
+                                    }`}
+                                  >
+                                    C{numA} ➔ C{targetB} {isOutOfRange ? '(Lewat Kapasitas!)' : ''}
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Auto-Skip Checkbox untuk Checklist */}
+                      <div className="flex items-center gap-2 p-2 bg-purple-50/80 rounded-lg border border-purple-200">
+                        <input
+                          type="checkbox"
+                          id="skip_spliced_custom_cb"
+                          checked={batchSpliceForm.skip_spliced}
+                          onChange={(e) => setBatchSpliceForm({...batchSpliceForm, skip_spliced: e.target.checked})}
+                          className="rounded border-purple-300 text-purple-600 focus:ring-purple-500 cursor-pointer"
+                        />
+                        <label htmlFor="skip_spliced_custom_cb" className="text-[11px] font-semibold text-purple-900 cursor-pointer">
+                          ⚡ Otomatis lewati (skip) core jika sudah memiliki sambungan lain (tidak di-overwrite)
+                        </label>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -3524,7 +3595,7 @@ export default function GisTopology() {
                       : batchSpliceForm.selection_mode === 'tube'
                         ? `${(availableCables.find(c => c.id === batchSpliceForm.cable_a_id)?.name || 'Kabel-A')} (Tube ${batchSpliceForm.selected_tube_a}) ➔ ${(availableCables.find(c => c.id === batchSpliceForm.cable_b_id)?.name || 'Kabel-B')} (Tube ${batchSpliceForm.selected_tube_b}: Core ${(batchSpliceForm.selected_tube_b - 1) * 12 + 1}-${batchSpliceForm.selected_tube_b * 12})`
                         : batchSpliceForm.selection_mode === 'custom'
-                          ? `${(availableCables.find(c => c.id === batchSpliceForm.cable_a_id)?.name || 'Kabel-A')} (Core [${batchSpliceForm.selected_cores_a.join(',')}]) ➔ ${(availableCables.find(c => c.id === batchSpliceForm.cable_b_id)?.name || 'Kabel-B')}${batchSpliceForm.custom_note ? ` - ${batchSpliceForm.custom_note}` : ''}`
+                          ? `${(availableCables.find(c => String(c.id) === String(batchSpliceForm.cable_a_id))?.name || 'Kabel-A')} (Core [${batchSpliceForm.selected_cores_a.join(',')}]) ➔ ${(availableCables.find(c => String(c.id) === String(batchSpliceForm.cable_b_id))?.name || 'Kabel-B')} (Core ${batchSpliceForm.start_core_b || 1}..${(Number(batchSpliceForm.start_core_b) || 1) + Math.max(0, batchSpliceForm.selected_cores_a.length - 1)})${batchSpliceForm.custom_note ? ` - ${batchSpliceForm.custom_note}` : ''}`
                           : `${(availableCables.find(c => c.id === batchSpliceForm.cable_a_id)?.name || 'Kabel-A')} (Core ${batchSpliceForm.start_core_a}-${Number(batchSpliceForm.start_core_a)+Number(batchSpliceForm.count)-1}${batchSpliceForm.skip_spliced ? ' [Auto-Skip]' : ''}) ➔ ${(availableCables.find(c => c.id === batchSpliceForm.cable_b_id)?.name || 'Kabel-B')} (Core ${batchSpliceForm.start_core_b}-${Number(batchSpliceForm.start_core_b)+Number(batchSpliceForm.count)-1})${batchSpliceForm.custom_note ? ` - ${batchSpliceForm.custom_note}` : ''}`
                     }
                   </div>
@@ -3535,7 +3606,7 @@ export default function GisTopology() {
                       : batchSpliceForm.selection_mode === 'tube'
                         ? `Sambung ke ${(availableCables.find(c => c.id === batchSpliceForm.cable_b_id)?.name || 'Kabel-B')} via ${(sortedClosures.find(c => c.id === (batchSpliceForm.closure_id || sortedClosures[0]?.id))?.name || 'JC Terdekat')} (Tube ${batchSpliceForm.selected_tube_a} ➔ Tube ${batchSpliceForm.selected_tube_b})`
                         : batchSpliceForm.selection_mode === 'custom'
-                          ? `Sambung ke ${(availableCables.find(c => c.id === batchSpliceForm.cable_b_id)?.name || 'Kabel-B')} via ${(sortedClosures.find(c => c.id === (batchSpliceForm.closure_id || sortedClosures[0]?.id))?.name || 'JC Terdekat')} (Core [${batchSpliceForm.selected_cores_a.join(',')}])`
+                          ? `Sambung ke ${(availableCables.find(c => String(c.id) === String(batchSpliceForm.cable_b_id))?.name || 'Kabel-B')} via ${(sortedClosures.find(c => String(c.id) === String(batchSpliceForm.closure_id || sortedClosures[0]?.id))?.name || 'JC Terdekat')} (Core [${batchSpliceForm.selected_cores_a.join(',')}] ➔ Core ${batchSpliceForm.start_core_b || 1}..${(Number(batchSpliceForm.start_core_b) || 1) + Math.max(0, batchSpliceForm.selected_cores_a.length - 1)})`
                           : `Sambung ke ${(availableCables.find(c => c.id === batchSpliceForm.cable_b_id)?.name || 'Kabel-B')} via ${(sortedClosures.find(c => c.id === (batchSpliceForm.closure_id || sortedClosures[0]?.id))?.name || 'JC Terdekat')} (Core ${batchSpliceForm.start_core_a}-${Number(batchSpliceForm.start_core_a)+Number(batchSpliceForm.count)-1})${batchSpliceForm.custom_note ? ` - ${batchSpliceForm.custom_note}` : ''}`
                     }
                   </div>
