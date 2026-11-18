@@ -27,6 +27,8 @@ class BatchSplicePayload(BaseModel):
     skip_spliced: bool = False # Default False: izinkan sambung langsung & overwrite / koreksi sambungan
     selected_cores_a: Optional[List[int]] = None # List nomor core spesifik di kabel A
     selected_cores_b: Optional[List[int]] = None # List nomor core spesifik di kabel B
+    cores_per_tube_a: Optional[int] = None
+    cores_per_tube_b: Optional[int] = None
 
 TUBE_COLOR_MAP = {
     1: "Biru",
@@ -47,8 +49,13 @@ def format_tube_label(tube_num: int) -> str:
     color = TUBE_COLOR_MAP.get(tube_num, "")
     return f"Tube {tube_num} ({color})" if color else f"Tube {tube_num}"
 
-def get_core_tube_info(cable_capacity: int, core_number: int):
+def get_core_tube_info(cable_capacity: int, core_number: int, cores_per_tube: Optional[int] = None):
     cap = cable_capacity or 12
+    if cores_per_tube and cores_per_tube > 0:
+        t_num = ((core_number - 1) // cores_per_tube) + 1
+        c_in_t = ((core_number - 1) % cores_per_tube) + 1
+        return t_num, c_in_t
+
     if cap <= 6:
         return 1, core_number
     elif cap <= 12:

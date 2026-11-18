@@ -68,66 +68,95 @@ const STANDARD_CORE_NAMES = [
   'Merah', 'Hitam', 'Kuning', 'Ungu', 'Pink', 'Toska'
 ];
 
-const getCableTubeStructure = (capacity?: number) => {
+interface TubeConfigOption {
+  tubeCount: number;
+  coresPerTube: number;
+  label: string;
+}
+
+const getAvailableTubeOptions = (capacity?: number): TubeConfigOption[] => {
   const cap = Number(capacity) || 12;
-
-  // 1 - 4 Core: 1 Tube (Dropcore)
-  if (cap <= 2) {
-    return {
-      tubeCount: 1,
-      coresPerTube: cap,
-      tubes: [{ num: 1, name: 'Tube 1 (Biru)', color: 'Biru', startCore: 1, endCore: cap, coreCount: cap }]
-    };
-  }
   if (cap <= 4) {
-    return {
-      tubeCount: 1,
-      coresPerTube: cap,
-      tubes: [{ num: 1, name: 'Tube 1 (Biru)', color: 'Biru', startCore: 1, endCore: cap, coreCount: cap }]
-    };
+    return [{ tubeCount: 1, coresPerTube: cap, label: `1 Tube (${cap} Core)` }];
   }
-  if (cap <= 6) {
-    return {
-      tubeCount: 1,
-      coresPerTube: 6,
-      tubes: [{ num: 1, name: 'Tube 1 (Biru)', color: 'Biru', startCore: 1, endCore: cap, coreCount: cap }]
-    };
+  if (cap === 6) {
+    return [
+      { tubeCount: 1, coresPerTube: 6, label: '1 Tube (6 Core/Tube)' }
+    ];
   }
-  // Standar Lapangan Indonesia (Telkom): 12 Core = 2 Tube x 6 Core
-  if (cap <= 12) {
-    return {
-      tubeCount: 2,
-      coresPerTube: 6,
-      tubes: [
-        { num: 1, name: 'Tube 1 (Biru)', color: 'Biru', startCore: 1, endCore: 6, coreCount: 6 },
-        { num: 2, name: 'Tube 2 (Oren)', color: 'Oren', startCore: 7, endCore: 12, coreCount: 6 }
-      ]
-    };
+  if (cap === 12) {
+    return [
+      { tubeCount: 2, coresPerTube: 6, label: '2 Tube (6 C/Tube)' },
+      { tubeCount: 1, coresPerTube: 12, label: '1 Tube (12 C/Tube)' }
+    ];
   }
-  // Standar 24 Core: 4 Tube x 6 Core
-  if (cap <= 24) {
-    return {
-      tubeCount: 4,
-      coresPerTube: 6,
-      tubes: [
-        { num: 1, name: 'Tube 1 (Biru)', color: 'Biru', startCore: 1, endCore: 6, coreCount: 6 },
-        { num: 2, name: 'Tube 2 (Oren)', color: 'Oren', startCore: 7, endCore: 12, coreCount: 6 },
-        { num: 3, name: 'Tube 3 (Hijau)', color: 'Hijau', startCore: 13, endCore: 18, coreCount: 6 },
-        { num: 4, name: 'Tube 4 (Cokelat)', color: 'Cokelat', startCore: 19, endCore: 24, coreCount: 6 }
-      ]
-    };
+  if (cap === 24) {
+    return [
+      { tubeCount: 4, coresPerTube: 6, label: '4 Tube (6 C/Tube)' },
+      { tubeCount: 2, coresPerTube: 12, label: '2 Tube (12 C/Tube)' }
+    ];
+  }
+  if (cap === 48) {
+    return [
+      { tubeCount: 4, coresPerTube: 12, label: '4 Tube (12 C/Tube)' },
+      { tubeCount: 8, coresPerTube: 6, label: '8 Tube (6 C/Tube)' }
+    ];
+  }
+  if (cap === 72) {
+    return [
+      { tubeCount: 6, coresPerTube: 12, label: '6 Tube (12 C/Tube)' },
+      { tubeCount: 12, coresPerTube: 6, label: '12 Tube (6 C/Tube)' }
+    ];
+  }
+  if (cap === 96) {
+    return [
+      { tubeCount: 8, coresPerTube: 12, label: '8 Tube (12 C/Tube)' },
+      { tubeCount: 16, coresPerTube: 6, label: '16 Tube (6 C/Tube)' }
+    ];
+  }
+  if (cap === 144) {
+    return [
+      { tubeCount: 12, coresPerTube: 12, label: '12 Tube (12 C/Tube)' },
+      { tubeCount: 24, coresPerTube: 6, label: '24 Tube (6 C/Tube)' }
+    ];
   }
 
-  // 48C, 96C, 144C: 12 Core per Tube
-  const coresPerTube = 12;
+  const opts: TubeConfigOption[] = [];
+  if (cap % 12 === 0) {
+    opts.push({ tubeCount: cap / 12, coresPerTube: 12, label: `${cap / 12} Tube (12 C/Tube)` });
+  }
+  if (cap % 6 === 0 && cap / 6 !== cap / 12) {
+    opts.push({ tubeCount: cap / 6, coresPerTube: 6, label: `${cap / 6} Tube (6 C/Tube)` });
+  }
+  if (opts.length === 0) {
+    opts.push({ tubeCount: 1, coresPerTube: cap, label: `1 Tube (${cap} Core)` });
+  }
+  return opts;
+};
+
+const getCableTubeStructure = (capacity?: number, forcedCoresPerTube?: number) => {
+  const cap = Number(capacity) || 12;
+  const options = getAvailableTubeOptions(cap);
+  
+  let coresPerTube = forcedCoresPerTube;
+  const match = options.find(o => o.coresPerTube === coresPerTube);
+  if (!match) {
+    coresPerTube = options[0].coresPerTube;
+  }
+
   const tubeCount = Math.max(1, Math.ceil(cap / coresPerTube));
-  const tubes = STANDARD_TUBES.slice(0, tubeCount).map(t => {
-    const startCore = (t.num - 1) * coresPerTube + 1;
-    const endCore = Math.min(cap, t.num * coresPerTube);
+  const tubes = Array.from({ length: tubeCount }, (_, i) => {
+    const num = i + 1;
+    const baseTube = STANDARD_TUBES[(num - 1) % 12];
+    const cycle = Math.ceil(num / 12);
+    const colorName = cycle > 1 ? `${baseTube.color}-${cycle}` : baseTube.color;
+    const name = `Tube ${num} (${colorName})`;
+    const startCore = (num - 1) * coresPerTube + 1;
+    const endCore = Math.min(cap, num * coresPerTube);
     return {
-      num: t.num,
-      name: t.name,
-      color: t.color,
+      num,
+      name,
+      color: baseTube.color,
       startCore,
       endCore,
       coreCount: endCore - startCore + 1
@@ -137,8 +166,8 @@ const getCableTubeStructure = (capacity?: number) => {
   return { tubeCount, coresPerTube, tubes };
 };
 
-const getTubeCount = (capacity?: number): number => {
-  return getCableTubeStructure(capacity).tubeCount;
+const getTubeCount = (capacity?: number, forcedCoresPerTube?: number): number => {
+  return getCableTubeStructure(capacity, forcedCoresPerTube).tubeCount;
 };
 
 // --- Custom GIS Vector Icons (Bebas CORS, Tajam, & Kompatibel Google Earth KMZ) ---
@@ -508,13 +537,48 @@ export default function GisTopology() {
     enabled: !!batchSpliceForm.cable_b_id && batchSpliceModal
   });
 
+  const [coresPerTubeOverrideA, setCoresPerTubeOverrideA] = useState<number | null>(null);
+  const [coresPerTubeOverrideB, setCoresPerTubeOverrideB] = useState<number | null>(null);
+
   const tubeStructA = useMemo(() => {
-    return getCableTubeStructure(selectedCableA?.properties?.capacity || 12);
-  }, [selectedCableA]);
+    return getCableTubeStructure(selectedCableA?.properties?.capacity || 12, coresPerTubeOverrideA || undefined);
+  }, [selectedCableA, coresPerTubeOverrideA]);
 
   const tubeStructB = useMemo(() => {
-    return getCableTubeStructure(selectedCableB?.properties?.capacity || 48);
+    return getCableTubeStructure(selectedCableB?.properties?.capacity || 48, coresPerTubeOverrideB || undefined);
+  }, [selectedCableB, coresPerTubeOverrideB]);
+
+  const availableOptionsA = useMemo(() => {
+    return getAvailableTubeOptions(selectedCableA?.properties?.capacity || 12);
+  }, [selectedCableA]);
+
+  const availableOptionsB = useMemo(() => {
+    return getAvailableTubeOptions(selectedCableB?.properties?.capacity || 48);
   }, [selectedCableB]);
+
+  const handleTubeOptionChangeA = (newCoresPerTube: number) => {
+    setCoresPerTubeOverrideA(newCoresPerTube);
+    const newStruct = getCableTubeStructure(selectedCableA?.properties?.capacity || 12, newCoresPerTube);
+    const currentNum = Number(batchSpliceForm.selected_tube_a);
+    const found = newStruct.tubes.find(t => t.num === currentNum) || newStruct.tubes[0];
+    setBatchSpliceForm(prev => ({
+      ...prev,
+      selected_tube_a: found.num,
+      start_core_a: found.startCore
+    }));
+  };
+
+  const handleTubeOptionChangeB = (newCoresPerTube: number) => {
+    setCoresPerTubeOverrideB(newCoresPerTube);
+    const newStruct = getCableTubeStructure(selectedCableB?.properties?.capacity || 48, newCoresPerTube);
+    const currentNum = Number(batchSpliceForm.selected_tube_b);
+    const found = newStruct.tubes.find(t => t.num === currentNum) || newStruct.tubes[0];
+    setBatchSpliceForm(prev => ({
+      ...prev,
+      selected_tube_b: found.num,
+      start_core_b: found.startCore
+    }));
+  };
 
   const sortedClosures = useMemo(() => {
     if (!availableClosures.length) return [];
@@ -872,7 +936,9 @@ export default function GisTopology() {
         petik_tube: batchSpliceForm.splice_type === 'petik' ? batchSpliceForm.petik_tube : null,
         petik_core: batchSpliceForm.splice_type === 'petik' ? batchSpliceForm.petik_core : null,
         petik_target: batchSpliceForm.splice_type === 'petik' ? batchSpliceForm.petik_target : null,
-        skip_spliced: batchSpliceForm.splice_type === 'petik' ? false : batchSpliceForm.skip_spliced
+        skip_spliced: batchSpliceForm.splice_type === 'petik' ? false : batchSpliceForm.skip_spliced,
+        cores_per_tube_a: tubeStructA.coresPerTube,
+        cores_per_tube_b: tubeStructB.coresPerTube
       };
 
       if (isCustom) {
@@ -2879,11 +2945,11 @@ export default function GisTopology() {
               {/* Pemilihan 2 Kabel: Kabel Asal & Kabel Tujuan (Grid 2 Kolom) */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 p-3.5 bg-gray-50/90 rounded-xl border border-gray-200">
                 <div>
-                  <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex items-center justify-between mb-1.5 flex-wrap gap-1">
                     <label className="text-xs font-bold text-gray-700">Kabel Asal (Proyek Lama)</label>
                     {selectedCableA && (
                       <span className="text-[11px] font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
-                        {selectedCableA.properties?.capacity || 12} Core ({getTubeCount(selectedCableA.properties?.capacity)} Tube)
+                        {selectedCableA.properties?.capacity || 12} Core ({tubeStructA.tubeCount} Tube · {tubeStructA.coresPerTube} C/Tube)
                       </span>
                     )}
                   </div>
@@ -2952,14 +3018,16 @@ export default function GisTopology() {
                                     onMouseDown={(e) => {
                                       e.preventDefault();
                                       e.stopPropagation();
-                                      setBatchSpliceForm(prev => ({ ...prev, cable_a_id: String(c.id) }));
+                                      setCoresPerTubeOverrideA(null);
+                                      setBatchSpliceForm(prev => ({ ...prev, cable_a_id: String(c.id), selected_tube_a: 1, start_core_a: 1 }));
                                       setCableDropdownOpenA(false);
                                       setCableSearchA('');
                                     }}
                                     onClick={(e) => {
                                       e.preventDefault();
                                       e.stopPropagation();
-                                      setBatchSpliceForm(prev => ({ ...prev, cable_a_id: String(c.id) }));
+                                      setCoresPerTubeOverrideA(null);
+                                      setBatchSpliceForm(prev => ({ ...prev, cable_a_id: String(c.id), selected_tube_a: 1, start_core_a: 1 }));
                                       setCableDropdownOpenA(false);
                                       setCableSearchA('');
                                     }}
@@ -2976,14 +3044,36 @@ export default function GisTopology() {
                       </div>
                     )}
                   </div>
+                  {/* Opsi Struktur Tube Kabel Asal jika ada variasi (misal 12C: 2 Tube vs 1 Tube, 24C: 4 Tube vs 2 Tube) */}
+                  {selectedCableA && availableOptionsA.length > 1 && (
+                    <div className="flex items-center gap-1.5 mt-2 p-1.5 bg-purple-50/90 rounded-lg border border-purple-200">
+                      <span className="text-[10px] font-bold text-purple-900 shrink-0">Opsi Tube:</span>
+                      <div className="flex gap-1 flex-wrap">
+                        {availableOptionsA.map(opt => (
+                          <button
+                            key={opt.coresPerTube}
+                            type="button"
+                            onClick={() => handleTubeOptionChangeA(opt.coresPerTube)}
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all cursor-pointer ${
+                              tubeStructA.coresPerTube === opt.coresPerTube
+                                ? 'bg-purple-600 text-white shadow-xs'
+                                : 'bg-white text-purple-800 hover:bg-purple-100 border border-purple-300'
+                            }`}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div>
-                  <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex items-center justify-between mb-1.5 flex-wrap gap-1">
                     <label className="text-xs font-bold text-gray-700">Kabel Tujuan (Pelebaran / Proyek Baru)</label>
                     {selectedCableB && (
                       <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                        {selectedCableB.properties?.capacity || 48} Core ({getTubeCount(selectedCableB.properties?.capacity)} Tube)
+                        {selectedCableB.properties?.capacity || 48} Core ({tubeStructB.tubeCount} Tube · {tubeStructB.coresPerTube} C/Tube)
                       </span>
                     )}
                   </div>
@@ -3051,14 +3141,16 @@ export default function GisTopology() {
                                     onMouseDown={(e) => {
                                       e.preventDefault();
                                       e.stopPropagation();
-                                      setBatchSpliceForm(prev => ({ ...prev, cable_b_id: String(c.id) }));
+                                      setCoresPerTubeOverrideB(null);
+                                      setBatchSpliceForm(prev => ({ ...prev, cable_b_id: String(c.id), selected_tube_b: 1, start_core_b: 1 }));
                                       setCableDropdownOpenB(false);
                                       setCableSearchB('');
                                     }}
                                     onClick={(e) => {
                                       e.preventDefault();
                                       e.stopPropagation();
-                                      setBatchSpliceForm(prev => ({ ...prev, cable_b_id: String(c.id) }));
+                                      setCoresPerTubeOverrideB(null);
+                                      setBatchSpliceForm(prev => ({ ...prev, cable_b_id: String(c.id), selected_tube_b: 1, start_core_b: 1 }));
                                       setCableDropdownOpenB(false);
                                       setCableSearchB('');
                                     }}
@@ -3075,6 +3167,28 @@ export default function GisTopology() {
                       </div>
                     )}
                   </div>
+                  {/* Opsi Struktur Tube Kabel Tujuan jika ada variasi */}
+                  {selectedCableB && availableOptionsB.length > 1 && (
+                    <div className="flex items-center gap-1.5 mt-2 p-1.5 bg-emerald-50/90 rounded-lg border border-emerald-200">
+                      <span className="text-[10px] font-bold text-emerald-900 shrink-0">Opsi Tube:</span>
+                      <div className="flex gap-1 flex-wrap">
+                        {availableOptionsB.map(opt => (
+                          <button
+                            key={opt.coresPerTube}
+                            type="button"
+                            onClick={() => handleTubeOptionChangeB(opt.coresPerTube)}
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all cursor-pointer ${
+                              tubeStructB.coresPerTube === opt.coresPerTube
+                                ? 'bg-emerald-600 text-white shadow-xs'
+                                : 'bg-white text-emerald-800 hover:bg-emerald-100 border border-emerald-300'
+                            }`}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -3149,12 +3263,14 @@ export default function GisTopology() {
                         onClick={() => {
                           const tA = Number(batchSpliceForm.selected_tube_a) || 1;
                           const tB = Number(batchSpliceForm.selected_tube_b) || 1;
+                          const curTubeA = tubeStructA.tubes.find(t => t.num === tA) || tubeStructA.tubes[0];
+                          const curTubeB = tubeStructB.tubes.find(t => t.num === tB) || tubeStructB.tubes[0];
                           setBatchSpliceForm(prev => ({
                             ...prev,
                             selection_mode: 'tube',
-                            start_core_a: (tA - 1) * 12 + 1,
-                            start_core_b: (tB - 1) * 12 + 1,
-                            count: 12
+                            start_core_a: curTubeA?.startCore || 1,
+                            start_core_b: curTubeB?.startCore || 1,
+                            count: Math.min(curTubeA?.coreCount || 12, curTubeB?.coreCount || 12)
                           }));
                         }}
                         className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
@@ -3204,11 +3320,32 @@ export default function GisTopology() {
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                         {/* Tube Kabel Asal */}
                         <div className="bg-white p-3 rounded-xl border border-purple-200 shadow-xs">
-                          <label className="block text-xs font-bold text-purple-950 mb-1 flex items-center justify-between">
+                          <label className="block text-xs font-bold text-purple-950 mb-1 flex items-center justify-between flex-wrap gap-1">
                             <span>Tube Kabel Asal</span>
-                            <span className="text-[10px] text-gray-500 font-normal">
-                              Total: {tubeStructA.tubeCount} Tube ({tubeStructA.coresPerTube} Core/Tube)
-                            </span>
+                            <div className="flex items-center gap-1">
+                              <span className="text-[10px] text-gray-500 font-normal">
+                                Total: {tubeStructA.tubeCount} Tube ({tubeStructA.coresPerTube} C/Tube)
+                              </span>
+                              {availableOptionsA.length > 1 && (
+                                <div className="flex items-center gap-0.5 ml-1">
+                                  {availableOptionsA.map(opt => (
+                                    <button
+                                      key={opt.coresPerTube}
+                                      type="button"
+                                      onClick={() => handleTubeOptionChangeA(opt.coresPerTube)}
+                                      className={`px-1.5 py-0.5 rounded text-[9px] font-bold cursor-pointer transition-all ${
+                                        tubeStructA.coresPerTube === opt.coresPerTube
+                                          ? 'bg-purple-600 text-white shadow-xs'
+                                          : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+                                      }`}
+                                      title={`Ubah ke ${opt.label}`}
+                                    >
+                                      {opt.tubeCount}T
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
                           </label>
                           <select
                             value={batchSpliceForm.selected_tube_a}
@@ -3233,11 +3370,32 @@ export default function GisTopology() {
 
                         {/* Tube Kabel Tujuan */}
                         <div className="bg-white p-3 rounded-xl border border-emerald-200 shadow-xs">
-                          <label className="block text-xs font-bold text-emerald-950 mb-1 flex items-center justify-between">
+                          <label className="block text-xs font-bold text-emerald-950 mb-1 flex items-center justify-between flex-wrap gap-1">
                             <span>Tube Kabel Tujuan</span>
-                            <span className="text-[10px] text-gray-500 font-normal">
-                              Total: {tubeStructB.tubeCount} Tube ({tubeStructB.coresPerTube} Core/Tube)
-                            </span>
+                            <div className="flex items-center gap-1">
+                              <span className="text-[10px] text-gray-500 font-normal">
+                                Total: {tubeStructB.tubeCount} Tube ({tubeStructB.coresPerTube} C/Tube)
+                              </span>
+                              {availableOptionsB.length > 1 && (
+                                <div className="flex items-center gap-0.5 ml-1">
+                                  {availableOptionsB.map(opt => (
+                                    <button
+                                      key={opt.coresPerTube}
+                                      type="button"
+                                      onClick={() => handleTubeOptionChangeB(opt.coresPerTube)}
+                                      className={`px-1.5 py-0.5 rounded text-[9px] font-bold cursor-pointer transition-all ${
+                                        tubeStructB.coresPerTube === opt.coresPerTube
+                                          ? 'bg-emerald-600 text-white shadow-xs'
+                                          : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
+                                      }`}
+                                      title={`Ubah ke ${opt.label}`}
+                                    >
+                                      {opt.tubeCount}T
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
                           </label>
                           <select
                             value={batchSpliceForm.selected_tube_b}
@@ -3254,6 +3412,12 @@ export default function GisTopology() {
                           >
                             {tubeStructB.tubes.map(t => (
                               <option key={t.num} value={t.num}>
+                                {t.name} [Core {t.startCore} s/d {t.endCore}]
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
                                 {t.name} [Core {t.startCore} s/d {t.endCore}]
                               </option>
                             ))}
@@ -3590,25 +3754,43 @@ export default function GisTopology() {
                 <div className="space-y-1.5 font-mono text-[11px]">
                   <div className="text-purple-700 bg-white p-2 rounded-lg border border-gray-200 shadow-xs">
                     <strong className="text-purple-900">Di Joint Closure:</strong>{' '}
-                    {batchSpliceForm.splice_type === 'petik'
-                      ? `${(availableCables.find(c => c.id === batchSpliceForm.cable_a_id)?.name || 'Kabel-A')} ➔ ${(availableCables.find(c => c.id === batchSpliceForm.cable_b_id)?.name || 'Kabel-B')} (${batchSpliceForm.petik_tube} / ${batchSpliceForm.petik_core}${batchSpliceForm.petik_target ? ' - ' + batchSpliceForm.petik_target : ''})`
-                      : batchSpliceForm.selection_mode === 'tube'
-                        ? `${(availableCables.find(c => c.id === batchSpliceForm.cable_a_id)?.name || 'Kabel-A')} (Tube ${batchSpliceForm.selected_tube_a}) ➔ ${(availableCables.find(c => c.id === batchSpliceForm.cable_b_id)?.name || 'Kabel-B')} (Tube ${batchSpliceForm.selected_tube_b}: Core ${(batchSpliceForm.selected_tube_b - 1) * 12 + 1}-${batchSpliceForm.selected_tube_b * 12})`
-                        : batchSpliceForm.selection_mode === 'custom'
-                          ? `${(availableCables.find(c => String(c.id) === String(batchSpliceForm.cable_a_id))?.name || 'Kabel-A')} (Core [${batchSpliceForm.selected_cores_a.join(',')}]) ➔ ${(availableCables.find(c => String(c.id) === String(batchSpliceForm.cable_b_id))?.name || 'Kabel-B')} (Core ${batchSpliceForm.start_core_b || 1}..${(Number(batchSpliceForm.start_core_b) || 1) + Math.max(0, batchSpliceForm.selected_cores_a.length - 1)})${batchSpliceForm.custom_note ? ` - ${batchSpliceForm.custom_note}` : ''}`
-                          : `${(availableCables.find(c => c.id === batchSpliceForm.cable_a_id)?.name || 'Kabel-A')} (Core ${batchSpliceForm.start_core_a}-${Number(batchSpliceForm.start_core_a)+Number(batchSpliceForm.count)-1}${batchSpliceForm.skip_spliced ? ' [Auto-Skip]' : ''}) ➔ ${(availableCables.find(c => c.id === batchSpliceForm.cable_b_id)?.name || 'Kabel-B')} (Core ${batchSpliceForm.start_core_b}-${Number(batchSpliceForm.start_core_b)+Number(batchSpliceForm.count)-1})${batchSpliceForm.custom_note ? ` - ${batchSpliceForm.custom_note}` : ''}`
-                    }
+                    {(() => {
+                      const nameA = availableCables.find(c => String(c.id) === String(batchSpliceForm.cable_a_id))?.name || 'Kabel-A';
+                      const nameB = availableCables.find(c => String(c.id) === String(batchSpliceForm.cable_b_id))?.name || 'Kabel-B';
+                      const curTubeA = tubeStructA.tubes.find(t => t.num === Number(batchSpliceForm.selected_tube_a)) || tubeStructA.tubes[0];
+                      const curTubeB = tubeStructB.tubes.find(t => t.num === Number(batchSpliceForm.selected_tube_b)) || tubeStructB.tubes[0];
+
+                      if (batchSpliceForm.splice_type === 'petik') {
+                        return `${nameA} ➔ ${nameB} (${batchSpliceForm.petik_tube} / ${batchSpliceForm.petik_core}${batchSpliceForm.petik_target ? ' - ' + batchSpliceForm.petik_target : ''})`;
+                      }
+                      if (batchSpliceForm.selection_mode === 'tube') {
+                        return `${nameA} (${curTubeA?.name || 'Tube ' + batchSpliceForm.selected_tube_a}) ➔ ${nameB} (${curTubeB?.name || 'Tube ' + batchSpliceForm.selected_tube_b}: Core ${curTubeB?.startCore || 1}-${curTubeB?.endCore || 12})`;
+                      }
+                      if (batchSpliceForm.selection_mode === 'custom') {
+                        return `${nameA} (Core [${batchSpliceForm.selected_cores_a.join(',')}]) ➔ ${nameB} (Core ${batchSpliceForm.start_core_b || 1}..${(Number(batchSpliceForm.start_core_b) || 1) + Math.max(0, batchSpliceForm.selected_cores_a.length - 1)})${batchSpliceForm.custom_note ? ` - ${batchSpliceForm.custom_note}` : ''}`;
+                      }
+                      return `${nameA} (Core ${batchSpliceForm.start_core_a}-${Number(batchSpliceForm.start_core_a)+Number(batchSpliceForm.count)-1}${batchSpliceForm.skip_spliced ? ' [Auto-Skip]' : ''}) ➔ ${nameB} (Core ${batchSpliceForm.start_core_b}-${Number(batchSpliceForm.start_core_b)+Number(batchSpliceForm.count)-1})${batchSpliceForm.custom_note ? ` - ${batchSpliceForm.custom_note}` : ''}`;
+                    })()}
                   </div>
                   <div className="text-emerald-700 bg-white p-2 rounded-lg border border-gray-200 shadow-xs">
                     <strong className="text-emerald-900">Di Kabel Asal:</strong>{' '}
-                    {batchSpliceForm.splice_type === 'petik'
-                      ? `Sambung ke ${(availableCables.find(c => c.id === batchSpliceForm.cable_b_id)?.name || 'Kabel-B')} via ${(sortedClosures.find(c => c.id === (batchSpliceForm.closure_id || sortedClosures[0]?.id))?.name || 'JC Terdekat')} (${batchSpliceForm.petik_tube} / ${batchSpliceForm.petik_core}${batchSpliceForm.petik_target ? ' - ' + batchSpliceForm.petik_target : ''})`
-                      : batchSpliceForm.selection_mode === 'tube'
-                        ? `Sambung ke ${(availableCables.find(c => c.id === batchSpliceForm.cable_b_id)?.name || 'Kabel-B')} via ${(sortedClosures.find(c => c.id === (batchSpliceForm.closure_id || sortedClosures[0]?.id))?.name || 'JC Terdekat')} (Tube ${batchSpliceForm.selected_tube_a} ➔ Tube ${batchSpliceForm.selected_tube_b})`
-                        : batchSpliceForm.selection_mode === 'custom'
-                          ? `Sambung ke ${(availableCables.find(c => String(c.id) === String(batchSpliceForm.cable_b_id))?.name || 'Kabel-B')} via ${(sortedClosures.find(c => String(c.id) === String(batchSpliceForm.closure_id || sortedClosures[0]?.id))?.name || 'JC Terdekat')} (Core [${batchSpliceForm.selected_cores_a.join(',')}] ➔ Core ${batchSpliceForm.start_core_b || 1}..${(Number(batchSpliceForm.start_core_b) || 1) + Math.max(0, batchSpliceForm.selected_cores_a.length - 1)})`
-                          : `Sambung ke ${(availableCables.find(c => c.id === batchSpliceForm.cable_b_id)?.name || 'Kabel-B')} via ${(sortedClosures.find(c => c.id === (batchSpliceForm.closure_id || sortedClosures[0]?.id))?.name || 'JC Terdekat')} (Core ${batchSpliceForm.start_core_a}-${Number(batchSpliceForm.start_core_a)+Number(batchSpliceForm.count)-1})${batchSpliceForm.custom_note ? ` - ${batchSpliceForm.custom_note}` : ''}`
-                    }
+                    {(() => {
+                      const nameB = availableCables.find(c => String(c.id) === String(batchSpliceForm.cable_b_id))?.name || 'Kabel-B';
+                      const clName = sortedClosures.find(c => String(c.id) === String(batchSpliceForm.closure_id || sortedClosures[0]?.id))?.name || 'JC Terdekat';
+                      const curTubeA = tubeStructA.tubes.find(t => t.num === Number(batchSpliceForm.selected_tube_a)) || tubeStructA.tubes[0];
+                      const curTubeB = tubeStructB.tubes.find(t => t.num === Number(batchSpliceForm.selected_tube_b)) || tubeStructB.tubes[0];
+
+                      if (batchSpliceForm.splice_type === 'petik') {
+                        return `Sambung ke ${nameB} via ${clName} (${batchSpliceForm.petik_tube} / ${batchSpliceForm.petik_core}${batchSpliceForm.petik_target ? ' - ' + batchSpliceForm.petik_target : ''})`;
+                      }
+                      if (batchSpliceForm.selection_mode === 'tube') {
+                        return `Sambung ke ${nameB} via ${clName} (${curTubeA?.name || 'Tube ' + batchSpliceForm.selected_tube_a} ➔ ${curTubeB?.name || 'Tube ' + batchSpliceForm.selected_tube_b})`;
+                      }
+                      if (batchSpliceForm.selection_mode === 'custom') {
+                        return `Sambung ke ${nameB} via ${clName} (Core [${batchSpliceForm.selected_cores_a.join(',')}] ➔ Core ${batchSpliceForm.start_core_b || 1}..${(Number(batchSpliceForm.start_core_b) || 1) + Math.max(0, batchSpliceForm.selected_cores_a.length - 1)})`;
+                      }
+                      return `Sambung ke ${nameB} via ${clName} (Core ${batchSpliceForm.start_core_a}-${Number(batchSpliceForm.start_core_a)+Number(batchSpliceForm.count)-1})${batchSpliceForm.custom_note ? ` - ${batchSpliceForm.custom_note}` : ''}`;
+                    })()}
                   </div>
                 </div>
               </div>
