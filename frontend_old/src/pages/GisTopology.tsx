@@ -3418,12 +3418,6 @@ export default function GisTopology() {
                           </select>
                         </div>
                       </div>
-                                {t.name} [Core {t.startCore} s/d {t.endCore}]
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
 
                       {/* Visual Mapping Dinamis Sesuai Tube yang Dipilih */}
                       {(() => {
